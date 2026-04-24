@@ -1,0 +1,414 @@
+/* =============================================================
+   mantis_crew_panel.css
+   Mantis Gardens — Crew Assignment Panel
+   
+   Sections:
+     1.  CSS Variables & Reset
+     2.  Page Header
+     3.  Status Bar
+     4.  Day Tabs
+     5.  Three-Column Layout & Team Headers
+     6.  Morning Brief (toggle + body)
+     7.  Brief Sections (crew, notes, items, plants)
+     8.  Job Cards
+     9.  Job Card Expanded Detail
+     10. Work Record Form Modal
+     11. Form Elements (inputs, selects, textareas)
+     12. Dynamic Rows (workers, materials)
+     13. Photo Upload
+     14. Modal Footer Buttons
+     15. Toast Notification
+     16. Saved Records Badge
+   ============================================================= */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --t3:#6b3a1a;--t3b:#fdf0e4;--t3s:#f0c880;--rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font-size:14px;min-height:100vh}
+
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
+.brand-name{font-family:"Fraunces",serif;font-size:18px;font-weight:300;color:#d4eacf;font-style:italic}
+.brand-sub{font-family:"DM Mono",monospace;font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.12em;text-transform:uppercase}
+.week-nav{display:flex;align-items:center;gap:8px}
+.week-label{font-family:"DM Mono",monospace;font-size:11px;color:rgba(255,255,255,0.8);letter-spacing:0.06em}
+.nav-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:"DM Mono",monospace;font-size:11px;transition:background 0.15s}
+.nav-btn:hover{background:rgba(255,255,255,0.25)}
+
+.status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.status-pill{display:flex;align-items:center;gap:5px;font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);letter-spacing:0.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
+.sdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
+.sdot.live{background:var(--g2)}.sdot.loading{background:var(--a2);animation:pulse 0.8s infinite}.sdot.error{background:#c0392b}
+.reload-btn{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:4px 12px;border-radius:4px;cursor:pointer;margin-left:auto;transition:all 0.15s}
+.reload-btn:hover{background:var(--g2);color:#fff}
+.reload-btn:disabled{opacity:0.4;cursor:not-allowed}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+.day-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:0 16px;display:flex;overflow-x:auto}
+.day-tab{padding:9px 14px;font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink3);white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.day-tab:hover{color:var(--ink)}
+.day-tab.active{color:var(--g);border-bottom-color:var(--g)}
+.today-badge{font-size:8px;background:#f0a030;color:#fff;padding:1px 5px;border-radius:3px}
+.dcnt{background:var(--bg3);color:var(--ink3);border-radius:8px;padding:1px 5px;font-size:9px}
+.day-tab.active .dcnt{background:var(--g);color:#fff}
+
+.main{display:grid;grid-template-columns:1fr 1fr 1fr;min-height:calc(100vh - 140px)}
+.team-col{border-right:1px solid var(--bg3);display:flex;flex-direction:column;min-width:0;overflow-y:auto;max-height:calc(100vh - 140px)}
+.team-col:last-child{border-right:none}
+.team-header{padding:9px 14px;border-bottom:1px solid var(--bg3);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.team-header.t1{background:#eef3f9}.team-header.t2{background:#eef4ec}.team-header.t3{background:#fdf5ec}
+.team-name{font-family:"Fraunces",serif;font-size:13px;font-weight:400;font-style:italic}
+.t1 .team-name{color:#1a3a5c}.t2 .team-name{color:var(--g)}.t3 .team-name{color:var(--t3)}
+.team-meta{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-top:1px}
+.team-hrs{font-family:"DM Mono",monospace;font-size:9px;padding:2px 7px;border-radius:8px}
+.t1 .team-hrs{background:#e4eef8;color:#1a3a5c;border:1px solid #b8d0e8}
+.t2 .team-hrs{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.t3 .team-hrs{background:var(--t3b);color:var(--t3);border:1px solid var(--t3s)}
+
+/* ── Morning Brief ── */
+.brief-wrap{border-bottom:2px solid var(--bg3)}
+.brief-toggle{padding:8px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--bg2);user-select:none;transition:background 0.15s}
+.brief-toggle:hover{background:var(--bg3)}
+.brief-toggle-label{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.bdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
+.bdot.live{background:var(--g2)}.bdot.loading{background:var(--a2);animation:pulse 0.8s infinite}
+.brief-arrow{font-size:14px;color:var(--ink3);transition:transform 0.2s;line-height:1}
+.brief-wrap.open .brief-arrow{transform:rotate(90deg)}
+.brief-body{display:none;padding:12px 14px;background:#fff;flex-direction:column;gap:12px}
+.brief-wrap.open .brief-body{display:flex}
+
+/* Brief sections */
+.bsec{display:flex;flex-direction:column;gap:5px}
+.bsec-label{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:3px;border-bottom:1px solid var(--bg3);margin-bottom:2px}
+
+/* Crew row */
+.crew-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bg3)}
+.crew-row:last-child{border-bottom:none}
+.crew-name{font-size:12px;font-weight:500;color:var(--ink);flex:1}
+.crew-vehicle{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);background:var(--bg2);padding:2px 7px;border-radius:3px;border:1px solid var(--bg3)}
+
+/* Notes */
+.note-item{font-size:11px;color:var(--ink);line-height:1.6;padding:5px 9px;border-left:2px solid var(--a4);background:var(--a3);border-radius:0 4px 4px 0}
+.note-item + .note-item{margin-top:4px}
+.note-item.hi{border-left-color:var(--g4);background:var(--g3);color:var(--g)}
+
+/* Vehicle subsection */
+.vehicle-group{display:flex;flex-direction:column;gap:3px}
+.vehicle-group-label{font-family:"DM Mono",monospace;font-size:9px;color:var(--a);background:var(--a3);border:1px solid var(--a4);padding:2px 7px;border-radius:3px;display:inline-block;margin-bottom:3px;letter-spacing:0.06em;text-transform:uppercase}
+
+/* Item list */
+.item-list{display:flex;flex-direction:column}
+.item-row{display:flex;align-items:baseline;gap:6px;font-size:11px;color:var(--ink);padding:3px 0;border-bottom:1px solid var(--bg3)}
+.item-row:last-child{border-bottom:none}
+.item-name{flex:1}
+.item-ct{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);white-space:nowrap}
+
+/* Plant list */
+.plant-row{display:flex;align-items:baseline;gap:6px;font-size:11px;padding:4px 0;border-bottom:1px solid var(--bg3)}
+.plant-row:last-child{border-bottom:none}
+.plant-name{flex:1;font-style:italic;color:var(--ink)}
+.plant-badge{display:flex;gap:4px;flex-shrink:0}
+.plant-ct{font-family:"DM Mono",monospace;font-size:9px;background:var(--b3);color:var(--b);border:1px solid var(--b4);padding:1px 5px;border-radius:3px}
+.plant-size{font-family:"DM Mono",monospace;font-size:9px;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:1px 5px;border-radius:3px}
+.plant-src{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3)}
+
+.brief-empty{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);padding:4px 0}
+
+/* ── Job cards ── */
+.jobs-list{padding:10px;display:flex;flex-direction:column;gap:7px}
+.job-card{background:#fff;border:1px solid var(--bg3);border-radius:5px;overflow:hidden;cursor:pointer;transition:box-shadow 0.15s}
+.job-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.07)}
+.job-card.t1-card{border-left:3px solid #1a3a5c}
+.job-card.t2-card{border-left:3px solid var(--g)}
+.job-card.t3-card{border-left:3px solid var(--t3)}
+.job-card.load-in{border-left:3px solid #aaa;opacity:0.75}
+.job-top{padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
+.jtc{min-width:46px;text-align:right}
+.jtime{font-family:"DM Mono",monospace;font-size:11px;font-weight:500;color:var(--ink);line-height:1.2}
+.jdur{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-top:1px}
+.vline{width:1px;background:var(--bg3);align-self:stretch;margin:0 2px}
+.jinfo{flex:1;min-width:0}
+.jclient{font-family:"Fraunces",serif;font-size:13px;font-weight:400;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jaddr{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jtags{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
+.tag{font-family:"DM Mono",monospace;font-size:8px;padding:1px 5px;border-radius:2px;letter-spacing:0.04em;text-transform:uppercase}
+.tag-maint{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.tag-install{background:var(--t3b);color:var(--t3);border:1px solid var(--t3s)}
+.tag-qtr{background:var(--b3);color:var(--b);border:1px solid var(--b4)}
+.tag-mo{background:#f0f0f0;color:#555;border:1px solid #ddd}
+.tag-warn{background:#fff3e0;color:#8a5000;border:1px solid #f0d090}
+.tag-load{background:#f5f5f5;color:#888;border:1px solid #ddd}
+.tag-live{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.job-body{display:none;border-top:1px solid var(--bg3);padding:10px 12px;background:var(--bg);flex-direction:column;gap:7px}
+.job-card.expanded .job-body{display:flex}
+.client-detail{background:#fff;border:1px solid var(--g4);border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.cd-hdr{font-family:"DM Mono",monospace;font-size:9px;color:var(--g);letter-spacing:0.1em;text-transform:uppercase;display:flex;align-items:center;gap:5px}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--g2)}
+.drow{display:flex;gap:6px;align-items:flex-start}
+.dlabel{font-family:"DM Mono",monospace;font-size:8px;color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;min-width:54px;padding-top:2px;flex-shrink:0}
+.dval{font-size:11px;color:var(--ink);line-height:1.5}
+.dval.warn{background:var(--a3);border:1px solid var(--a4);padding:4px 8px;border-radius:4px;color:var(--a)}
+.dval.note{background:var(--g3);border:1px solid var(--g4);padding:4px 8px;border-radius:4px;color:var(--g)}
+.phone-a{color:var(--g2);font-family:"DM Mono",monospace;font-size:10px;text-decoration:none}
+.action-row{display:flex;gap:5px;margin-top:2px;flex-wrap:wrap}
+.abtn{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.05em;border-radius:3px;padding:4px 9px;cursor:pointer;border:1px solid;text-transform:uppercase;transition:all 0.15s}
+.abtn-done{background:var(--g3);color:var(--g);border-color:var(--g4)}.abtn-done:hover{background:var(--g2);color:#fff}
+.abtn-prog{background:var(--a3);color:var(--a);border-color:var(--a4)}
+.abtn-hide{background:var(--bg2);color:var(--ink3);border-color:var(--bg3)}.abtn-hide:hover{background:var(--bg3);color:var(--ink2)}
+.empty{padding:24px;text-align:center;color:var(--ink3);font-family:"DM Mono",monospace;font-size:10px}
+
+.summary-bar{background:var(--bg2);border-top:1px solid var(--bg3);padding:8px 16px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.sitem{display:flex;align-items:center;gap:5px;font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);letter-spacing:0.06em;text-transform:uppercase}
+.snum{font-family:"Fraunces",serif;font-size:17px;font-style:italic}
+.snum.g{color:var(--g2)}.snum.a{color:#c07800}.snum.r{color:var(--rd)}.snum.k{color:var(--ink)}
+
+/* ── Work Record Form Modal ── */
+.modal-overlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,12,8,0.6);backdrop-filter:blur(3px);
+  z-index:100;align-items:flex-end;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--bg);width:100%;max-width:680px;
+  border-radius:14px 14px 0 0;max-height:90vh;
+  display:flex;flex-direction:column;
+  box-shadow:0 -8px 40px rgba(0,0,0,0.25);
+  animation:slideUp 0.25s ease-out;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-header{
+  padding:16px 18px 14px;border-bottom:1px solid var(--bg3);
+  display:flex;align-items:flex-start;justify-content:space-between;
+  flex-shrink:0;background:var(--bg2);border-radius:14px 14px 0 0;
+}
+.modal-title{font-family:"Fraunces",serif;font-size:17px;font-weight:400;font-style:italic;color:var(--ink)}
+.modal-client{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);margin-top:2px;letter-spacing:0.06em}
+.modal-close{
+  background:none;border:none;cursor:pointer;
+  font-size:20px;color:var(--ink3);line-height:1;padding:2px 4px;
+  transition:color 0.15s;
+}
+.modal-close:hover{color:var(--ink)}
+.modal-body{overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:16px;flex:1}
+.modal-footer{
+  padding:12px 18px;border-top:1px solid var(--bg3);
+  display:flex;gap:8px;flex-shrink:0;background:var(--bg2);
+}
+
+/* Form sections */
+.form-section{display:flex;flex-direction:column;gap:8px}
+.form-section-label{
+  font-family:"DM Mono",monospace;font-size:9px;
+  letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--ink3);padding-bottom:4px;
+  border-bottom:1px solid var(--bg3);
+}
+.form-row{display:flex;gap:8px;align-items:center}
+.form-field{display:flex;flex-direction:column;gap:4px;flex:1}
+.form-label{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);letter-spacing:0.08em;text-transform:uppercase}
+.form-input{
+  font-family:"DM Sans",sans-serif;font-size:13px;
+  padding:8px 10px;border:1px solid var(--bg3);
+  border-radius:5px;background:#fff;color:var(--ink);
+  outline:none;transition:border-color 0.15s;width:100%;
+}
+.form-input:focus{border-color:var(--g4)}
+.form-input::placeholder{color:var(--ink3)}
+.form-textarea{
+  font-family:"DM Sans",sans-serif;font-size:13px;
+  padding:8px 10px;border:1px solid var(--bg3);
+  border-radius:5px;background:#fff;color:var(--ink);
+  outline:none;transition:border-color 0.15s;
+  resize:vertical;min-height:72px;width:100%;
+  line-height:1.5;
+}
+.form-textarea:focus{border-color:var(--g4)}
+.form-select{
+  font-family:"DM Sans",sans-serif;font-size:13px;
+  padding:8px 10px;border:1px solid var(--bg3);
+  border-radius:5px;background:#fff;color:var(--ink);
+  outline:none;flex:1;
+}
+.form-select:focus{border-color:var(--g4)}
+
+/* Dynamic rows */
+.dynamic-list{display:flex;flex-direction:column;gap:6px}
+.dynamic-row{display:flex;gap:6px;align-items:center}
+.dynamic-row .form-input{flex:1}
+.remove-btn{
+  background:none;border:1px solid var(--bg3);
+  color:var(--ink3);border-radius:4px;
+  padding:6px 9px;cursor:pointer;font-size:14px;
+  transition:all 0.15s;flex-shrink:0;line-height:1;
+}
+.remove-btn:hover{border-color:var(--rd);color:var(--rd)}
+.add-row-btn{
+  font-family:"DM Mono",monospace;font-size:10px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  background:var(--bg2);border:1px dashed var(--bg3);
+  color:var(--ink3);padding:7px 12px;border-radius:5px;
+  cursor:pointer;transition:all 0.15s;text-align:center;
+  width:100%;
+}
+.add-row-btn:hover{border-color:var(--g4);color:var(--g);background:var(--g3)}
+
+/* Photo upload */
+.photo-upload{
+  border:2px dashed var(--bg3);border-radius:8px;
+  padding:20px;text-align:center;cursor:pointer;
+  transition:all 0.2s;background:#fff;
+}
+.photo-upload:hover{border-color:var(--g4);background:var(--g3)}
+.photo-upload input{display:none}
+.photo-upload-icon{font-size:24px;margin-bottom:6px}
+.photo-upload-label{
+  font-family:"DM Mono",monospace;font-size:10px;
+  color:var(--ink3);letter-spacing:0.08em;text-transform:uppercase;
+}
+.photo-previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photo-thumb{
+  width:64px;height:64px;object-fit:cover;
+  border-radius:5px;border:1px solid var(--bg3);
+}
+
+/* Footer buttons */
+.fbtn{
+  font-family:"DM Mono",monospace;font-size:10px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  padding:10px 16px;border-radius:5px;cursor:pointer;
+  border:1px solid;transition:all 0.15s;flex:1;
+}
+.fbtn-submit{background:var(--g);color:#fff;border-color:var(--g)}
+.fbtn-submit:hover{background:var(--g2)}
+.fbtn-save{background:var(--b3);color:var(--b);border-color:var(--b4)}
+.fbtn-save:hover{background:var(--b);color:#fff}
+.fbtn-clear{background:var(--bg2);color:var(--ink3);border-color:var(--bg3)}
+.fbtn-clear:hover{background:var(--bg3);color:var(--ink)}
+
+/* Save confirmation toast */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:#fff;
+  font-family:"DM Mono",monospace;font-size:11px;
+  letter-spacing:0.06em;padding:10px 20px;border-radius:20px;
+  opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:200;
+  white-space:nowrap;
+}
+.toast.show{opacity:1}
+
+/* Saved records badge */
+.saved-badge{
+  font-family:"DM Mono",monospace;font-size:8px;
+  background:var(--b3);color:var(--b);border:1px solid var(--b4);
+  padding:1px 5px;border-radius:3px;letter-spacing:0.04em;
+  text-transform:uppercase;margin-left:4px;
+}
+/* ── Sign-out button in crew panel header ── */
+.signout-btn{
+  font-family:"DM Mono",monospace;font-size:9px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.6);padding:5px 11px;
+  border-radius:4px;cursor:pointer;transition:all 0.15s;
+}
+.signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+
+/* ── Hide brief button at bottom of brief body ── */
+.brief-hide-btn{
+  font-family:"DM Mono",monospace;font-size:9px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  width:100%;padding:7px;margin-top:4px;
+  background:var(--bg2);border:1px solid var(--bg3);
+  color:var(--ink3);border-radius:4px;cursor:pointer;
+  transition:all 0.15s;
+}
+.brief-hide-btn:hover{background:var(--bg3);color:var(--ink);border-color:var(--g4)}
+
+/* ── Materials sub-sections ─────────────────────────────────── */
+.mat-subsection {
+  margin-top: 10px;
+  border: 1px solid var(--bg3);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mat-subsection + .mat-subsection {
+  margin-top: 12px;
+}
+.mat-subsection-label {
+  background: var(--bg2);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--b);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--bg3);
+}
+.mat-subsection .dynamic-list {
+  padding: 6px 8px 2px;
+}
+.mat-subsection .add-row-btn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--bg3);
+  background: var(--bg1);
+  font-size: 12px;
+  padding: 6px;
+}
+.mat-subsection .add-row-btn:hover {
+  background: var(--bg2);
+}
+
+/* ── Photo thumbnails ───────────────────────────────────────── */
+.photo-thumb-wrap {
+  position: relative;
+  display: inline-block;
+  margin: 4px;
+}
+.photo-thumb-wrap .photo-thumb {
+  display: block;
+}
+.photo-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+}
+.photo-remove:hover { background: rgba(192,57,43,0.85); }
+.photo-size-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 9px;
+  text-align: center;
+  padding: 2px 0;
+  font-family: Arial, sans-serif;
+}
+
+.snum.b{color:var(--b)}

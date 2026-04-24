@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+  mantis_landing.html
+  Mantis Gardens — Landing Page & Home Screen
+
+  This file is intentionally lean — just structure and markup.
+  Styles   → mantis_landing.css
+  Logic    → mantis_landing.js
+
+  To deploy: place all Mantis HTML/CSS/JS files in the same
+  folder and open mantis_landing.html from a local web server
+  (e.g. python3 -m http.server 8000).
+
+  From here users navigate to:
+    → mantis_crew_panel.html   (crew schedule + morning brief)
+    → mantis_service_manual.html  (plant / fertilizer / equipment db)
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mantis Gardens — Field Manager</title>
+  <link rel="stylesheet" href="css/mantis_landing.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+     SCREEN 1: LOGIN
+══════════════════════════════ -->
+<div id="screen-login" class="screen active">
+  <div class="login-card">
+    <img class="login-logo" src="img/MantisLogoWhite.png" alt="Mantis Gardens"/>
+    <div class="login-title">Mantis Gardens</div>
+    <div class="login-sub">Field Manager &middot; Staff Access</div>
+    <div class="login-divider"></div>
+    <div class="google-signin-wrap">
+      <div id="google-signin-btn"></div>
+    </div>
+    <div class="login-error" id="login-error">Account not authorised. Contact your manager.</div>
+    <div class="login-footer">Mantis Gardens &middot; Sacramento CA &middot; Internal use only</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN 2: HOME
+══════════════════════════════ -->
+<div id="screen-home" class="screen">
+  <div class="home-header">
+    <div class="home-brand">
+      <img class="home-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+      <div>
+        <div class="home-title">Mantis Gardens</div>
+        <div class="home-sub">Field Manager</div>
+      </div>
+    </div>
+    <button class="signout-btn" onclick="doSignOut()">Sign out</button>
+  </div>
+
+  <div class="date-bar">
+    <span class="date-greeting" id="greeting-text">Good morning</span>
+    <span class="date-today" id="today-text"></span>
+  </div>
+
+  <div class="home-body">
+    <div class="home-welcome">What would you like to open?</div>
+    <div class="home-welcome-sub">Choose a module below</div>
+
+    <div class="nav-cards">
+      <div class="nav-card crew" onclick="goTo('crew')">
+        <div class="nav-card-icon">&#128197;</div>
+        <div class="nav-card-title">Crew Assignments</div>
+        <div class="nav-card-desc">Daily schedule for all three crews &mdash; maintenance teams and install. Job details, client notes, morning brief, and status tracking.</div>
+        <div class="nav-card-tag">Live this week</div>
+        <div class="nav-card-arrow">&#8250;</div>
+      </div>
+      <div class="nav-card manual" onclick="goTo('manual')">
+        <div class="nav-card-icon">&#128218;</div>
+        <div class="nav-card-title">Service Manual</div>
+        <div class="nav-card-desc">Searchable plant database, fertilizer guides, equipment specs, irrigation controllers, and vehicle maintenance records.</div>
+        <div class="nav-card-tag">Reference</div>
+        <div class="nav-card-arrow">&#8250;</div>
+      </div>
+    </div>
+
+    <div class="home-stats">
+      <div class="stat-card">
+        <div class="stat-num">3</div>
+        <div class="stat-label">Active crews</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-clients">—</div>
+        <div class="stat-label">Active clients</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">24</div>
+        <div class="stat-label">Plants in manual</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">21</div>
+        <div class="stat-label">Equipment entries</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="../config.js"></script>
+<script src="js/mantis_config.js"></script>
+<script src="js/session_timeout.js"></script>
+<script src="js/mantis_landing.js"></script>
+</body>
+</html>

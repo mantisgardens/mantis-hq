@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<!--
+  mantis_service_manual.html
+  Mantis Gardens — Service Manual
+  Three sections: Plant Database, Fertilizer/Spray, Equipment
+  Styles → css/mantis_service_manual.css
+  Logic  → js/mantis_service_manual.js
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mantis Gardens — Service Manual</title>
+  <link rel="stylesheet" href="css/mantis_service_manual.css"/>
+</head>
+<body>
+
+<!-- ══ LOADING OVERLAY ════════════════════════════════════ -->
+<div id="loading-overlay" style="
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; position:fixed; inset:0;
+  background:#1F4E3D; z-index:9999; gap:18px;">
+  <img src="img/MantisLogoWhite.png"
+       style="width:64px;height:64px;object-fit:contain;opacity:0.9"/>
+  <div class="loading-text" style="
+    color:#fff; font-family:'DM Sans',Arial,sans-serif;
+    font-size:15px; opacity:0.85; letter-spacing:0.03em;">
+    Loading service data…
+  </div>
+  <!-- Progress bar -->
+  <div style="width:220px;height:3px;background:rgba(255,255,255,0.2);border-radius:2px;">
+    <div id="loading-progress-bar" style="
+      height:100%;width:0%;background:#7ec8a0;
+      border-radius:2px;transition:width 0.4s ease;"></div>
+  </div>
+</div>
+
+<!-- ══ LOAD ERROR (shown if data fetch fails) ══════════════ -->
+<div id="load-error" style="
+  display:none; background:#c0392b; color:#fff;
+  padding:12px 18px; font-family:Arial,sans-serif;
+  font-size:13px; text-align:center;"></div>
+
+<!-- Header -->
+<div class="header">
+  <div class="brand">
+    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+    <div>
+      <div class="brand-name">Mantis Gardens</div>
+      <div class="brand-sub">Service Manual</div>
+    </div>
+  </div>
+  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+</div>
+
+<!-- Section tabs -->
+<div class="section-tabs">
+  <div class="section-tab active" onclick="showSection('plants')" id="tab-plants">
+    <span class="tab-icon">&#127807;</span> Plant Database
+  </div>
+  <div class="section-tab" onclick="showSection('fert')" id="tab-fert">
+    <span class="tab-icon">&#9879;</span> Fertilizer &amp; Spray
+  </div>
+  <div class="section-tab" onclick="showSection('equip')" id="tab-equip">
+    <span class="tab-icon">&#128295;</span> Equipment
+  </div>
+</div>
+
+<!-- Search bar -->
+<div class="search-bar">
+  <input class="search-input" id="search-input" type="text"
+         placeholder="Search…" oninput="doSearch(this.value)"/>
+  <span class="search-count" id="search-count"></span>
+</div>
+
+<!-- ══ SECTION: PLANT DATABASE ══ -->
+<div id="section-plants" class="section active">
+
+  <!-- Search bar -->
+  <div class="plant-search-bar">
+    <input id="plant-search-input" type="search"
+      placeholder="Search by name, botanical name, or type…"
+      autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <span class="plant-result-count" id="plant-result-count"></span>
+  </div>
+
+  <!-- Split pane: results list | profile card -->
+  <div class="plant-lookup-pane">
+    <div class="plant-results-col">
+      <div class="prc-header">
+        <span>Common Name</span><span>Botanical</span><span>Type</span>
+      </div>
+      <div id="plant-results-list"></div>
+    </div>
+    <div class="plant-profile-col">
+      <div id="plant-profile-card"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ SECTION: FERTILIZER & SPRAY ══ -->
+<div id="section-fert" class="section">
+  <div class="table-wrap" id="fert-table"></div>
+</div>
+
+<!-- ══ SECTION: EQUIPMENT ══ -->
+<div id="section-equip" class="section">
+  <div id="equip-content"></div>
+</div>
+
+<script src="../config.js"></script>
+<script src="js/mantis_config.js"></script>
+<script src="js/mantis_config.js"></script>
+<script src="js/session_timeout.js"></script>
+<script src="js/mantis_data_loader.js"></script>
+  <script src="js/mantis_service_manual.js"></script>
+</body>
+</html>

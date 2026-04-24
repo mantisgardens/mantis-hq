@@ -1,0 +1,215 @@
+/* =============================================================
+   owner.css
+   Mantis Gardens — Owner Portal
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font-size:14px;min-height:100vh}
+
+/* ── LOGIN PAGE ─────────────────────────────────────────────── */
+body.login-page{
+  background:var(--g);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.login-card{
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:14px;padding:44px 40px 36px;
+  width:100%;max-width:380px;text-align:center;
+}
+.login-logo{width:72px;height:72px;object-fit:contain;margin-bottom:18px;filter:brightness(0) invert(1);opacity:0.9}
+.login-title{font-family:"Fraunces",serif;font-size:28px;font-weight:300;color:#fff;font-style:italic;margin-bottom:4px}
+.login-sub{font-family:"DM Mono",monospace;font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px}
+.login-divider{height:1px;background:rgba(255,255,255,0.12);margin-bottom:28px}
+.google-signin-wrap{display:flex;justify-content:center;margin-bottom:20px}
+.login-error{display:none;background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#ffcccc;border-radius:6px;padding:10px 14px;font-size:13px;margin-bottom:16px}
+.login-footer{font-size:11px;color:rgba(255,255,255,0.35);margin-top:20px}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
+.brand-name{font-family:"Fraunces",serif;font-size:18px;font-weight:300;color:#d4eacf;font-style:italic}
+.brand-sub{font-family:"DM Mono",monospace;font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:.12em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:12px}
+.user-name{font-size:12px;color:rgba(255,255,255,0.7);font-family:"DM Mono",monospace}
+.sign-out-btn{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.06em;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:5px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase}
+.sign-out-btn:hover{background:rgba(255,255,255,0.22)}
+
+/* ── NAV TABS ───────────────────────────────────────────────── */
+.nav-tabs{background:var(--bg2);border-bottom:2px solid var(--bg3);display:flex;padding:0 12px;overflow-x:auto}
+.nav-tab{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:11px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--ink3);cursor:pointer;white-space:nowrap;margin-bottom:-2px;transition:all .15s}
+.nav-tab:hover{color:var(--ink)}
+.nav-tab.active{color:var(--g);border-bottom-color:var(--g);font-weight:500}
+
+/* ── STATUS BAR ─────────────────────────────────────────────── */
+.status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.status-pill{display:flex;align-items:center;gap:5px;font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);letter-spacing:.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
+.sdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
+.sdot.live{background:var(--g2)}.sdot.loading{background:var(--a2);animation:pulse .8s infinite}.sdot.error{background:#c0392b}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.reload-btn{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:4px 12px;border-radius:4px;cursor:pointer;margin-left:auto;transition:all .15s}
+.reload-btn:hover{background:var(--g2);color:#fff}
+.reload-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── CONTENT & TABS ─────────────────────────────────────────── */
+.content{padding:0}
+.tab-panel{display:none;animation:fadeIn .2s ease}
+.tab-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bg3);background:#fff;flex-wrap:wrap;gap:10px}
+.panel-title{font-family:"Fraunces",serif;font-size:18px;font-weight:300;font-style:italic;color:var(--ink)}
+.panel-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.search-input{padding:7px 12px;border:1.5px solid var(--bg3);border-radius:6px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);outline:none;min-width:200px;transition:border-color .15s}
+.search-input:focus{border-color:var(--g)}
+.filter-select{padding:7px 10px;border:1.5px solid var(--bg3);border-radius:6px;font-size:12px;font-family:"DM Mono",monospace;background:#fff;color:var(--ink);cursor:pointer;outline:none}
+.action-btn{font-family:"DM Mono",monospace;font-size:11px;letter-spacing:.06em;padding:7px 14px;border-radius:6px;border:1.5px solid var(--bg3);background:var(--bg2);color:var(--ink2);cursor:pointer;text-transform:uppercase;transition:all .15s}
+.action-btn:hover{background:var(--bg3)}
+.action-btn.primary{background:var(--g);color:#fff;border-color:var(--g)}
+.action-btn.primary:hover{background:var(--g2)}
+
+/* ── SCHEDULE ───────────────────────────────────────────────── */
+.week-nav{display:flex;align-items:center;gap:8px}
+.wk-btn{background:var(--bg2);border:1.5px solid var(--bg3);color:var(--ink2);width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.wk-btn:hover{background:var(--bg3)}
+.wk-label{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);min-width:160px;text-align:center}
+
+.schedule-grid{overflow-x:auto;padding:16px}
+.sched-table{min-width:700px}
+.sched-header-row,.sched-row{display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:1px;margin-bottom:1px}
+.sched-header-row{margin-bottom:4px}
+.sched-col-header{padding:8px 12px;font-family:"DM Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;border-radius:4px}
+.sched-col-label{padding:8px 0}
+.t1.sched-col-header{background:#e4eef8;color:#1a3a5c}
+.t2.sched-col-header{background:var(--g3);color:var(--g)}
+.t3.sched-col-header{background:#fdf0e4;color:#6b3a1a}
+
+.sched-row{background:#fff;border-radius:4px;border:1px solid var(--bg3)}
+.sched-row.sched-today{border-color:var(--g);box-shadow:0 0 0 1px var(--g)}
+.sched-day-col{padding:10px 12px;border-right:1px solid var(--bg3);display:flex;flex-direction:column;gap:3px;justify-content:center}
+.sched-day-name{font-size:12px;font-weight:600;color:var(--ink2)}
+.today-badge{font-size:9px;background:var(--a2);color:#fff;padding:1px 5px;border-radius:3px;font-family:"DM Mono",monospace;display:inline-block}
+.sched-team-col{padding:8px 10px;border-right:1px solid var(--bg3)}
+.sched-team-col:last-child{border-right:none}
+.sched-empty{color:var(--ink3);font-size:12px;padding:4px 0}
+.sched-job{margin-bottom:6px;padding:5px 8px;background:var(--bg2);border-radius:4px;border-left:3px solid var(--bg3)}
+.t1 .sched-job{border-left-color:#1a3a5c;background:#f0f5fb}
+.t2 .sched-job{border-left-color:var(--g);background:var(--g3)}
+.t3 .sched-job{border-left-color:#6b3a1a;background:#fdf5ec}
+.sched-job-client{font-size:12px;font-weight:600;color:var(--ink)}
+.sched-job-meta{font-size:10px;color:var(--ink3);font-family:"DM Mono",monospace;margin-top:1px}
+.sched-dur{margin-left:6px}
+
+/* ── CLIENT LIST ────────────────────────────────────────────── */
+.client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.client-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px}
+.client-row:hover{border-color:var(--g);background:var(--g3)}
+.client-row-main{flex:1;min-width:0}
+.client-row-name{font-weight:600;font-size:14px;color:var(--ink);margin-bottom:3px}
+.client-row-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink3);margin-bottom:3px}
+.client-row-notes{font-size:12px;color:var(--ink2);margin-top:4px;line-height:1.4}
+.client-row-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.client-id-badge{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);background:var(--bg2);border:1px solid var(--bg3);padding:2px 7px;border-radius:4px}
+.active-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-family:"DM Mono",monospace;font-weight:500}
+.active-badge.active{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.active-badge.inactive{background:var(--bg2);color:var(--ink3);border:1px solid var(--bg3)}
+
+/* ── WORK RECORDS ───────────────────────────────────────────── */
+.records-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.record-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px}
+.record-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.record-date{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);background:var(--bg2);border:1px solid var(--bg3);padding:2px 8px;border-radius:4px}
+.record-client{font-weight:600;font-size:13px;color:var(--ink)}
+.record-team{font-size:11px;color:var(--ink3)}
+.record-id{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-left:auto}
+.record-detail{font-size:12px;color:var(--ink2);margin-bottom:2px}
+.rd-label{font-weight:600;color:var(--ink3);font-size:11px;margin-right:6px;text-transform:uppercase;font-family:"DM Mono",monospace}
+.record-notes{font-size:13px;color:var(--ink);margin-top:6px;padding:8px 10px;background:var(--bg2);border-radius:4px;line-height:1.5}
+.record-internal{font-size:12px;color:var(--rd);margin-top:4px;padding:6px 10px;background:#fdf0f0;border-radius:4px;border-left:3px solid var(--rd)}
+
+/* ── CREW HOURS ─────────────────────────────────────────────── */
+.hours-summary{padding:16px}
+.hours-table{background:#fff;border:1px solid var(--bg3);border-radius:8px;overflow:hidden}
+.hours-header,.hours-row,.hours-footer{display:grid;grid-template-columns:1fr 80px 80px 200px;padding:10px 16px;gap:8px;align-items:center}
+.hours-header{background:var(--g);color:#fff;font-family:"DM Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em}
+.hours-row{border-bottom:1px solid var(--bg2);transition:background .1s}
+.hours-row:hover{background:var(--bg2)}
+.hours-footer{background:var(--bg2);border-top:2px solid var(--bg3);font-weight:600;font-size:13px}
+.hours-name{font-weight:600;font-size:14px}
+.hours-visits,.hours-clients{font-family:"DM Mono",monospace;font-size:12px;color:var(--ink3);text-align:center}
+.hours-total{display:flex;align-items:center;gap:10px}
+.hours-num{font-family:"DM Mono",monospace;font-size:14px;font-weight:500;min-width:40px}
+.hours-bar-wrap{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.hours-bar{height:100%;background:var(--g);border-radius:3px;transition:width .4s ease}
+
+/* ── CLIENT PROFILE MODAL ───────────────────────────────────── */
+.profile-fields{display:flex;flex-direction:column;gap:0}
+.profile-row{display:flex;padding:8px 0;border-bottom:1px solid var(--bg2);gap:12px}
+.profile-row:last-child{border-bottom:none}
+.profile-label{width:160px;min-width:160px;font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;font-family:"DM Mono",monospace;padding-top:1px}
+.profile-val{flex:1;font-size:13px;color:var(--ink);line-height:1.5}
+.profile-section-title{font-family:"Fraunces",serif;font-size:15px;font-style:italic;color:var(--ink);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bg3)}
+.profile-records{display:flex;flex-direction:column;gap:8px}
+.profile-record{padding:10px 12px;background:var(--bg2);border-radius:6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.pr-date{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3)}
+.pr-team{font-size:12px;color:var(--ink3)}
+.pr-workers{font-size:12px;font-weight:600;color:var(--ink)}
+.pr-notes{width:100%;font-size:12px;color:var(--ink2);margin-top:4px;line-height:1.4}
+
+/* ── MODALS ─────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:580px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal-wide{max-width:720px}
+.modal-header{padding:18px 22px 16px;border-bottom:1px solid var(--bg3);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-family:"Fraunces",serif;font-size:18px;font-weight:300;font-style:italic}
+.modal-close{background:none;border:none;font-size:18px;color:var(--ink3);cursor:pointer;padding:4px;line-height:1}
+.modal-close:hover{color:var(--ink)}
+.modal-body{padding:20px 22px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--bg3);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+
+/* ── FORM ELEMENTS ──────────────────────────────────────────── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:11px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;font-family:"DM Mono",monospace}
+.required{color:var(--rd)}
+.form-input,.form-textarea{padding:8px 12px;border:1.5px solid var(--bg3);border-radius:6px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff;outline:none;transition:border-color .15s;width:100%}
+.form-input:focus,.form-textarea:focus{border-color:var(--g)}
+.form-textarea{min-height:80px;resize:vertical}
+
+/* ── MODAL BUTTONS ──────────────────────────────────────────── */
+.fbtn{padding:9px 20px;border-radius:6px;font-family:"DM Mono",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:1.5px solid;transition:all .15s}
+.fbtn-cancel{background:#fff;border-color:var(--bg3);color:var(--ink3)}
+.fbtn-cancel:hover{background:var(--bg2)}
+.fbtn-save{background:var(--g);border-color:var(--g);color:#fff}
+.fbtn-save:hover{background:var(--g2)}
+.fbtn-save:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── EMPTY STATE ────────────────────────────────────────────── */
+.empty-state{padding:40px 20px;text-align:center;color:var(--ink3);font-style:italic;font-size:14px}
+.empty-state.small{padding:16px;font-size:13px}
+
+/* ── TOAST ──────────────────────────────────────────────────── */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-family:"DM Mono",monospace;opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media(max-width:680px){
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+  .hours-header,.hours-row,.hours-footer{grid-template-columns:1fr 60px 1fr}
+  .hours-clients{display:none}
+  .sched-header-row,.sched-row{grid-template-columns:70px 1fr 1fr 1fr}
+  .panel-header{flex-direction:column;align-items:flex-start}
+}
