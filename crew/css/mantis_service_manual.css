@@ -1,0 +1,365 @@
+/* =============================================================
+   mantis_service_manual.css
+   Mantis Gardens — Service Manual
+
+   Sections:
+     1.  Variables & Reset
+     2.  Header
+     3.  Section Tabs
+     4.  Search Bar
+     5.  Section Containers
+     6.  Plant Cards (grid)
+     7.  Fertilizer / Spray Table
+     8.  Equipment Lists
+     9.  Shared Utilities (tags, badges, empty state)
+     10. Responsive
+   ============================================================= */
+
+/* 1 — Variables & Reset */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --t3:#6b3a1a;--t3b:#fdf0e4;--t3s:#f0c880;
+  --rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;
+  font-size:14px;min-height:100vh}
+
+/* 2 — Header */
+.header{background:var(--g);padding:11px 16px;display:flex;
+  align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;opacity:0.9}
+.brand-name{font-family:"Fraunces",serif;font-size:18px;font-weight:300;
+  font-style:italic;color:#d4eacf}
+.brand-sub{font-family:"DM Mono",monospace;font-size:9px;
+  color:rgba(255,255,255,0.45);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+.signout-btn{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.08em;
+  text-transform:uppercase;background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);
+  padding:5px 11px;border-radius:4px;cursor:pointer;transition:all 0.15s}
+.signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+
+/* 3 — Section Tabs */
+.section-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);
+  display:flex;overflow-x:auto}
+.section-tab{padding:11px 18px;font-family:"DM Mono",monospace;font-size:11px;
+  letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;
+  border-bottom:2px solid transparent;color:var(--ink3);
+  white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.section-tab:hover{color:var(--ink)}
+.section-tab.active{color:var(--g);border-bottom-color:var(--g);background:#fff}
+.tab-icon{font-size:14px}
+
+/* 4 — Search Bar */
+.search-bar{background:#fff;border-bottom:1px solid var(--bg3);
+  padding:9px 16px;display:flex;align-items:center;gap:10px}
+.search-input{flex:1;font-family:"DM Sans",sans-serif;font-size:14px;
+  padding:8px 12px;border:1px solid var(--bg3);border-radius:6px;
+  outline:none;transition:border-color 0.15s;background:var(--bg)}
+.search-input:focus{border-color:var(--g4)}
+.search-count{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);
+  white-space:nowrap;letter-spacing:0.06em}
+
+/* 5 — Section Containers */
+.section{display:none;padding:16px}
+.section.active{display:block}
+
+/* 6 — Plant Cards */
+.entries-grid{display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.plant-card{background:#fff;border:1px solid var(--bg3);border-radius:8px;
+  overflow:hidden;transition:box-shadow 0.15s;cursor:pointer}
+.plant-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.08)}
+.plant-card.hidden{display:none}
+.plant-header{padding:12px 14px 10px;border-bottom:1px solid var(--bg3)}
+.plant-common{font-family:"Fraunces",serif;font-size:15px;font-weight:400;
+  color:var(--ink);margin-bottom:2px}
+.plant-latin{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);
+  font-style:italic;letter-spacing:0.04em}
+.plant-tags{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap}
+.plant-body{padding:10px 14px;display:none;flex-direction:column;gap:6px}
+.plant-card.open .plant-body{display:flex}
+.plant-row{display:flex;gap:8px;font-size:12px;align-items:flex-start}
+.pr-label{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);
+  text-transform:uppercase;letter-spacing:0.1em;min-width:68px;padding-top:2px;flex-shrink:0}
+.pr-val{color:var(--ink);line-height:1.5}
+
+/* 7 — Fertilizer / Spray Table */
+.table-wrap{overflow-x:auto}
+.fert-section-title{font-family:"Fraunces",serif;font-size:17px;font-weight:400;
+  font-style:italic;color:var(--ink);margin:16px 0 10px;padding-bottom:6px;
+  border-bottom:2px solid var(--bg3)}
+.fert-section-title:first-child{margin-top:0}
+.data-table{width:100%;border-collapse:collapse;background:#fff;
+  border:1px solid var(--bg3);border-radius:8px;overflow:hidden;
+  margin-bottom:20px;font-size:12px}
+.data-table th{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--ink3);padding:9px 12px;
+  background:var(--bg2);text-align:left;border-bottom:1px solid var(--bg3)}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--bg3);
+  color:var(--ink);line-height:1.5;vertical-align:top}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg)}
+.data-table tr.hidden{display:none}
+.highlight{background:var(--a2);padding:1px 3px;border-radius:2px}
+
+/* Tech sheet callout */
+.callout{background:var(--b3);border:1px solid var(--b4);border-radius:8px;
+  padding:14px 16px;margin-bottom:20px;font-size:12px;line-height:1.7;color:var(--ink)}
+.callout-title{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--b);margin-bottom:8px;font-weight:500}
+.callout-warn{background:var(--a3);border:1px solid var(--a4);border-radius:8px;
+  padding:14px 16px;margin-bottom:20px;font-size:12px;line-height:1.7;color:var(--ink)}
+.callout-warn .callout-title{color:var(--a)}
+
+/* 8 — Equipment */
+.equip-section{margin-bottom:28px}
+.equip-section-title{font-family:"Fraunces",serif;font-size:17px;font-weight:400;
+  font-style:italic;color:var(--ink);margin-bottom:10px;padding-bottom:6px;
+  border-bottom:2px solid var(--bg3)}
+.vehicle-card{background:#fff;border:1px solid var(--bg3);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px}
+.vehicle-name{font-family:"Fraunces",serif;font-size:15px;color:var(--ink);
+  margin-bottom:4px}
+.vehicle-detail{font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);
+  letter-spacing:0.04em;margin-bottom:2px}
+.vehicle-vin{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);
+  letter-spacing:0.06em;margin-top:4px}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.tool-card{background:#fff;border:1px solid var(--bg3);border-radius:6px;
+  padding:9px 12px;display:flex;align-items:center;justify-content:space-between}
+.tool-card.hidden{display:none}
+.tool-name{font-size:12px;color:var(--ink)}
+.tool-detail{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);
+  margin-top:2px}
+.tool-count{font-family:"DM Mono",monospace;font-size:11px;color:var(--g2);
+  font-weight:500;flex-shrink:0;margin-left:8px}
+.tool-brand{font-family:"DM Mono",monospace;font-size:9px;color:var(--b);
+  margin-top:2px}
+
+/* 9 — Shared utilities */
+.tag{font-family:"DM Mono",monospace;font-size:8px;padding:2px 6px;
+  border-radius:3px;letter-spacing:0.04em;text-transform:uppercase}
+.tag-native{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.tag-drought{background:var(--a3);color:var(--a);border:1px solid var(--a4)}
+.tag-deer{background:#f5eef8;color:#5b2c6f;border:1px solid #d7bde2}
+.tag-sun{background:#fef9e7;color:#7d6608;border:1px solid #f9e79f}
+.tag-shade{background:var(--b3);color:var(--b);border:1px solid var(--b4)}
+.tag-fruit{background:#fdf2f8;color:#76448a;border:1px solid #d7bde2}
+.tag-rose{background:#fff0f3;color:var(--rd);border:1px solid #f5b7b1}
+.tag-warn{background:#fff3e0;color:#8a5000;border:1px solid #f0d090}
+
+.empty-state{padding:40px;text-align:center;color:var(--ink3);
+  font-family:"DM Mono",monospace;font-size:11px;letter-spacing:0.06em}
+
+/* 10 — Responsive */
+@media(max-width:600px){
+  .entries-grid{grid-template-columns:1fr}
+  .tool-grid{grid-template-columns:1fr 1fr}
+}
+/* ── Tool manual links ── */
+.power-card{align-items:flex-start}
+.tool-links{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.tool-link{
+  font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.06em;
+  text-transform:uppercase;padding:2px 7px;border-radius:3px;
+  text-decoration:none;transition:all 0.15s;
+  background:var(--b3);color:var(--b);border:1px solid var(--b4);
+}
+.tool-link:hover{background:var(--b);color:#fff}
+.tool-link.pdf{background:var(--a3);color:var(--a);border-color:var(--a4)}
+.tool-link.pdf:hover{background:var(--a);color:#fff}
+
+/* ═══════════════════════════════════════════════════════════
+   PLANT LOOKUP — search bar + split pane
+   ═══════════════════════════════════════════════════════════ */
+
+/* Search bar */
+.plant-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+}
+#plant-search-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1.5px solid var(--bg3);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink1);
+  outline: none;
+  transition: border-color 0.15s;
+}
+#plant-search-input:focus {
+  border-color: var(--b);
+  box-shadow: 0 0 0 3px rgba(31,78,61,0.1);
+}
+.plant-result-count {
+  font-size: 12px;
+  color: var(--ink3);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* Split pane */
+.plant-lookup-pane {
+  display: flex;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+  overflow: hidden;
+}
+
+/* Results list column */
+.plant-results-col {
+  width: 380px;
+  min-width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid var(--bg3);
+  overflow: hidden;
+}
+.prc-header {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  padding: 6px 10px;
+  background: var(--b);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+#plant-results-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.plant-result-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg2);
+  transition: background 0.1s;
+  font-size: 12px;
+  gap: 4px;
+}
+.plant-result-row:hover  { background: var(--bg2); }
+.plant-result-row.prl-active {
+  background: var(--bg3);
+  border-left: 3px solid var(--b);
+}
+.prr-common { font-weight: 600; color: var(--ink1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-latin  { color: var(--ink3); font-style: italic; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-type   { color: var(--ink3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-empty  { padding: 20px; color: var(--ink3); font-style: italic; font-size: 13px; }
+
+/* Profile card column */
+.plant-profile-col {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  background: #fff;
+}
+
+/* Empty state */
+.pp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--ink3);
+  font-size: 14px;
+  text-align: center;
+  padding: 40px;
+}
+
+/* Profile card content */
+.pp-header {
+  background: var(--b);
+  color: #fff;
+  padding: 18px 20px 14px;
+}
+.pp-common   { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.pp-botanical { font-size: 13px; font-style: italic; opacity: 0.8; margin-top: 4px; }
+.pp-type-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.pp-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pp-badge.pp-native  { background: rgba(100,200,130,0.35); }
+.pp-badge.pp-drought { background: rgba(255,200,80,0.35); }
+
+/* Section panels inside profile */
+.pp-sections { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pp-section {
+  border-radius: 6px;
+  border: 1px solid var(--bg3);
+  overflow: hidden;
+}
+.pp-section-title {
+  background: var(--bg2);
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--b);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--bg3);
+}
+.pp-prune .pp-section-title { color: #1565A0; background: #E3F2FD; }
+.pp-fert  .pp-section-title { color: #6D4C00; }
+.pp-row {
+  display: flex;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--bg2);
+  font-size: 13px;
+  gap: 8px;
+}
+.pp-row:last-child { border-bottom: none; }
+.pp-label {
+  width: 90px;
+  min-width: 90px;
+  font-weight: 600;
+  color: var(--ink2);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-top: 1px;
+}
+.pp-val {
+  flex: 1;
+  color: var(--ink1);
+  line-height: 1.5;
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 680px) {
+  .plant-lookup-pane   { flex-direction: column; height: auto; }
+  .plant-results-col   { width: 100%; border-right: none; border-bottom: 2px solid var(--bg3); max-height: 260px; }
+  .plant-profile-col   { min-height: 400px; }
+}

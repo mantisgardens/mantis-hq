@@ -1,0 +1,230 @@
+/* =============================================================
+   mantis_landing.css
+   Mantis Gardens — Landing Page & Home Screen
+   
+   Sections:
+     1.  CSS Variables & Reset
+     2.  Screen Management  (.screen, .screen.active)
+     3.  Login Screen  (card, logo, inputs, button, error)
+     4.  Home Header  (brand, logo, sign-out button)
+     5.  Date Bar
+     6.  Home Body & Welcome Text
+     7.  Navigation Cards  (crew, manual)
+     8.  Home Stats Bar
+     9.  Responsive  (@media mobile)
+   ============================================================= */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-height:100vh}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex;flex-direction:column}
+
+/* ══════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════ */
+#screen-login{
+  background:var(--g);
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+.login-card{
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:14px;
+  padding:44px 40px 36px;
+  width:100%;
+  max-width:380px;
+  text-align:center;
+  backdrop-filter:blur(8px);
+  box-shadow:0 20px 60px rgba(0,0,0,0.25);
+}
+.login-logo{
+  width:64px;height:64px;object-fit:contain;
+  opacity:0.9;
+  margin-bottom:18px;
+}
+.login-title{
+  font-family:"Fraunces",serif;font-size:24px;font-weight:300;
+  font-style:italic;color:#d4eacf;letter-spacing:0.02em;margin-bottom:4px;
+}
+.login-sub{
+  font-family:"DM Mono",monospace;font-size:9px;
+  color:rgba(255,255,255,0.4);letter-spacing:0.14em;
+  text-transform:uppercase;margin-bottom:32px;
+}
+.login-divider{height:1px;background:rgba(255,255,255,0.12);margin-bottom:28px}
+.login-label{
+  font-family:"DM Mono",monospace;font-size:10px;
+  color:rgba(255,255,255,0.5);letter-spacing:0.1em;
+  text-transform:uppercase;text-align:left;
+  display:block;margin-bottom:8px;
+}
+.login-input{
+  width:100%;padding:12px 14px;
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);
+  border-radius:6px;color:#fff;
+  font-family:"DM Mono",monospace;font-size:14px;
+  outline:none;transition:border-color 0.2s;
+  margin-bottom:16px;
+}
+.login-input:focus{border-color:rgba(255,255,255,0.5)}
+.login-input::placeholder{color:rgba(255,255,255,0.25)}
+.login-btn{
+  width:100%;padding:13px;
+  background:rgba(255,255,255,0.15);
+  border:1px solid rgba(255,255,255,0.3);
+  border-radius:6px;color:#fff;
+  font-family:"DM Mono",monospace;font-size:12px;
+  letter-spacing:0.1em;text-transform:uppercase;
+  cursor:pointer;transition:all 0.2s;
+}
+.login-btn:hover{background:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.5)}
+.login-error{
+  display:none;margin-top:14px;
+  background:rgba(200,50,50,0.25);
+  border:1px solid rgba(200,50,50,0.4);
+  border-radius:5px;padding:8px 12px;
+  font-family:"DM Mono",monospace;font-size:11px;
+  color:#ffb0b0;letter-spacing:0.04em;
+}
+.login-footer{
+  margin-top:28px;font-family:"DM Mono",monospace;
+  font-size:9px;color:rgba(255,255,255,0.2);
+  letter-spacing:0.1em;text-transform:uppercase;
+}
+
+/* ══════════════════════════════
+   HOME SCREEN
+══════════════════════════════ */
+#screen-home{background:var(--bg)}
+
+.home-header{
+  background:var(--g);padding:12px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.home-brand{display:flex;align-items:center;gap:10px}
+.home-logo{
+  width:36px;height:36px;object-fit:contain;
+  opacity:0.9;
+}
+.home-title{
+  font-family:"Fraunces",serif;font-size:18px;
+  font-weight:300;font-style:italic;color:#d4eacf;
+}
+.home-sub{
+  font-family:"DM Mono",monospace;font-size:9px;
+  color:rgba(255,255,255,0.45);letter-spacing:0.12em;
+  text-transform:uppercase;margin-top:1px;
+}
+.signout-btn{
+  font-family:"DM Mono",monospace;font-size:9px;
+  letter-spacing:0.08em;text-transform:uppercase;
+  background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.6);padding:5px 11px;
+  border-radius:4px;cursor:pointer;transition:all 0.15s;
+}
+.signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+
+.date-bar{
+  background:var(--bg2);border-bottom:1px solid var(--bg3);
+  padding:8px 20px;display:flex;align-items:center;justify-content:space-between;
+}
+.date-greeting{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);letter-spacing:0.06em}
+.date-today{font-family:"DM Mono",monospace;font-size:11px;color:var(--g2);font-weight:500;letter-spacing:0.06em}
+
+.home-body{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;padding:32px 20px 40px;
+}
+.home-welcome{
+  font-family:"Fraunces",serif;font-size:26px;
+  font-weight:300;font-style:italic;color:var(--ink);
+  margin-bottom:6px;text-align:center;
+}
+.home-welcome-sub{
+  font-family:"DM Mono",monospace;font-size:10px;
+  color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;
+  margin-bottom:32px;text-align:center;
+}
+
+.nav-cards{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:14px;width:100%;max-width:680px;
+}
+.nav-card{
+  background:#fff;border:1px solid var(--bg3);
+  border-radius:12px;padding:28px 22px 24px;
+  cursor:pointer;transition:all 0.2s;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+  text-align:left;
+}
+.nav-card:hover{
+  box-shadow:0 6px 20px rgba(0,0,0,0.1);
+  transform:translateY(-2px);border-color:var(--g4);
+}
+.nav-card-icon{font-size:32px;margin-bottom:14px;line-height:1}
+.nav-card-title{
+  font-family:"Fraunces",serif;font-size:18px;
+  font-weight:400;color:var(--ink);margin-bottom:6px;
+}
+.nav-card-desc{
+  font-size:12px;color:var(--ink3);line-height:1.6;margin-bottom:16px;flex:1;
+}
+.nav-card-tag{
+  font-family:"DM Mono",monospace;font-size:9px;
+  letter-spacing:0.1em;text-transform:uppercase;
+  padding:3px 8px;border-radius:3px;display:inline-block;
+}
+.nav-card.crew .nav-card-tag{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.nav-card.manual .nav-card-tag{background:var(--a3);color:var(--a);border:1px solid var(--a4)}
+.nav-card-arrow{
+  position:absolute;top:50%;right:16px;
+  transform:translateY(-50%);
+  font-size:20px;color:var(--bg3);transition:all 0.2s;
+}
+.nav-card:hover .nav-card-arrow{color:var(--ink3);right:12px}
+
+.home-stats{
+  display:flex;gap:10px;margin-top:20px;
+  width:100%;max-width:680px;flex-wrap:wrap;
+}
+.stat-card{
+  background:#fff;border:1px solid var(--bg3);
+  border-radius:8px;padding:12px 16px;flex:1;min-width:120px;
+}
+.stat-num{
+  font-family:"Fraunces",serif;font-size:22px;
+  font-style:italic;color:var(--g2);
+}
+.stat-label{
+  font-family:"DM Mono",monospace;font-size:9px;
+  color:var(--ink3);letter-spacing:0.1em;
+  text-transform:uppercase;margin-top:2px;
+}
+
+@media(max-width:520px){
+  .nav-cards{grid-template-columns:1fr}
+  .login-card{padding:36px 24px 30px}
+}
+
+/* ── Google Sign-In ─────────────────────────────────────────── */
+.google-signin-wrap{
+  display:flex;justify-content:center;
+  margin:8px 0 20px;
+}

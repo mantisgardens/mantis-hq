@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!--
+  mantis_crew_panel.html
+  Mantis Gardens — Crew Assignment Panel
+  
+  This file is intentionally lean — just structure and markup.
+  Styles   → mantis_crew_panel.css
+  Logic    → mantis_crew_panel.js
+  
+  To deploy: place all three files in the same folder and
+  open mantis_crew_panel.html from a local web server
+  (e.g. python3 -m http.server 8000).
+  
+  Configuration: edit SCRIPT_URL and KEY at the top of
+  mantis_crew_panel.js after each Apps Script redeployment.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mantis Gardens — Crew Panel</title>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css"/>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+    <div>
+      <div class="brand-name">Mantis Gardens</div>
+      <div class="brand-sub">Crew Assignment Panel</div>
+    </div>
+  </div>
+  <div class="week-nav">
+    <button class="nav-btn" onclick="shiftWeek(-1)">&#8592; Prev</button>
+    <span class="week-label" id="week-label">Week of Apr 16</span>
+    <button class="nav-btn" onclick="shiftWeek(1)">Next &#8594;</button>
+  </div>
+  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+</div>
+
+<div class="status-bar">
+  <div class="status-pill"><div class="sdot" id="sd-clients"></div><span id="sl-clients">Clients: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-maint"></div><span id="sl-maint">Maintenance brief: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-install"></div><span id="sl-install">Install brief: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-calendar"></div><span id="sl-calendar">Calendar: not loaded</span></div>
+  <button class="reload-btn" id="reload-btn" onclick="clearCrewCache(); loadAll()">&#8635; Load all sheets</button>
+</div>
+
+<div class="day-tabs" id="day-tabs"></div>
+<!-- Debug panel: change display:none to display:block to enable -->
+<div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:'DM Mono',monospace;font-size:11px;padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
+
+<div class="main">
+  <div class="team-col">
+    <div class="team-header t1">
+      <div><div class="team-name">Maintenance &middot; Team 1</div><div class="team-meta">Lead: 916-584-6181</div></div>
+      <div class="team-hrs t1" id="t1-hrs">&#8212;</div>
+    </div>
+    <div id="brief-t1" class="brief-wrap"></div>
+    <div class="jobs-list" id="t1-jobs"></div>
+  </div>
+  <div class="team-col">
+    <div class="team-header t2">
+      <div><div class="team-name">Maintenance &middot; Team 2</div><div class="team-meta">Lead: 916-584-0731</div></div>
+      <div class="team-hrs t2" id="t2-hrs">&#8212;</div>
+    </div>
+    <div id="brief-t2" class="brief-wrap"></div>
+    <div class="jobs-list" id="t2-jobs"></div>
+  </div>
+  <div class="team-col">
+    <div class="team-header t3">
+      <div><div class="team-name">Install Team</div><div class="team-meta">Op Mgr: 916-584-0259</div></div>
+      <div class="team-hrs t3" id="t3-hrs">&#8212;</div>
+    </div>
+    <div id="brief-t3" class="brief-wrap"></div>
+    <div class="jobs-list" id="t3-jobs"></div>
+  </div>
+</div>
+
+<div class="summary-bar" id="summary-bar"></div>
+
+
+
+<!-- ── Work Record Form Modal ── -->
+<div class="modal-overlay" id="work-modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Work Record</div>
+        <div class="modal-client" id="modal-client"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Crew name (pre-filled from team) -->
+      <div class="form-section">
+        <div class="form-section-label">Crew</div>
+        <div class="form-field">
+          <label class="form-label">Team</label>
+          <input class="form-input" id="wr-team" type="text" readonly
+                 style="background:var(--bg2);color:var(--ink2)"/>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Date</label>
+          <input class="form-input" id="wr-date" type="date"/>
+        </div>
+      </div>
+
+      <!-- Workers + hours -->
+      <div class="form-section">
+        <div class="form-section-label">Workers &amp; Hours</div>
+        <div class="dynamic-list" id="workers-list"></div>
+        <button class="add-row-btn" onclick="addWorker()">+ Add worker</button>
+      </div>
+
+      <!-- Materials / supplies — split into two sub-sections -->
+      <div class="form-section">
+        <div class="form-section-label">Materials &amp; Supplies Used</div>
+
+        <!-- Sub-section 1: Fertilizers & Sprays -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#127807; Fertilizers &amp; Sprays</div>
+          <div class="dynamic-list" id="fert-list"></div>
+          <button class="add-row-btn" onclick="addFert()">+ Add fertilizer / spray</button>
+        </div>
+
+        <!-- Sub-section 2: Other Materials (irrigation + supplies) -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#128295; Other Materials</div>
+          <div class="dynamic-list" id="other-materials-list"></div>
+          <button class="add-row-btn" onclick="addOtherMaterial()">+ Add material</button>
+        </div>
+
+      </div>
+
+      <!-- Service notes (visible to client) -->
+      <div class="form-section">
+        <div class="form-section-label">Service Notes <span style="color:var(--g);font-size:9px">(visible to client)</span></div>
+        <textarea class="form-textarea" id="wr-service-notes"
+                  placeholder="Describe work completed, observations, recommendations..."></textarea>
+      </div>
+
+      <!-- Internal notes (not shown to client) -->
+      <div class="form-section">
+        <div class="form-section-label">Internal Notes <span style="color:var(--rd);font-size:9px">(not shown to client)</span></div>
+        <textarea class="form-textarea" id="wr-internal-notes"
+                  placeholder="Internal observations, issues, follow-up needed..."></textarea>
+      </div>
+
+      <!-- Photo upload -->
+      <div class="form-section">
+        <div class="form-section-label">Photos</div>
+        <label class="photo-upload" for="photo-input">
+          <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotos(event)"/>
+          <div class="photo-upload-icon">&#128247;</div>
+          <div class="photo-upload-label">Tap to add photos</div>
+        </label>
+        <div class="photo-previews" id="photo-previews"></div>
+      </div>
+
+    </div><!-- end modal-body -->
+
+    <div class="modal-footer">
+      <button class="fbtn fbtn-clear"  onclick="clearForm()">Clear</button>
+      <button class="fbtn fbtn-save"   onclick="saveForm()">Save</button>
+      <button class="fbtn fbtn-submit" id="wr-submit-btn" onclick="submitForm()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="../../config.js"></script>
+<script src="js/mantis_config.js"></script>
+<script src="js/session_timeout.js"></script>
+<script src="js/mantis_crew_panel.js"></script>
+</body>
+</html>
