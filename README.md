@@ -10,8 +10,8 @@ Internal web app for Mantis Gardens landscaping — Sacramento, CA.
 | Owner Portal | `/owner/` | Client database, work records review, crew hours |
 
 Both apps are hosted on GitHub Pages at:
-- `https://mantisgardens.github.io/mantis-field-manager/crew/`
-- `https://mantisgardens.github.io/mantis-field-manager/owner/`
+- `https://mantisgardens.github.io/mantis-hq/crew/`
+- `https://mantisgardens.github.io/mantis-hq/owner/`
 
 ## After Redeploying the Apps Script
 
