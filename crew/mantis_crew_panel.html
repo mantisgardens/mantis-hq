@@ -17,10 +17,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
   <link rel="stylesheet" href="css/mantis_crew_panel.css"/>
-  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
 
@@ -52,27 +52,41 @@
 <!-- Debug panel: change display:none to display:block to enable -->
 <div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:'DM Mono',monospace;font-size:11px;padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
 
+<!-- Team tab bar — one tab per crew, full-width content below -->
+<div class="team-tabs" id="team-tabs">
+  <div class="team-tab active" id="ttab-t1" onclick="switchTeam('t1')">
+    <span class="ttab-dot t1"></span>Team 1
+    <span class="ttab-hrs" id="t1-hrs">—</span>
+  </div>
+  <div class="team-tab" id="ttab-t2" onclick="switchTeam('t2')">
+    <span class="ttab-dot t2"></span>Team 2
+    <span class="ttab-hrs" id="t2-hrs">—</span>
+  </div>
+  <div class="team-tab" id="ttab-t3" onclick="switchTeam('t3')">
+    <span class="ttab-dot t3"></span>Maint+
+    <span class="ttab-hrs" id="t3-hrs">—</span>
+  </div>
+</div>
+
+<!-- Single full-width team panel — content swaps on tab switch -->
 <div class="main">
-  <div class="team-col">
+  <div class="team-panel" id="panel-t1">
     <div class="team-header t1">
       <div><div class="team-name">Maintenance &middot; Team 1</div><div class="team-meta">Lead: 916-584-6181</div></div>
-      <div class="team-hrs t1" id="t1-hrs">&#8212;</div>
     </div>
     <div id="brief-t1" class="brief-wrap"></div>
     <div class="jobs-list" id="t1-jobs"></div>
   </div>
-  <div class="team-col">
+  <div class="team-panel hidden" id="panel-t2">
     <div class="team-header t2">
       <div><div class="team-name">Maintenance &middot; Team 2</div><div class="team-meta">Lead: 916-584-0731</div></div>
-      <div class="team-hrs t2" id="t2-hrs">&#8212;</div>
     </div>
     <div id="brief-t2" class="brief-wrap"></div>
     <div class="jobs-list" id="t2-jobs"></div>
   </div>
-  <div class="team-col">
+  <div class="team-panel hidden" id="panel-t3">
     <div class="team-header t3">
       <div><div class="team-name">Install Team</div><div class="team-meta">Op Mgr: 916-584-0259</div></div>
-      <div class="team-hrs t3" id="t3-hrs">&#8212;</div>
     </div>
     <div id="brief-t3" class="brief-wrap"></div>
     <div class="jobs-list" id="t3-jobs"></div>
@@ -171,6 +185,48 @@
     </div>
   </div>
 </div>
+
+<!-- End of Job Checklist — fixed bottom panel, outside modal -->
+<div id="checklist-panel" style="display:none">
+  <div class="checklist-header">
+    <span>&#9989; End of Job Checklist</span>
+    <button class="checklist-close" onclick="toggleChecklist(null)">&#10005;</button>
+  </div>
+  <div class="checklist-body">
+
+    <div class="checklist-section">TIME</div>
+    <label class="checklist-item"><input type="checkbox"> In/out time recorded for each client</label>
+    <label class="checklist-item"><input type="checkbox"> Breaks noted (if applicable)</label>
+    <label class="checklist-item"><input type="checkbox"> Training time noted (if applicable)</label>
+    <label class="checklist-item"><input type="checkbox"> Walkthrough time noted (if applicable)</label>
+    <p class="checklist-note">&#x1F4AC; <em>'Time onsite'</em> = total crew time onsite. <em>'Labor hours'</em> = hours per person. Clients are charged per labor-hour. If only one person received training or took a break, note that so time is only subtracted for one person.</p>
+
+    <div class="checklist-section">NOTES</div>
+    <label class="checklist-item"><input type="checkbox"> All notes are completed</label>
+    <label class="checklist-item"><input type="checkbox"> Irrigation fixes and changes are noted (parts charged = needs a note)</label>
+    <label class="checklist-item"><input type="checkbox"> Client requests included</label>
+    <label class="checklist-item"><input type="checkbox"> If something didn't get done — reason listed</label>
+    <label class="checklist-item"><input type="checkbox"> If follow-up needed — follow-up section added</label>
+    <p class="checklist-note">&#x26A0;&#xFE0F; If follow-up is urgent or something will surprise the client, communicate with David <strong>before</strong> leaving. Don't wait for management to read it in the sheets.</p>
+
+    <div class="checklist-section">PARTS &amp; MATERIALS</div>
+    <label class="checklist-item"><input type="checkbox"> Fertilizer (all fertilizer — check planting projects, double-check math)</label>
+    <label class="checklist-item"><input type="checkbox"> Irrigation parts (couplers, hoop stakes, etc.)</label>
+    <label class="checklist-item"><input type="checkbox"> Vinegar spray / hort oil spray (sold in ¼ gal increments)</label>
+    <label class="checklist-item"><input type="checkbox"> Bagged soil (sold in ¼ bag increments)</label>
+    <label class="checklist-item"><input type="checkbox"> Bulk soil (list pot size / quantity used)</label>
+    <label class="checklist-item"><input type="checkbox"> Arbor mulch / chip drop mulch (charged as one $40 loading fee)</label>
+    <label class="checklist-item"><input type="checkbox"> Other mulch (cubic yard)</label>
+    <label class="checklist-item"><input type="checkbox"> Plants (quantity, name, size, source — e.g. 2x Salvia coccinea, 5 gal, Mantis nursery)</label>
+    <label class="checklist-item"><input type="checkbox"> Pick up / delivery fee (if you went to a store for parts)</label>
+    <label class="checklist-item"><input type="checkbox"> Small debris haul $30 (two tarps, &lt;50 gal, fits in green waste bin)</label>
+    <label class="checklist-item"><input type="checkbox"> Large debris haul $105 (&gt;50 gal, &lt;1 ton)</label>
+    <label class="checklist-item"><input type="checkbox"> Trellis materials (eye screws, trellis line, turnbuckles, etc.)</label>
+    <label class="checklist-item"><input type="checkbox"> Staking materials (t-posts, wood stakes, rubber tree strapping)</label>
+    <p class="checklist-note">Anything left onsite and charged to client. If you aren't sure — list it anyway and ask.</p>
+
+  </div><!-- end checklist-body -->
+</div><!-- end checklist-panel -->
 
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
