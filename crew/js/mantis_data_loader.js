@@ -81,8 +81,9 @@ function hideLoadingOverlay() {
 function loadServiceData() {
   return new Promise((resolve, reject) => {
 
-    const smKey    = 'sm_data_'    + SCRIPT_URL_SM.slice(-12);
-    const plantKey = 'plant_data_' + SCRIPT_URL_SM.slice(-12);
+    // v3 = added irrigation/sprayHeads to sm data; pruning to plant data
+    const smKey    = 'sm_data_v3_'    + SCRIPT_URL_SM.slice(-12);
+    const plantKey = 'plant_data_v3_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
 
