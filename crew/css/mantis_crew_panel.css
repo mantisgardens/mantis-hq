@@ -61,11 +61,47 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .dcnt{background:var(--bg3);color:var(--ink3);border-radius:8px;padding:1px 5px;font-size:9px}
 .day-tab.active .dcnt{background:var(--g);color:#fff}
 
-.main{display:grid;grid-template-columns:1fr 1fr 1fr;min-height:calc(100vh - 140px)}
-.team-col{border-right:1px solid var(--bg3);display:flex;flex-direction:column;min-width:0;overflow-y:auto;max-height:calc(100vh - 140px)}
-.team-col:last-child{border-right:none}
-.team-header{padding:9px 14px;border-bottom:1px solid var(--bg3);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
-.team-header.t1{background:#eef3f9}.team-header.t2{background:#eef4ec}.team-header.t3{background:#fdf5ec}
+/* ── Team tab bar ──────────────────────────────────────────── */
+.team-tabs{
+  display:flex;border-bottom:2px solid var(--bg3);
+  background:var(--bg2);overflow-x:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.team-tab{
+  flex:1;min-width:0;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  padding:9px 6px;font-size:13px;font-weight:600;
+  color:var(--ink3);cursor:pointer;
+  border-bottom:3px solid transparent;
+  white-space:nowrap;transition:color .15s,border-color .15s;
+}
+.team-tab.active{color:var(--g);border-bottom-color:var(--g)}
+.team-tab:hover:not(.active){color:var(--ink2)}
+.ttab-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+}
+.ttab-dot.t1{background:#4a90d9}
+.ttab-dot.t2{background:#5cb85c}
+.ttab-dot.t3{background:#e8a838}
+.ttab-hrs{
+  font-size:11px;font-weight:400;color:var(--ink3);
+  background:var(--bg3);border-radius:10px;
+  padding:1px 6px;margin-left:2px;
+}
+.team-tab.active .ttab-hrs{color:var(--g);background:#e8f4f0}
+
+/* ── Main panel — full width single team ────────────────────── */
+.main{min-height:calc(100vh - 180px)}
+.team-panel{display:flex;flex-direction:column}
+.team-panel.hidden{display:none}
+.team-header{
+  padding:9px 14px;border-bottom:1px solid var(--bg3);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:10;
+}
+.team-header.t1{background:#eef3f9}
+.team-header.t2{background:#eef4ec}
+.team-header.t3{background:#fdf5ec}
 .team-name{font-family:"Fraunces",serif;font-size:13px;font-weight:400;font-style:italic}
 .t1 .team-name{color:#1a3a5c}.t2 .team-name{color:var(--g)}.t3 .team-name{color:var(--t3)}
 .team-meta{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-top:1px}
@@ -258,6 +294,60 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .btn-link:hover{color:var(--gd)}
 /* make irrigation select match text inputs */
 .irr-select{min-width:0;font-size:13px}
+
+/* ── End of Job Checklist ─────────────────────────────────── */
+/* Checklist button on job card */
+.abtn-checklist{background:#f0f7f4;border-color:var(--g);color:var(--g)}
+.abtn-checklist:hover{background:var(--g);color:#fff}
+
+#checklist-panel{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  background:#fafafa;
+  max-height:80vh;
+  border-top:2px solid var(--g);
+  border-radius:12px 12px 0 0;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.18);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  z-index:2001;
+}
+.checklist-header{
+  display:flex;justify-content:space-between;align-items:center;
+  background:var(--g);color:#fff;
+  padding:10px 16px;font-weight:bold;font-size:14px;
+  position:sticky;top:0;z-index:1;
+  border-radius:12px 12px 0 0;
+}
+.checklist-close{
+  background:none;border:none;color:#fff;font-size:16px;
+  cursor:pointer;padding:0 4px;line-height:1;
+}
+.checklist-body{padding:8px 14px 14px}
+.checklist-section{
+  font-size:10px;font-weight:bold;letter-spacing:.08em;
+  color:var(--g);text-transform:uppercase;
+  margin:12px 0 4px;border-bottom:1px solid var(--g2);padding-bottom:3px;
+}
+.checklist-section:first-child{margin-top:4px}
+.checklist-item{
+  display:flex;align-items:flex-start;gap:8px;
+  font-size:13px;line-height:1.4;padding:4px 0;
+  cursor:pointer;color:#333;
+}
+.checklist-item input[type=checkbox]{
+  margin-top:2px;flex-shrink:0;
+  width:16px;height:16px;cursor:pointer;
+  accent-color:var(--g);
+}
+.checklist-item:has(input:checked){
+  text-decoration:line-through;color:#aaa;
+}
+.checklist-note{
+  font-size:11px;color:#888;line-height:1.4;
+  margin:6px 0 2px;padding:6px 8px;
+  background:#f0f4f0;border-left:3px solid var(--g2);border-radius:0 4px 4px 0;
+}
 /* loading row shown while service data fetches */
 .sm-loading-row{display:flex;align-items:center;gap:8px;padding:8px 4px;
   font-size:12px;color:var(--ink3);font-family:Arial,sans-serif}
