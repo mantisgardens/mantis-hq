@@ -1449,6 +1449,7 @@ let _checklistData   = null;
 // Per-job checkbox state: { jobId: { itemIndex: true/false } }
 let _checklistStates = {};
 
+
 function toggleChecklist(jobId) {
   const panel = document.getElementById('checklist-panel');
   if (!panel) return;
@@ -1474,9 +1475,11 @@ function toggleChecklist(jobId) {
     return;
   }
 
-  // First open — fetch from Apps Script, show spinner in body meanwhile
+  // Show the hardcoded checklist immediately — no spinner needed.
+  // Then silently fetch live data from the Google Doc in the background.
+  // If live data arrives it replaces the hardcoded content seamlessly.
   const body = panel.querySelector('.checklist-body');
-  if (body) body.innerHTML = '<div class="sm-loading-row"><span class="sm-spinner"></span> Loading checklist…</div>';
+  restoreChecklistState(jobId);
 
   const auth = sessionStorage.getItem('mg_id_token')
     ? `&id_token=${encodeURIComponent(sessionStorage.getItem('mg_id_token'))}` : '';
@@ -1486,24 +1489,16 @@ function toggleChecklist(jobId) {
     .then(json => {
       if (json.error) throw new Error(json.error);
       _checklistData = json.checklist || [];
-      if (body) {
-        body.innerHTML = _checklistData.length
-          ? buildChecklistHtml(_checklistData)
-          : body.innerHTML; // keep hardcoded HTML if no data returned
+      if (_checklistData.length && body) {
+        // Live data available — swap in the Google Doc version
+        body.innerHTML = buildChecklistHtml(_checklistData);
+        restoreChecklistState(jobId);
       }
-      restoreChecklistState(jobId);
+      // If empty, keep the hardcoded HTML as-is — no visible change
     })
-    .catch(err => {
-      console.warn('Checklist fetch failed, using hardcoded version:', err);
-      // Restore hardcoded HTML on failure
-      if (body) body.innerHTML = _buildHardcodedChecklist();
+    .catch(() => {
+      // Fetch failed — hardcoded HTML already showing, nothing to do
     });
-}
-
-// Restore hardcoded checklist if the fetch fails or doc ID isn't configured
-function _buildHardcodedChecklist() {
-  return document.getElementById('checklist-panel').innerHTML
-    .replace(/<div class="checklist-header">[\s\S]*?<\/div>/, ''); // strip header, keep body content
 }
 
 // Save current checkbox state for a job
