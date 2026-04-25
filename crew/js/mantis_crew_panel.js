@@ -1,5 +1,6 @@
 /* =============================================================
    mantis_crew_panel.js
+   BUILD: checklist-no-spinner
    Mantis Gardens — Crew Assignment Panel
    
    Sections:
