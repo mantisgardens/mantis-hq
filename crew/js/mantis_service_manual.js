@@ -19,6 +19,8 @@ function showSection(id) {
   // Clear search when switching sections
   document.getElementById('search-input').value = '';
   updateCount();
+  // Render section content on first visit
+  if (id === 'prune') renderPruning();
 }
 
 // =============================================================
@@ -26,6 +28,10 @@ function showSection(id) {
 // =============================================================
 function doSearch(q) {
   q = q.toLowerCase().trim();
+
+  // Hide global search bar on pruning tab (it has no search)
+  const globalSearch = document.querySelector('.search-bar');
+  if (globalSearch) globalSearch.style.display = (currentSection === 'prune') ? 'none' : '';
 
   if (currentSection === 'plants') {
     // Plant panel has its own search input — delegate to it
@@ -51,6 +57,8 @@ function doSearch(q) {
       if (match) visible++;
     });
     updateCount(visible, HAND_TOOLS.length + POWER_TOOLS.length);
+  } else if (currentSection === 'prune') {
+    // Pruning tab has no search — nothing to filter
   }
 }
 
@@ -241,7 +249,7 @@ function renderFert() {
     html += `<div class="fert-section-title">${g.title}</div>
     <table class="data-table">
       <thead><tr>
-        <th>Product</th><th>Type</th><th>Use / Plants</th>
+        <th>Product</th><th>Unit</th><th>Type</th><th>Use / Plants</th>
         <th>Rate</th><th>Timing</th><th>Notes</th>
       </tr></thead>
       <tbody>`;
@@ -249,6 +257,7 @@ function renderFert() {
       const warn = p.warn ? ' style="background:#fff8f0"' : '';
       html += `<tr data-row="1"${warn}>
         <td><b>${esc(p.name)}</b>${p.abbrev && p.abbrev !== '—' ? `<br><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--ink3)">${esc(p.abbrev)}</span>` : ''}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${esc(p.unit)}</td>
         <td>${esc(p.type)}</td>
         <td>${esc(p.use)}</td>
         <td style="font-size:11px">${esc(p.rate)}</td>
@@ -367,6 +376,58 @@ function renderEquip() {
 // =============================================================
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// =============================================================
+// SECTION: PRUNING CALENDAR
+// Renders the seasonal pruning calendar from PRUNING_CALENDAR.
+// =============================================================
+function renderPruning() {
+  const el = document.getElementById('prune-content');
+  if (!el) return;
+
+  const months = typeof PRUNING_CALENDAR !== 'undefined' ? PRUNING_CALENDAR : [];
+
+  // Current month highlight
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+  const currentMonth = monthNames[new Date().getMonth()];
+
+  let html = `
+    <div class="callout" style="margin-bottom:16px">
+      <div class="callout-title">&#9986; Seasonal Pruning Calendar</div>
+      When to prune affects whether plants bloom next season.
+      Always prune spring-blooming plants <b>after</b> they flower.
+      Prune summer/fall bloomers in late winter before new growth.
+    </div>`;
+
+  if (!months.length) {
+    html += '<div class="prr-empty">Pruning calendar not loaded.</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  html += '<table class="data-table" style="width:100%"><tbody>';
+  months.forEach(m => {
+    const isCurrent = m.month === currentMonth;
+    const rowStyle  = isCurrent
+      ? ' style="background:var(--g-light,#e8f4f0);font-weight:bold"'
+      : '';
+    const badge = isCurrent
+      ? ' <span style="font-size:10px;background:var(--g,#2E7D52);color:#fff;padding:2px 6px;border-radius:10px;margin-left:6px">Now</span>'
+      : '';
+    html += `<tr${rowStyle}>
+      <td style="width:110px;font-weight:bold;white-space:nowrap;vertical-align:top;padding:8px 10px">
+        ${esc(m.month)}${badge}
+      </td>
+      <td style="padding:8px 10px;font-size:13px;line-height:1.5">
+        ${esc(m.plants) || '<span style="color:#aaa">No scheduled pruning</span>'}
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+
+  el.innerHTML = html;
 }
 
 // Auth guard — redirect to login if not signed in.

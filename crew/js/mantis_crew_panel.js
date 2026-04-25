@@ -142,7 +142,7 @@ async function loadAll() {
     sheetClients.forEach(c => {
       const name = (c['Name(s)'] || '').toLowerCase();
       // Index by all words including short ones like "Rae"
-      name.split(/[\s,&()+\-]+/).filter(w => w.length > 1)
+      name.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1)
         .forEach(w => {
           if (!clientCache[w]) clientCache[w] = [];
           clientCache[w].push(c);
@@ -295,7 +295,7 @@ function shiftWeek(dir) {
 function findClient(name) {
   if (!sheetClients.length) return null;
   const lower = name.toLowerCase();
-  const words  = lower.split(/[\s,&()+\-]+/).filter(w => w.length > 1);
+  const words  = lower.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1);
   const scores = new Map();
 
   words.forEach(w => {
@@ -315,7 +315,7 @@ function findClient(name) {
     console.log('[findClient] no match for:', name, '| words:', words, '| top score:', top);
     return null;
   }
-  console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
+  //console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
   return best;
 }
 
@@ -770,20 +770,42 @@ function getFertNames() {
   ];
 }
 
-// Irrigation/other material names — populated from HAND_TOOLS (irrigation category).
-// Falls back to hardcoded list if not yet loaded.
-function getIrrigationNames() {
-  if (typeof HAND_TOOLS !== 'undefined' && HAND_TOOLS.length) {
-    const irr = HAND_TOOLS.filter(t => (t.category||'').toLowerCase() === 'irrigation');
-    if (irr.length) return irr.map(t => t.name);
-  }
-  return [
-    "1/4\" Dripline (6\" spacing)","1/2\" Poly Line","1/4\" Poly Line",
-    "Netafim .4/12\"","Swing Pipe",
-    "Drip / Poly Repair Kit","PVC Repair Kit","3/4\" PVC Pipe",
-    "Waterproof Wire Nuts","Round-top Staples",
-    "RZWC 36\"","200 Mesh Filter 3/4\"","Extra Hose + Washing Nozzle",
+// Returns grouped irrigation items for the dropdown.
+// Uses IRRIGATION_ITEMS and SPRAY_HEADS from mantis_data_loader.js
+// (populated from the Micro & Drip Irrigation and Spray Heads & Valves tabs).
+// Groups items by detecting section header rows (name contains '──').
+function getIrrigationGroups() {
+  const allItems = [
+    ...(typeof IRRIGATION_ITEMS !== 'undefined' ? IRRIGATION_ITEMS : []),
+    ...(typeof SPRAY_HEADS      !== 'undefined' ? SPRAY_HEADS      : []),
   ];
+
+  if (!allItems.length) {
+    // Fallback hardcoded list while data loads
+    return [{ label: 'Common Items', items: [
+      '1/4" Dripline (6" spacing)', '1/2" Poly Line', '1/4" Poly Line',
+      'Netafim .4/12"', 'Swing Pipe', '1/2" PVC slip-fix',
+      '3/4" PVC slip-fix', 'Drip emitter, .5, 1 or 2 gph',
+      'Waterproof wire nut, small (black)', '6-inch round-top landscape staple',
+    ]}];
+  }
+
+  // Build groups from section header rows
+  const groups = [];
+  let current  = { label: 'Irrigation Items', items: [] };
+
+  allItems.forEach(item => {
+    if (!item.name) return;
+    if (item.name.includes('──')) {
+      // Section divider — start a new group (strip the ── markers for display)
+      if (current.items.length) groups.push(current);
+      current = { label: item.name.replace(/──+/g, '').trim(), items: [] };
+    } else {
+      current.items.push(item.name);
+    }
+  });
+  if (current.items.length) groups.push(current);
+  return groups;
 }
 
 function openWorkRecord(jobId) {
@@ -829,10 +851,49 @@ function openWorkRecord(jobId) {
     document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
   }
 
-  // Add one blank row if nothing restored
-  if (!document.getElementById('workers-list').children.length)        addWorker();
-  if (!document.getElementById('fert-list').children.length)           addFert();
-  if (!document.getElementById('other-materials-list').children.length) addOtherMaterial();
+  // Show modal now so the crew member sees it open immediately
+  document.getElementById('work-modal').classList.add('open');
+
+  // Load service data (fertilizers + irrigation) if not yet available,
+  // showing a brief loading message in the fert/materials sections.
+  const fertList  = document.getElementById('fert-list');
+  const irrList   = document.getElementById('other-materials-list');
+  const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
+
+  if (needsLoad && typeof loadServiceData === 'function') {
+    // Show loading placeholder in both sections
+    const loadingHtml = `<div class="sm-loading-row">
+      <span class="sm-spinner"></span> Loading product list…
+    </div>`;
+    if (!fertList.children.length) fertList.innerHTML  = loadingHtml;
+    if (!irrList.children.length)  irrList.innerHTML   = loadingHtml;
+
+    loadServiceData()
+      .then(() => {
+        // Clear loading placeholders and populate rows
+        if (fertList.querySelector('.sm-loading-row'))  fertList.innerHTML  = '';
+        if (irrList.querySelector('.sm-loading-row'))   irrList.innerHTML   = '';
+        refreshFertDatalist();
+        if (!fertList.children.length)  addFert();
+        if (!irrList.children.length)   addOtherMaterial();
+      })
+      .catch(() => {
+        // On failure fall back to hardcoded list
+        if (fertList.querySelector('.sm-loading-row'))  fertList.innerHTML  = '';
+        if (irrList.querySelector('.sm-loading-row'))   irrList.innerHTML   = '';
+        refreshFertDatalist();
+        if (!fertList.children.length)  addFert();
+        if (!irrList.children.length)   addOtherMaterial();
+      });
+  } else {
+    // Data already loaded — populate immediately
+    refreshFertDatalist();
+    if (!fertList.children.length)  addFert();
+    if (!irrList.children.length)   addOtherMaterial();
+  }
+
+  // (modal open is handled above so we skip the duplicate call below)
+  return;
 
   // Update submit button state based on whether record was already submitted
   const submitBtn = document.getElementById('wr-submit-btn');
@@ -846,7 +907,7 @@ function openWorkRecord(jobId) {
     submitBtn.style.cursor       = alreadySubmitted ? 'not-allowed' : '';
   }
 
-  document.getElementById('work-modal').classList.add('open');
+  // (modal already opened above)
   document.body.style.overflow = 'hidden';
 
   // Pre-fetch the client's Drive folder ID in the background.
@@ -914,31 +975,127 @@ function addWorker(name, hours) {
 // =============================================================
 // ── Materials helpers ─────────────────────────────────────────
 
-function makeMatRow(listId, names, item, qty, unit) {
-  const list = document.getElementById(listId);
+// ── Fertilizer row — datalist with unit auto-suggest ─────────
+// All fert rows share a single datalist 'dl-fert-global' which is
+// refreshed when the modal opens (refreshFertDatalist).
+// This avoids the timing problem where rows were created before
+// FERT_PRODUCTS had loaded from the server.
+
+function refreshFertDatalist() {
+  let dl = document.getElementById('dl-fert-global');
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = 'dl-fert-global';
+    document.body.appendChild(dl);
+  }
+  dl.innerHTML = getFertNames().map(n => `<option value="${esc(n)}">`).join('');
+}
+
+function makeFertRow(item, qty, unit) {
+  const list = document.getElementById('fert-list');
   if (!list) return;
   const row  = document.createElement('div');
   row.className = 'dynamic-row';
-  const dlId = 'dl-' + listId + '-' + Date.now();
-  const opts = names.map(n => `<option value="${esc(n)}">`).join('');
+
   row.innerHTML = `
-    <datalist id="${dlId}">${opts}</datalist>
-    <input class="form-input" type="text" placeholder="Item"
-           list="${dlId}" value="${esc(item||'')}" style="flex:3"/>
+    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer / Spray"
+           list="dl-fert-global" value="${esc(item||'')}" style="flex:3"/>
+    <input class="form-input" type="text" placeholder="Qty"
+           value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
+    <input class="form-input fert-unit-input" type="text" placeholder="Unit"
+           value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
+    <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+
+  // Auto-suggest unit when product is selected
+  const itemInput = row.querySelector('.fert-item-input');
+  const unitInput = row.querySelector('.fert-unit-input');
+  function tryFillUnit() {
+    if (unitInput.value) return;  // don't overwrite if crew already typed a unit
+    const raw   = itemInput.value.trim();
+    // Strip " (abbrev)" suffix that getFertNames() appends, e.g. "Maxsea Acid (MA)"
+    const typed = raw.replace(/\s*\([^)]+\)\s*$/, '').trim().toLowerCase();
+    if (!typed) return;
+    const prods = typeof FERT_PRODUCTS !== 'undefined' ? FERT_PRODUCTS : [];
+    // Try exact name match first, then partial starts-with match
+    let product = prods.find(f => f.name.toLowerCase() === typed);
+    if (!product) product = prods.find(f => f.name.toLowerCase().startsWith(typed));
+    if (product && product.unit && product.unit !== 'n/a') {
+      unitInput.value = product.unit;
+    }
+  }
+  // Fire on both change and input — covers desktop and mobile datalist behaviour
+  itemInput.addEventListener('change', tryFillUnit);
+  itemInput.addEventListener('input',  tryFillUnit);
+  // Also fire when field loses focus as a final fallback
+  itemInput.addEventListener('blur',   tryFillUnit);
+
+  list.appendChild(row);
+}
+
+function addFert(item, qty, unit) {
+  makeFertRow(item, qty, unit);
+}
+
+// ── Irrigation/materials row — grouped select dropdown ────────
+// 130+ irrigation items are grouped into subsections (Micro Sprayers,
+// 1/4" Fittings, Netafim, PVC, etc.) so a searchable grouped select
+// is much easier to use than a freetext datalist.
+
+function makeIrrRow(item, qty, unit) {
+  const list = document.getElementById('other-materials-list');
+  if (!list) return;
+  const row  = document.createElement('div');
+  row.className = 'dynamic-row';
+
+  // Build grouped <select> options
+  const groups  = getIrrigationGroups();
+  let optHtml   = '<option value="">— select item —</option>';
+  groups.forEach(g => {
+    optHtml += `<optgroup label="${esc(g.label)}">`;
+    g.items.forEach(name => {
+      const sel = (name === (item||'')) ? ' selected' : '';
+      optHtml  += `<option value="${esc(name)}"${sel}>${esc(name)}</option>`;
+    });
+    optHtml += '</optgroup>';
+  });
+
+  // Also allow freetext override via a text input toggled by a small link
+  row.innerHTML = `
+    <select class="form-input irr-select" style="flex:3">${optHtml}</select>
+    <input  class="form-input irr-custom" type="text" placeholder="Or type item…"
+            style="flex:3;display:none" value="${esc(item||'')}"/>
+    <button class="btn-link irr-toggle" type="button"
+            style="font-size:11px;padding:0 4px;white-space:nowrap">other</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
            value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+
+  // Toggle between select and freetext
+  const sel     = row.querySelector('.irr-select');
+  const custom  = row.querySelector('.irr-custom');
+  const toggle  = row.querySelector('.irr-toggle');
+  toggle.addEventListener('click', () => {
+    const showCustom = sel.style.display !== 'none';
+    sel.style.display    = showCustom ? 'none'  : '';
+    custom.style.display = showCustom ? ''      : 'none';
+    toggle.textContent   = showCustom ? 'list'  : 'other';
+    if (!showCustom) sel.focus(); else custom.focus();
+  });
+
+  // If restoring a saved item that isn't in the dropdown, show freetext
+  if (item && !groups.some(g => g.items.includes(item))) {
+    sel.style.display    = 'none';
+    custom.style.display = '';
+    toggle.textContent   = 'list';
+  }
+
   list.appendChild(row);
 }
 
-function addFert(item, qty, unit) {
-  makeMatRow('fert-list', getFertNames(), item, qty, unit);
-}
-
 function addOtherMaterial(item, qty, unit) {
-  makeMatRow('other-materials-list', getIrrigationNames(), item, qty, unit);
+  makeIrrRow(item, qty, unit);
 }
 
 // Legacy alias — keep in case anything else references addMaterial
@@ -1057,10 +1214,31 @@ function collectFormData() {
   function collectRows(listId) {
     const rows = [];
     document.querySelectorAll(`#${listId} .dynamic-row`).forEach(row => {
-      const inputs = row.querySelectorAll('input');
-      const item   = inputs[0].value.trim();
-      const qty    = inputs[1].value.trim();
-      const unit   = inputs[2].value.trim();
+      // Irrigation rows use a <select> or custom text input for the item.
+      // Fert rows use a text input. Handle both cases.
+      const sel    = row.querySelector('.irr-select');
+      const custom = row.querySelector('.irr-custom');
+      let item;
+      if (sel && sel.style.display !== 'none') {
+        item = sel.value.trim();
+      } else if (custom && custom.style.display !== 'none') {
+        item = custom.value.trim();
+      } else {
+        // Fert row — first input is the item
+        const firstInput = row.querySelector('input.fert-item-input') ||
+                           row.querySelectorAll('input')[0];
+        item = firstInput ? firstInput.value.trim() : '';
+      }
+      // Qty and unit are always the last two text inputs
+      const allInputs = Array.from(row.querySelectorAll('input[type="text"]'))
+        .filter(i => !i.classList.contains('fert-item-input') &&
+                     !i.classList.contains('irr-custom') &&
+                     !i.classList.contains('fert-unit-input'));
+      // Actually just grab qty/unit by placeholder
+      const qtyEl  = row.querySelector('input[placeholder="Qty"]');
+      const unitEl = row.querySelector('input[placeholder="Unit"]');
+      const qty    = qtyEl  ? qtyEl.value.trim()  : '';
+      const unit   = unitEl ? unitEl.value.trim() : '';
       if (item) rows.push({ item, qty, unit });
     });
     return rows;

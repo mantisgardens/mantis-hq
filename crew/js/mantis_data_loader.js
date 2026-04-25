@@ -14,15 +14,20 @@
      POWER_TOOLS      — power tools
      HAND_TOOLS       — hand tools & irrigation items
      EVERYDAY_ITEMS   — daily checklist items
+     IRRIGATION_ITEMS — micro & drip irrigation items
+     SPRAY_HEADS      — spray heads & valves
    ============================================================= */
 
 // ── Global data arrays ────────────────────────────────────────
-var PLANTS         = [];
-var FERT_PRODUCTS  = [];
-var VEHICLES       = [];
-var POWER_TOOLS    = [];
-var HAND_TOOLS     = [];
-var EVERYDAY_ITEMS = [];
+var PLANTS           = [];
+var PRUNING_CALENDAR = [];  // seasonal pruning calendar
+var FERT_PRODUCTS    = [];
+var VEHICLES         = [];
+var POWER_TOOLS      = [];
+var HAND_TOOLS       = [];
+var EVERYDAY_ITEMS   = [];
+var IRRIGATION_ITEMS = [];
+var SPRAY_HEADS      = [];
 
 // ── Config ────────────────────────────────────────────────────
 const SCRIPT_URL_SM = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : '';
@@ -30,9 +35,7 @@ const SCRIPT_URL_SM = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCR
 // ── Auth helper ───────────────────────────────────────────────
 function getAuthParam() {
   const idToken = sessionStorage.getItem('mg_id_token') || '';
-  const key     = (typeof MANTIS_CONFIG !== 'undefined') ? (MANTIS_CONFIG.KEY || '') : '';
   if (idToken) return `&id_token=${encodeURIComponent(idToken)}`;
-  if (key)     return `&key=${encodeURIComponent(key)}`;
   return '';
 }
 
@@ -65,7 +68,7 @@ function showLoadingOverlay(msg) {
   if (el) {
     el.style.display = 'flex';
     const txt = el.querySelector('.loading-text');
-    if (txt) txt.textContent = msg || 'Loading\u2026';
+    if (txt) txt.textContent = msg || 'Loading…';
   }
 }
 
@@ -130,8 +133,10 @@ function loadServiceData() {
 
 // ── Apply service manual data ─────────────────────────────────
 function applyServiceManualData(data) {
-  FERT_PRODUCTS = data.fertilizers || [];
-  VEHICLES      = data.vehicles    || [];
+  FERT_PRODUCTS    = data.fertilizers || [];
+  VEHICLES         = data.vehicles    || [];
+  IRRIGATION_ITEMS = data.irrigation  || [];
+  SPRAY_HEADS      = data.sprayHeads  || [];
 
   const allTools = data.tools || [];
   POWER_TOOLS    = allTools.filter(t =>
@@ -144,12 +149,13 @@ function applyServiceManualData(data) {
 
 // ── Apply plant data ──────────────────────────────────────────
 function applyPlantData(data) {
-  PLANTS = (data.plants || []).filter(p => p.botanical || p.common);
+  PLANTS           = (data.plants   || []).filter(p => p.botanical || p.common);
+  PRUNING_CALENDAR =  data.pruning  || [];
 }
 
 // ── Startup ───────────────────────────────────────────────────
 function initServiceManual() {
-  showLoadingOverlay('Loading service data\u2026');
+  showLoadingOverlay('Loading service data…');
   setLoadingProgress(10);
 
   loadServiceData()
