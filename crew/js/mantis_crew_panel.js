@@ -47,6 +47,7 @@ let SCHEDULE     = {};          // populated from Google Calendar via Apps Scrip
 // are filled in loadAll() when the page first opens.
 // =============================================================
 let DAYS         = [];          // sorted date keys e.g. ["2026-04-16", ...]
+let activeTeam   = 't1';       // currently visible team tab
 let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
 let currentDay   = null;
 
@@ -118,6 +119,9 @@ function setStatus(id, state, msg) {
 
 async function loadAll() {
   document.getElementById('reload-btn').disabled = true;
+  // Re-show status bar during reload so crew can see progress
+  const statusBar = document.querySelector('.status-bar');
+  if (statusBar) statusBar.style.display = '';
   setStatus('clients',  'loading', 'Clients: loading...');
   setStatus('maint',    'loading', 'Maintenance brief: loading...');
   setStatus('install',  'loading', 'Install brief: loading...');
@@ -220,6 +224,16 @@ async function loadAll() {
 
   document.getElementById('reload-btn').disabled = false;
 
+  // ── Hide status bar if all items loaded successfully ─────────
+  // If any item has an error the bar stays visible so crew can see it.
+  // A small delay lets the final status text render before hiding.
+  setTimeout(() => {
+    const dots = document.querySelectorAll('.sdot');
+    const allLive = Array.from(dots).every(d => d.classList.contains('live'));
+    const bar = document.querySelector('.status-bar');
+    if (bar) bar.style.display = allLive ? 'none' : '';
+  }, 800);
+
   // ── Debug panel (set display:none -> block on the div to enable) ──
   const dbg = document.getElementById('debug-panel');
   if (dbg && dbg.style.display !== 'none') {
@@ -315,7 +329,7 @@ function findClient(name) {
     console.log('[findClient] no match for:', name, '| words:', words, '| top score:', top);
     return null;
   }
-  //console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
+  console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
   return best;
 }
 
@@ -599,6 +613,10 @@ function renderJobs(cid, jobs, teamClass) {
                     onclick="openWorkRecord('${j.id}');event.stopPropagation()">
               &#128203; Work record
             </button>
+            <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
+                    onclick="toggleChecklist('${j.id}');event.stopPropagation()">
+              &#9989; Checklist
+            </button>
             <button class="abtn abtn-hide" onclick="hideJob('${j.id}');event.stopPropagation()">&#8722; Minimize</button>
           </div>` : ''}
       </div>`;
@@ -610,6 +628,22 @@ function renderJobs(cid, jobs, teamClass) {
 
 // =============================================================
 // SECTION 10 — TABS & MAIN RENDER LOOP
+// ── switchTeam ────────────────────────────────────────────────
+// Shows the selected team panel and updates the tab highlight.
+// Works with any number of teams — just add more panels + tabs.
+
+function switchTeam(teamId) {
+  activeTeam = teamId;
+  // Update tab highlights
+  document.querySelectorAll('.team-tab').forEach(t => {
+    t.classList.toggle('active', t.id === 'ttab-' + teamId);
+  });
+  // Show the selected panel, hide others
+  document.querySelectorAll('.team-panel').forEach(p => {
+    p.classList.toggle('hidden', p.id !== 'panel-' + teamId);
+  });
+}
+
 // buildTabs() generates the day tab bar from DAYS[].
 // render() is the single entry point that redraws everything —
 // tabs, all three job columns, all three brief panels, and
@@ -681,6 +715,9 @@ function render() {
   [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].forEach(j => {
     const m = j.dur.match(/([\d.]+)/); if (m) fh += parseFloat(m[1]);
   });
+
+  // Restore active team tab (re-render resets DOM)
+  switchTeam(activeTeam);
 
   document.getElementById('summary-bar').innerHTML = `
     <div class="sitem"><span class="snum k">${all.length}</span>&nbsp;jobs today</div>
@@ -815,6 +852,8 @@ function openWorkRecord(jobId) {
   if (!job) return;
 
   currentJobId   = jobId;
+
+  // Checklist state persists per job — reset happens on submit
   currentJobData = job;
 
   // Determine team name
@@ -938,6 +977,9 @@ function prefetchClientFolder(clientName) {
 
 function closeModal() {
   document.getElementById('work-modal').classList.remove('open');
+  // Hide checklist so it's closed fresh next time
+  const panel = document.getElementById('checklist-panel');
+  if (panel) panel.style.display = 'none';
   document.body.style.overflow = '';
   currentJobId = null;
 }
@@ -1348,6 +1390,16 @@ function submitForm() {
       .then(json => {
         if (json.error) throw new Error(json.error);
         data.recordId = json.recordId;
+        // Clear checklist state for this job — it's been submitted
+        if (currentJobId) delete _checklistStates[currentJobId];
+        const panel = document.getElementById('checklist-panel');
+        if (panel) {
+          panel.style.display = 'none';
+          panel.dataset.jobId = '';
+          if (panel.querySelector('.checklist-body')) {
+            panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+          }
+        }
         // Keep a minimal stub so the Submit button stays disabled on reopen.
         // Strip heavy fields (photos, notes) to keep localStorage lean.
         savedRecords[currentJobId] = {
@@ -1388,6 +1440,113 @@ function submitForm() {
 }
 
 // ── Clear ─────────────────────────────────────────────────────
+// ── toggleChecklist ───────────────────────────────────────────
+// Shows/hides the end-of-job checklist panel above the modal footer.
+// Checkboxes reset each time the panel is opened so it's fresh per job.
+
+// Cached checklist data — fetched once per session on first open
+let _checklistData   = null;
+// Per-job checkbox state: { jobId: { itemIndex: true/false } }
+let _checklistStates = {};
+
+function toggleChecklist(jobId) {
+  const panel = document.getElementById('checklist-panel');
+  if (!panel) return;
+
+  // Close button passes null — just close
+  const isOpen = panel.style.display !== 'none';
+  if (!jobId || (isOpen && panel.dataset.jobId === jobId)) {
+    saveChecklistState(panel.dataset.jobId);
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Save state of previous job if switching
+  if (panel.dataset.jobId && panel.dataset.jobId !== jobId) {
+    saveChecklistState(panel.dataset.jobId);
+  }
+  panel.dataset.jobId = jobId;
+  panel.style.display = 'block';
+
+  // If we already have data, restore state for this job and show
+  if (_checklistData && _checklistData.length) {
+    restoreChecklistState(jobId);
+    return;
+  }
+
+  // First open — fetch from Apps Script, show spinner in body meanwhile
+  const body = panel.querySelector('.checklist-body');
+  if (body) body.innerHTML = '<div class="sm-loading-row"><span class="sm-spinner"></span> Loading checklist…</div>';
+
+  const auth = sessionStorage.getItem('mg_id_token')
+    ? `&id_token=${encodeURIComponent(sessionStorage.getItem('mg_id_token'))}` : '';
+
+  fetch(`${MANTIS_CONFIG.SCRIPT_URL}?action=getChecklist${auth}`)
+    .then(r => r.json())
+    .then(json => {
+      if (json.error) throw new Error(json.error);
+      _checklistData = json.checklist || [];
+      if (body) {
+        body.innerHTML = _checklistData.length
+          ? buildChecklistHtml(_checklistData)
+          : body.innerHTML; // keep hardcoded HTML if no data returned
+      }
+      restoreChecklistState(jobId);
+    })
+    .catch(err => {
+      console.warn('Checklist fetch failed, using hardcoded version:', err);
+      // Restore hardcoded HTML on failure
+      if (body) body.innerHTML = _buildHardcodedChecklist();
+    });
+}
+
+// Restore hardcoded checklist if the fetch fails or doc ID isn't configured
+function _buildHardcodedChecklist() {
+  return document.getElementById('checklist-panel').innerHTML
+    .replace(/<div class="checklist-header">[\s\S]*?<\/div>/, ''); // strip header, keep body content
+}
+
+// Save current checkbox state for a job
+function saveChecklistState(jobId) {
+  if (!jobId) return;
+  const panel = document.getElementById('checklist-panel');
+  if (!panel) return;
+  const state = {};
+  panel.querySelectorAll('input[type=checkbox]').forEach((cb, i) => {
+    state[i] = cb.checked;
+  });
+  _checklistStates[jobId] = state;
+}
+
+// Restore checkbox state for a job (or leave all unchecked if no state yet)
+function restoreChecklistState(jobId) {
+  const state = _checklistStates[jobId] || {};
+  const panel = document.getElementById('checklist-panel');
+  if (!panel) return;
+  panel.querySelectorAll('input[type=checkbox]').forEach((cb, i) => {
+    cb.checked = state[i] || false;
+  });
+}
+
+// Builds checklist HTML from the structured array returned by the Apps Script.
+// Each section has a title and an array of items with type 'item' or 'note'.
+function buildChecklistHtml(sections) {
+  let html = '';
+  sections.forEach(section => {
+    html += `<div class="checklist-section">${esc(section.title)}</div>`;
+    (section.items || []).forEach(item => {
+      if (item.type === 'item') {
+        html += `<label class="checklist-item">
+          <input type="checkbox"> ${esc(item.text)}
+        </label>`;
+      } else if (item.type === 'note') {
+        html += `<p class="checklist-note">${esc(item.text)}</p>`;
+      }
+    });
+  });
+  return html;
+}
+
 function clearForm() {
   document.getElementById('workers-list').innerHTML         = '';
   document.getElementById('fert-list').innerHTML            = '';

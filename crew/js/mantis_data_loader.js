@@ -82,8 +82,8 @@ function loadServiceData() {
   return new Promise((resolve, reject) => {
 
     // v3 = added irrigation/sprayHeads to sm data; pruning to plant data
-    const smKey    = 'sm_data_v3_'    + SCRIPT_URL_SM.slice(-12);
-    const plantKey = 'plant_data_v3_' + SCRIPT_URL_SM.slice(-12);
+    const smKey        = 'sm_data_v3_'    + SCRIPT_URL_SM.slice(-12);
+    const plantKey     = 'plant_data_v3_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
 
@@ -123,7 +123,7 @@ function loadServiceData() {
       setLoadingProgress(80);
       applyServiceManualData(smData);
       applyPlantData(plantData);
-      if (!smCached)    setCached(smKey, smData);
+      if (!smCached)    setCached(smKey,    smData);
       if (!plantCached) setCached(plantKey, plantData);
       setLoadingProgress(100);
       resolve();
