@@ -20,26 +20,26 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=5"/>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=6"/>
 </head>
 <body>
 
 <div class="header">
-  <div class="brand">
-    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
-    <div>
-      <div class="brand-name">Mantis Gardens</div>
-      <div class="brand-sub">Crew Assignment Panel</div>
+  <div class="header-row1">
+    <div class="brand">
+      <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+      <div>
+        <div class="brand-name">Mantis Gardens</div>
+        <div class="brand-sub">Crew Assignment Panel</div>
+      </div>
     </div>
+    <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
   </div>
-  <div class="week-nav">
+  <div class="header-row2">
     <button class="nav-btn" onclick="shiftWeek(-1)">&#8592; Prev</button>
     <span class="week-label" id="week-label">Week of Apr 16</span>
     <button class="nav-btn" onclick="shiftWeek(1)">Next &#8594;</button>
   </div>
-</div>
-<div class="home-bar">
-  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
 </div>
 
 <div class="status-bar">
