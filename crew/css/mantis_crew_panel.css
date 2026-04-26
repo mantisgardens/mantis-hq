@@ -428,10 +428,18 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
   white-space:nowrap;flex-shrink:0;
 }
 .signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
-@media(max-width:500px){
+@media(max-width:560px){
+  /* Hide word "Home" — keep just the arrow */
   .signout-btn .btn-text{display:none}
-  .brand-name{font-size:15px}
-  .week-nav .week-label{font-size:10px}
+  /* Shrink brand so week-nav has room */
+  .brand-name{font-size:13px}
+  .brand-sub{display:none}
+  .brand-logo{width:26px;height:26px}
+  /* Shrink week nav text */
+  .week-label{font-size:10px!important}
+  .nav-btn{padding:4px 7px;font-size:10px}
+  /* Shrink Home button padding */
+  .signout-btn{padding:5px 7px}
 }
 
 /* ── Hide brief button at bottom of brief body ── */
