@@ -34,7 +34,7 @@
 }
 body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font-size:14px;min-height:100vh}
 
-.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;overflow:hidden}
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
 .brand-name{font-family:"Fraunces",serif;font-size:18px;font-weight:300;color:#d4eacf;font-style:italic}
@@ -44,6 +44,12 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .nav-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:"DM Mono",monospace;font-size:11px;transition:background 0.15s}
 .nav-btn:hover{background:rgba(255,255,255,0.25)}
 
+.home-bar{
+  background:var(--g);
+  padding:4px 16px 8px;
+  display:flex;
+  align-items:center;
+}
 .status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .status-pill{display:flex;align-items:center;gap:5px;font-family:"DM Mono",monospace;font-size:10px;color:var(--ink3);letter-spacing:0.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
 .sdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
@@ -423,24 +429,10 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
   letter-spacing:0.08em;text-transform:uppercase;
   background:rgba(255,255,255,0.1);
   border:1px solid rgba(255,255,255,0.2);
-  color:rgba(255,255,255,0.6);padding:5px 9px;
+  color:rgba(255,255,255,0.6);padding:5px 11px;
   border-radius:4px;cursor:pointer;transition:all 0.15s;
-  white-space:nowrap;flex-shrink:0;
 }
 .signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
-@media(max-width:560px){
-  /* Hide word "Home" — keep just the arrow */
-  .signout-btn .btn-text{display:none}
-  /* Shrink brand so week-nav has room */
-  .brand-name{font-size:13px}
-  .brand-sub{display:none}
-  .brand-logo{width:26px;height:26px}
-  /* Shrink week nav text */
-  .week-label{font-size:10px!important}
-  .nav-btn{padding:4px 7px;font-size:10px}
-  /* Shrink Home button padding */
-  .signout-btn{padding:5px 7px}
-}
 
 /* ── Hide brief button at bottom of brief body ── */
 .brief-hide-btn{
