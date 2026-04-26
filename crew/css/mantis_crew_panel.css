@@ -295,35 +295,6 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 /* make irrigation select match text inputs */
 .irr-select{min-width:0;font-size:13px}
 
-/* ── Mobile Home button ─────────────────────────────────────── */
-.mobile-only{display:none}
-.desktop-only{display:block}
-
-.mobile-nav-bar{
-  display:none;
-  align-items:center;
-  background:var(--g);
-  padding:5px 12px;
-  border-top:1px solid rgba(255,255,255,0.15);
-}
-.mobile-home-btn{
-  background:rgba(255,255,255,0.15);
-  border:1px solid rgba(255,255,255,0.25);
-  color:#fff;padding:5px 14px;
-  border-radius:4px;cursor:pointer;
-  font-family:'DM Mono',monospace;font-size:12px;
-}
-.mobile-home-btn:active{background:rgba(255,255,255,0.3)}
-
-@media (max-width: 600px) {
-  .mobile-only{display:flex}
-  .desktop-only{display:none}
-  .mobile-nav-bar{display:flex}
-  /* Remove flex-wrap on header so brand+week-nav fit cleanly on one line */
-  .header{flex-wrap:nowrap}
-  .week-nav{flex-shrink:0}
-  .brand-sub{display:none}
-}
 
 /* ── End of Job Checklist ─────────────────────────────────── */
 /* Checklist button on job card */
