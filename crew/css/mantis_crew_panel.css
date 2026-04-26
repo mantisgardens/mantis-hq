@@ -34,7 +34,7 @@
 }
 body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font-size:14px;min-height:100vh}
 
-.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap;overflow:hidden}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
 .brand-name{font-family:"Fraunces",serif;font-size:18px;font-weight:300;color:#d4eacf;font-style:italic}
@@ -295,35 +295,6 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 /* make irrigation select match text inputs */
 .irr-select{min-width:0;font-size:13px}
 
-/* ── Mobile Home button ─────────────────────────────────────── */
-.mobile-only{display:none}
-.desktop-only{display:block}
-
-.mobile-nav-bar{
-  display:none;
-  align-items:center;
-  background:var(--g);
-  padding:5px 12px;
-  border-top:1px solid rgba(255,255,255,0.15);
-}
-.mobile-home-btn{
-  background:rgba(255,255,255,0.15);
-  border:1px solid rgba(255,255,255,0.25);
-  color:#fff;padding:5px 14px;
-  border-radius:4px;cursor:pointer;
-  font-family:'DM Mono',monospace;font-size:12px;
-}
-.mobile-home-btn:active{background:rgba(255,255,255,0.3)}
-
-@media (max-width: 600px) {
-  .mobile-only{display:flex}
-  .desktop-only{display:none}
-  .mobile-nav-bar{display:flex}
-  /* Remove flex-wrap on header so brand+week-nav fit cleanly on one line */
-  .header{flex-wrap:nowrap}
-  .week-nav{flex-shrink:0}
-  .brand-sub{display:none}
-}
 
 /* ── End of Job Checklist ─────────────────────────────────── */
 /* Checklist button on job card */
@@ -452,10 +423,16 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
   letter-spacing:0.08em;text-transform:uppercase;
   background:rgba(255,255,255,0.1);
   border:1px solid rgba(255,255,255,0.2);
-  color:rgba(255,255,255,0.6);padding:5px 11px;
+  color:rgba(255,255,255,0.6);padding:5px 9px;
   border-radius:4px;cursor:pointer;transition:all 0.15s;
+  white-space:nowrap;flex-shrink:0;
 }
 .signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+@media(max-width:500px){
+  .signout-btn .btn-text{display:none}
+  .brand-name{font-size:15px}
+  .week-nav .week-label{font-size:10px}
+}
 
 /* ── Hide brief button at bottom of brief body ── */
 .brief-hide-btn{
