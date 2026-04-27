@@ -330,7 +330,7 @@ function findClient(name) {
     console.log('[findClient] no match for:', name, '| words:', words, '| top score:', top);
     return null;
   }
-  console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
+  //console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
   return best;
 }
 
@@ -762,15 +762,9 @@ if (sessionStorage.getItem('mg_auth') === '1') {
   });
 }
 
-// ── Start: fire a ping to wake Apps Script, then load all data ─
-// The ping runs concurrently — it costs nothing if the script is
-// already warm, and saves several seconds if it was sleeping.
+// ── Start: load all data ──────────────────────────────────────
+// keepWarm trigger handles cold starts during business hours.
 currentDay = todayDateKey();
-if (SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
-  const _tok = sessionStorage.getItem('mg_id_token') || '';
-  const _auth = _tok ? `&id_token=${encodeURIComponent(_tok)}` : `&key=${encodeURIComponent(KEY)}`;
-  fetch(`${SCRIPT_URL}?action=ping${_auth}`).catch(() => {});
-}
 loadAll();
 
 
