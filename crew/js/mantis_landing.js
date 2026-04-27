@@ -96,7 +96,13 @@ function handleCredential(response) {
           google.accounts.id.disableAutoSelect();
           return;
         }
-        // Approved — store identity and proceed
+        // Approved — store identity in localStorage with 10-hour expiry
+        const expiry = Date.now() + (10 * 60 * 60 * 1000);
+        localStorage.setItem('mg_auth',        '1');
+        localStorage.setItem('mg_user_email',  email);
+        localStorage.setItem('mg_user_name',   name);
+        localStorage.setItem('mg_auth_expiry', expiry.toString());
+        // Also write to sessionStorage so session_timeout.js can read it
         sessionStorage.setItem('mg_auth',       '1');
         sessionStorage.setItem('mg_user_email', email);
         sessionStorage.setItem('mg_user_name',  name);
@@ -117,10 +123,15 @@ function handleCredential(response) {
 }
 
 function doSignOut() {
-  const email = sessionStorage.getItem('mg_user_email');
+  const email = sessionStorage.getItem('mg_user_email') || localStorage.getItem('mg_user_email');
   if (email && typeof google !== 'undefined') {
     google.accounts.id.revoke(email, () => {});
   }
+  // Clear both storage layers
+  localStorage.removeItem('mg_auth');
+  localStorage.removeItem('mg_user_email');
+  localStorage.removeItem('mg_user_name');
+  localStorage.removeItem('mg_auth_expiry');
   sessionStorage.clear();
   show('login');
   // Re-render sign-in button
@@ -170,7 +181,6 @@ window.addEventListener('load', () => {
   }
 });
 
-// Skip login if session still active
 // Show timeout message if redirected here due to inactivity
 if (sessionStorage.getItem('mg_timeout') === '1') {
   sessionStorage.removeItem('mg_timeout');
@@ -181,10 +191,44 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
   }
 }
 
-// Skip login if session still active
-if (sessionStorage.getItem('mg_auth') === '1') {
-  setupHome();
-  show('home');
-} else {
-  show('login');
-}
+// Skip login if a valid localStorage session exists (persists across window close)
+// On resume, session_timeout uses sessionStorage — seed it from localStorage.
+(function checkPersistedSession() {
+  const auth    = localStorage.getItem('mg_auth');
+  const expiry  = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
+  const name    = localStorage.getItem('mg_user_name') || '';
+  const email   = localStorage.getItem('mg_user_email') || '';
+
+  if (auth === '1' && Date.now() < expiry) {
+    // Seed sessionStorage so session_timeout.js and the crew panel work normally
+    sessionStorage.setItem('mg_auth',       '1');
+    sessionStorage.setItem('mg_user_email', email);
+    sessionStorage.setItem('mg_user_name',  name);
+    setupHome(name);
+    show('home');
+    // Silently ask Google for a fresh ID token in the background.
+    // If the user is still signed into Google on this device (they almost always are)
+    // this completes with no UI. The new token is stored for API calls.
+    window.addEventListener('load', () => {
+      if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.initialize({
+          client_id:   CLIENT_ID,
+          callback:    function(resp) {
+            if (resp && resp.credential) {
+              sessionStorage.setItem('mg_id_token', resp.credential);
+            }
+          },
+          auto_select: true,
+        });
+        google.accounts.id.prompt();
+      }
+    });
+  } else {
+    // Expired or no persisted session — clear stale localStorage and show login
+    localStorage.removeItem('mg_auth');
+    localStorage.removeItem('mg_user_email');
+    localStorage.removeItem('mg_user_name');
+    localStorage.removeItem('mg_auth_expiry');
+    show('login');
+  }
+})();

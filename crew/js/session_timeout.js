@@ -167,6 +167,12 @@
       try { _options.onSignOut(); } catch(e) {}
     }
 
+    // Clear localStorage persistence keys so the session doesn't auto-restore
+    localStorage.removeItem('mg_auth');
+    localStorage.removeItem('mg_user_email');
+    localStorage.removeItem('mg_user_name');
+    localStorage.removeItem('mg_auth_expiry');
+
     // Clear session storage
     const loginUrl = (_options && _options.loginUrl) || 'index.html';
     sessionStorage.clear();
