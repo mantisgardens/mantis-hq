@@ -101,9 +101,6 @@ function loadServiceData() {
 
     const auth = getAuthParam();
 
-    // Warm up the Apps Script instance
-    fetch(`${SCRIPT_URL_SM}?action=ping${auth}`).catch(() => {});
-
     setLoadingProgress(20);
 
     // Fetch both datasets in parallel
