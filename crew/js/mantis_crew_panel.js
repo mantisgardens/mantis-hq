@@ -615,7 +615,8 @@ function renderJobs(cid, jobs, teamClass) {
               &#128203; Work record
             </button>
             <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
-                    onclick="toggleChecklist('${j.id}');event.stopPropagation()">
+                    onclick="toggleChecklist('${j.id}');event.stopPropagation()"
+                    style="display:none">
               &#9989; Checklist
             </button>
             <button class="abtn abtn-hide" onclick="hideJob('${j.id}');event.stopPropagation()">&#8722; Minimize</button>
