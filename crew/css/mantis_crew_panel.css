@@ -138,6 +138,13 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .note-item{font-size:11px;color:var(--ink);line-height:1.6;padding:5px 9px;border-left:2px solid var(--a4);background:var(--a3);border-radius:0 4px 4px 0}
 .note-item + .note-item{margin-top:4px}
 .note-item.hi{border-left-color:var(--g4);background:var(--g3);color:var(--g)}
+/* Manager note — slightly different accent */
+.note-mgr{border-left-color:var(--b4);background:var(--b3);color:var(--b)}
+/* Today's birthday highlight */
+.note-bday{border-left-color:#e8a020;background:#fff8ec;color:#7a4500;font-weight:500}
+/* All-crew section */
+.bsec-allcrew{border-top:1px solid var(--bg3);padding-top:10px;margin-top:4px}
+.bsec-sublabel{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);margin:8px 0 3px;opacity:0.8}
 
 /* Vehicle subsection */
 .vehicle-group{display:flex;flex-direction:column;gap:3px}
