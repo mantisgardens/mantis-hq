@@ -64,7 +64,7 @@
     <span class="ttab-hrs" id="t2-hrs">—</span>
   </div>
   <div class="team-tab" id="ttab-t3" onclick="switchTeam('t3')">
-    <span class="ttab-dot t3"></span>Maint+
+    <span class="ttab-dot t3"></span>Install
     <span class="ttab-hrs" id="t3-hrs">—</span>
   </div>
 </div>
@@ -229,7 +229,54 @@
   </div><!-- end checklist-body -->
 </div><!-- end checklist-panel -->
 
-<!-- Toast notification -->
+<!-- ── Service History Modal ── -->
+<div class="modal-overlay" id="history-modal" onclick="closeHistoryOutside(event)">
+  <div class="modal modal-history">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Service History</div>
+        <div class="modal-client" id="history-client-label"></div>
+      </div>
+      <button class="modal-close" onclick="closeHistory()">&#10005;</button>
+    </div>
+
+    <!-- Client selector -->
+    <div class="history-selector">
+      <select class="history-select" id="history-client-select" onchange="loadHistory(this.value)">
+        <option value="">— Select a client —</option>
+      </select>
+    </div>
+
+    <!-- Search bar (shown after client selected) -->
+    <div class="history-search-wrap" id="history-search-wrap" style="display:none">
+      <span class="history-search-icon">&#128269;</span>
+      <input class="history-search" id="history-search" type="text"
+             placeholder="Search notes, fertilizers, materials…"
+             oninput="filterHistory(this.value)"/>
+      <button class="history-search-clear" id="history-search-clear"
+              onclick="clearHistorySearch()" style="display:none">&#10005;</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="history-tabs" id="history-tabs" style="display:none">
+      <button class="htab active" id="htab-notes"    onclick="switchHistoryTab('notes')">
+        &#128196; Notes <span class="htab-ct" id="htab-ct-notes"></span>
+      </button>
+      <button class="htab" id="htab-records"  onclick="switchHistoryTab('records')">
+        &#128203; Work Records <span class="htab-ct" id="htab-ct-records"></span>
+      </button>
+      <button class="htab" id="htab-fert"     onclick="switchHistoryTab('fert')">
+        &#127807; Fertilizers <span class="htab-ct" id="htab-ct-fert"></span>
+      </button>
+    </div>
+
+    <div class="history-body" id="history-body">
+      <div class="history-empty">Select a client above to view their service history.</div>
+    </div>
+  </div>
+</div>
+
+
 <div class="toast" id="toast"></div>
 
 <script src="../config.js"></script>
