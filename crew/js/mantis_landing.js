@@ -60,7 +60,7 @@ function initGoogleSignIn() {
     { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
   );
 
-  google.accounts.id.prompt();
+  safePrompt();
 }
 
 // Called by Google after successful sign-in with a JWT credential
@@ -102,7 +102,7 @@ function handleCredential(response) {
         localStorage.setItem('mg_user_email',  email);
         localStorage.setItem('mg_user_name',   name);
         localStorage.setItem('mg_auth_expiry', expiry.toString());
-        // Also write to sessionStorage so session_timeout.js can read it
+        // Also seed sessionStorage so session_timeout.js works
         sessionStorage.setItem('mg_auth',       '1');
         sessionStorage.setItem('mg_user_email', email);
         sessionStorage.setItem('mg_user_name',  name);
@@ -134,7 +134,6 @@ function doSignOut() {
   localStorage.removeItem('mg_auth_expiry');
   sessionStorage.clear();
   show('login');
-  // Re-render sign-in button
   if (typeof google !== 'undefined') {
     google.accounts.id.disableAutoSelect();
     google.accounts.id.renderButton(
@@ -172,6 +171,23 @@ function goTo(dest) {
 // =============================================================
 // SECTION 6 — STARTUP
 // =============================================================
+
+// Guard against multiple simultaneous google.accounts.id.prompt() calls
+// which throw "Only one navigator.credentials.get request may be outstanding"
+let _gisPromptPending = false;
+function safePrompt() {
+  if (_gisPromptPending) return;
+  _gisPromptPending = true;
+  try {
+    google.accounts.id.prompt(notification => {
+      _gisPromptPending = false;
+    });
+  } catch(e) {
+    _gisPromptPending = false;
+    console.warn('GIS prompt suppressed:', e.message);
+  }
+}
+
 window.addEventListener('load', () => {
   if (typeof google !== 'undefined' && google.accounts) {
     initGoogleSignIn();
@@ -194,10 +210,10 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
 // Skip login if a valid localStorage session exists (persists across window close)
 // On resume, session_timeout uses sessionStorage — seed it from localStorage.
 (function checkPersistedSession() {
-  const auth    = localStorage.getItem('mg_auth');
-  const expiry  = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
-  const name    = localStorage.getItem('mg_user_name') || '';
-  const email   = localStorage.getItem('mg_user_email') || '';
+  const auth   = localStorage.getItem('mg_auth');
+  const expiry = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
+  const name   = localStorage.getItem('mg_user_name')  || '';
+  const email  = localStorage.getItem('mg_user_email') || '';
 
   if (auth === '1' && Date.now() < expiry) {
     // Seed sessionStorage so session_timeout.js and the crew panel work normally
@@ -207,8 +223,7 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
     setupHome(name);
     show('home');
     // Silently ask Google for a fresh ID token in the background.
-    // If the user is still signed into Google on this device (they almost always are)
-    // this completes with no UI. The new token is stored for API calls.
+    // Uses safePrompt() to prevent collision with initGoogleSignIn's prompt().
     window.addEventListener('load', () => {
       if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({
@@ -220,7 +235,7 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
           },
           auto_select: true,
         });
-        google.accounts.id.prompt();
+        safePrompt();
       }
     });
   } else {
