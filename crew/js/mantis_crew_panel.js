@@ -52,8 +52,8 @@ let activeTeam   = 't1';       // currently visible team tab
 let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
 let currentDay   = null;
 
-let expanded     = {}, statuses = {}, briefOpen = { t1:false, t2:false, t3:false };
-let clientCache  = {}, sheetClients = [], maintBrief = null, installBrief = null;
+let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, t3:true };
+let clientCache  = {}, sheetClients = [], morningBrief = null;
 
 
 // =============================================================
@@ -66,8 +66,7 @@ let clientCache  = {}, sheetClients = [], maintBrief = null, installBrief = null
 // Cache TTLs (milliseconds)
 const CACHE_TTL = {
   active_clients:   10 * 60 * 1000,   // 10 min  — client list rarely changes during a day
-  maintenance_brief: 5 * 60 * 1000,   //  5 min  — briefs change occasionally
-  install_brief:     5 * 60 * 1000,
+  morning_brief:     5 * 60 * 1000,   //  5 min  — cached for fast navigation returns; busted by reload button
   schedule:          3 * 60 * 1000,   //  3 min  — calendar most likely to change
 };
 
@@ -94,7 +93,7 @@ async function apiFetch(action, extra) {
     ? `&id_token=${encodeURIComponent(idToken)}`
     : `&key=${encodeURIComponent(KEY)}`;
 
-  const res  = await fetch(`${SCRIPT_URL}?action=${action}${authParam}${extra}`);
+  const res  = await fetch(`${SCRIPT_URL}?action=${action}${authParam}${extra}&_=${Date.now()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -124,20 +123,16 @@ async function loadAll() {
   const statusBar = document.querySelector('.status-bar');
   if (statusBar) statusBar.style.display = '';
   setStatus('clients',  'loading', 'Clients: loading...');
-  setStatus('maint',    'loading', 'Maintenance brief: loading...');
-  setStatus('install',  'loading', 'Install brief: loading...');
+  setStatus('brief',    'loading', 'Morning brief: loading...');
   setStatus('calendar', 'loading', 'Calendar: loading...');
 
-  // Stagger requests by 300ms each to avoid hitting the Apps Script
-  // instance simultaneously — simultaneous requests can cause a race
-  // condition during instance initialization where global constants
-  // from Config.gs aren't available yet for some requests.
+
+
   const delay = ms => new Promise(res => setTimeout(res, ms));
   const results = await Promise.allSettled([
     apiFetch('active_clients'),
-    delay(300).then(() => apiFetch('maintenance_brief')),
-    delay(600).then(() => apiFetch('install_brief')),
-    delay(900).then(() => apiFetch('schedule', '&weeks=2')),
+    delay(300).then(() => apiFetch('schedule', '&weeks=2')),
+    delay(600).then(() => apiFetch('morning_brief')),
   ]);
 
   // ── Clients ──
@@ -166,25 +161,9 @@ async function loadAll() {
     setStatus('clients', 'error', `Clients: ${results[0].reason.message}`);
   }
 
-  // ── Maintenance brief ──
-  if (results[1].status === 'fulfilled') {
-    maintBrief = results[1].value;
-    setStatus('maint', 'live', 'Maintenance brief: loaded');
-  } else {
-    setStatus('maint', 'error', `Maintenance brief: ${results[1].reason.message}`);
-  }
-
-  // ── Install brief ──
-  if (results[2].status === 'fulfilled') {
-    installBrief = results[2].value;
-    setStatus('install', 'live', 'Install brief: loaded');
-  } else {
-    setStatus('install', 'error', `Install brief: ${results[2].reason.message}`);
-  }
-
   // ── Calendar / Schedule ──
-  if (results[3].status === 'fulfilled') {
-    const cal = results[3].value;
+  if (results[1].status === 'fulfilled') {
+    const cal = results[1].value;
     SCHEDULE  = cal.days || {};
 
     // Build sorted day list
@@ -216,11 +195,27 @@ async function loadAll() {
       setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
     }
   } else {
-    setStatus('calendar', 'error', `Calendar: ${results[3].reason.message}`);
+    setStatus('calendar', 'error', `Calendar: ${results[1].reason.message}`);
     SCHEDULE   = {};
     DAYS       = [];
     DAY_LABELS = [];
     currentDay = null;
+  }
+
+  // ── Morning brief ──
+  if (results[2].status === 'fulfilled') {
+    morningBrief = results[2].value;
+    const ac  = morningBrief.all_crew || {};
+    const dbg = morningBrief._debug || {};
+    const parts = [];
+    if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
+    if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
+    if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
+    if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
+    const detail = parts.length ? ' — ' + parts.join(', ') : '';
+    setStatus('brief', 'live', `Morning brief: loaded${detail}`);
+  } else {
+    setStatus('brief', 'error', `Morning brief: ${results[2].reason && results[2].reason.message}`);
   }
 
   document.getElementById('reload-btn').disabled = false;
@@ -248,8 +243,7 @@ async function loadAll() {
       (calVal ? `<b>window_start:</b> ${calVal.window_start || '?'} &nbsp; <b>window_end:</b> ${calVal.window_end || '?'}<br>` : '') +
       (calResult.status === 'rejected' ? `<b>Error:</b> ${calResult.reason.message}` : '') +
       `<b>Clients:</b> ${sheetClients.length}<br>` +
-      `<b>MaintBrief:</b> ${maintBrief ? 'loaded' : 'null'}<br>` +
-      `<b>InstallBrief:</b> ${installBrief ? 'loaded' : 'null'}`;
+      `<b>MorningBrief:</b> ${morningBrief ? 'loaded' : 'null'}`;
     dbg.style.display = 'block';
   }
 
@@ -289,14 +283,36 @@ function updateWeekLabel() {
 
 function shiftWeek(dir) {
   if (!DAYS.length) return;
-  const idx = DAYS.indexOf(currentDay);
-  if (idx === -1) return;
-  // Find first day of current week, then jump ±5 weekdays
-  let target = idx + (dir * 5);
-  target = Math.max(0, Math.min(DAYS.length - 1, target));
-  currentDay = DAYS[target];
+
+  // Find the Monday of the current week, then jump ±7 days to get
+  // the Monday of the target week — works regardless of how many
+  // event days exist in each week.
+  const cur = new Date(currentDay + 'T12:00:00');
+  const dow = cur.getDay();
+  const monday = new Date(cur);
+  monday.setDate(cur.getDate() - (dow === 0 ? 6 : dow - 1));
+  monday.setDate(monday.getDate() + (dir * 7));
+
+  // Build the date key for Monday of the target week, then find
+  // the first DAYS entry that falls within that Mon–Fri window.
+  const weekKeys = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekKeys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
+  const found = DAYS.find(d => weekKeys.includes(d));
+  if (!found) return;  // no events that week — don't navigate
+
+  currentDay = found;
   updateWeekLabel();
   render();
+
+  // Scroll the active tab into view after render rebuilds the DOM
+  requestAnimationFrame(() => {
+    const active = document.querySelector('.day-tab.active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  });
 }
 
 
@@ -348,145 +364,88 @@ function esc(s) {
 
 // =============================================================
 // SECTION 8 — MORNING BRIEF RENDERING
-// renderBrief(wrapId, team) builds the collapsible brief panel
-// for each team column. Maintenance shows crew, daily notes,
-// and vehicle loading list. Install shows crew, day notes,
-// and plants list. toggleBrief() flips open/closed state.
+// renderBrief(wrapId, team) builds the morning brief panel for each
+// team column. Uses morningBrief data (from getMorningBrief()) for
+// team-specific notes and the shared all-crew section (time off,
+// birthdays, special events). toggleBrief() flips open/closed state.
 // =============================================================
 // ── Morning Brief ─────────────────────────────────────────────
 function renderBrief(wrapId, team) {
-  const wrap    = document.getElementById(wrapId);
-  const isOpen  = briefOpen[team];
-  const isMaint = team !== 't3';
-  const data    = isMaint ? maintBrief : installBrief;
-  const dotCls  = data ? 'live' : '';
-  let body      = '';
+  const wrap   = document.getElementById(wrapId);
+  if (!wrap) return;
+  const isOpen = briefOpen[team];
+  let body     = '';
 
-  if (!data) {
+  if (!morningBrief) {
     body = '<div class="brief-empty">Click &#8635; Load all sheets to load the morning brief.</div>';
 
-  } else if (isMaint) {
-    const b    = maintBrief;
-    const vKey = team === 't1' ? 'Taco 1' : 'Taco 2';
-    const crew = (b.crew || []).find(c => c.team === (team === 't1' ? 'Team 1' : 'Team 2')) || {};
-    const brooke = (b.crew || []).find(c => c.team === 'Brooke') || {};
-
-    // ── Date + crew ──
-    body += `<div class="bsec">
-      <div class="bsec-label">Today${b.date ? ' &mdash; ' + esc(b.date) : ''}</div>`;
-    if (crew.members) {
-      body += `<div class="crew-row">
-        <span class="crew-name">${esc(crew.members)}</span>
-        ${crew.vehicle ? `<span class="crew-vehicle">${esc(crew.vehicle)}</span>` : ''}
-      </div>`;
-    }
-    if (team === 't2' && brooke.members) {
-      body += `<div class="crew-row">
-        <span class="crew-name">${esc(brooke.members)}</span>
-        ${brooke.vehicle ? `<span class="crew-vehicle">${esc(brooke.vehicle)}</span>` : ''}
-      </div>`;
-    }
-    body += `</div>`;
-
-    // ── Daily Notes (same for all teams) ──
-    const notes = (b.daily_notes || []).filter(n => n.trim());
-    if (notes.length) {
-      body += `<div class="bsec"><div class="bsec-label">Daily notes</div>`;
-      notes.forEach(n => { body += `<div class="note-item">${esc(n)}</div>`; });
-      body += `</div>`;
-    }
-
-    // ── Vehicle loading list ──
-    const items = (b.vehicles || {})[vKey] || [];
-    if (items.length) {
-      body += `<div class="bsec">
-        <div class="bsec-label">Loading &mdash; ${vKey}</div>
-        <div class="item-list">`;
-      items.forEach(it => {
-        body += `<div class="item-row">
-          <span class="item-name">${esc(it.item)}</span>
-          ${it.count ? `<span class="item-ct">${esc(it.count)}</span>` : ''}
-        </div>`;
-      });
-      body += `</div></div>`;
-    }
-
-    // ── Brooke loading list (shown under Team 2) ──
-    if (team === 't2') {
-      const bi = (b.vehicles || {})['Brooke'] || [];
-      if (bi.length) {
-        body += `<div class="bsec">
-          <div class="bsec-label">Loading &mdash; Brooke / personal car</div>
-          <div class="item-list">`;
-        bi.forEach(it => {
-          body += `<div class="item-row">
-            <span class="item-name">${esc(it.item)}</span>
-            ${it.count ? `<span class="item-ct">${esc(it.count)}</span>` : ''}
-          </div>`;
-        });
-        body += `</div></div>`;
-      }
-    }
-
   } else {
-    // ── INSTALL TEAM ──
-    const b = installBrief;
+    const mb = morningBrief;
 
-    // Date + crew
-    body += `<div class="bsec">
-      <div class="bsec-label">Today${b.date ? ' &mdash; ' + esc(b.date) : ''}</div>`;
-    (b.crew || []).forEach(c => {
-      body += `<div class="crew-row">
-        <span class="crew-name">${esc(c.member)}</span>
-        ${c.vehicle ? `<span class="crew-vehicle">${esc(c.vehicle)}</span>` : ''}
-      </div>`;
-    });
-    body += `</div>`;
+    // ── Date header ──
+    if (mb.date) {
+      body += `<div class="bsec"><div class="bsec-label">${esc(mb.date)}</div></div>`;
+    }
 
-    // Client + job notes
-    if (b.client || (b.job_notes||[]).length) {
-      body += `<div class="bsec"><div class="bsec-label">Job</div>`;
-      if (b.client) body += `<div class="crew-row"><span class="crew-name">${esc(b.client)}</span></div>`;
-      (b.job_notes||[]).forEach(n => { body += `<div class="note-item">${esc(n)}</div>`; });
+    // ── Team-specific notes ───────────────────────────────────
+    let teamNotes = [];
+    if      (team === 't1') teamNotes = mb.team1_notes  || [];
+    else if (team === 't2') teamNotes = mb.team2_notes  || [];
+    else if (team === 't3') teamNotes = mb.team3_notes  || [];
+
+    const mgrNotes = mb.manager_notes || [];
+
+    if (teamNotes.length || mgrNotes.length) {
+      body += `<div class="bsec"><div class="bsec-label">Daily Notes</div>`;
+      teamNotes.forEach(n => { body += `<div class="note-item">${esc(n)}</div>`; });
+      mgrNotes.forEach(n  => { body += `<div class="note-item note-mgr">&#128337; ${esc(n)}</div>`; });
       body += `</div>`;
     }
 
-    // Day notes (office hours, See David, etc.)
-    const dnotes = (b.day_notes || []).filter(n => n.trim());
-    if (dnotes.length) {
-      body += `<div class="bsec"><div class="bsec-label">Day notes</div>`;
-      dnotes.forEach(n => { body += `<div class="note-item">${esc(n)}</div>`; });
+    // ── All-Crew section (shown on every team's brief) ────────
+    const ac = mb.all_crew || {};
+    const hasTimeOff = (ac.time_off||[]).length > 0;
+    const hasBdays   = (ac.birthdays||[]).length > 0;
+    const hasEvents  = (ac.special_events||[]).length > 0;
+
+    if (hasTimeOff || hasBdays || hasEvents) {
+      body += `<div class="bsec bsec-allcrew"><div class="bsec-label">All Crew</div>`;
+
+      if (hasTimeOff) {
+        body += `<div class="bsec-sublabel">&#127774; Time Off</div>`;
+        ac.time_off.forEach(t => {
+          body += `<div class="note-item"><strong>${esc(t.name)}</strong> &mdash; ${esc(t.dates)}</div>`;
+        });
+      }
+
+      if (hasBdays) {
+        const todayBdays    = ac.birthdays.filter(b => b.isToday);
+        const upcomingBdays = ac.birthdays.filter(b => !b.isToday);
+        body += `<div class="bsec-sublabel">&#127874; Birthdays</div>`;
+        todayBdays.forEach(b => {
+          body += `<div class="note-item note-bday"><strong>${esc(b.name)}</strong> &mdash; Today! &#127874;</div>`;
+        });
+        upcomingBdays.forEach(b => {
+          body += `<div class="note-item">&#127874; It's ${esc(b.name)}'s birthday on ${esc(b.date)}!</div>`;
+        });
+      }
+
+      if (hasEvents) {
+        body += `<div class="bsec-sublabel">&#128197; Upcoming</div>`;
+        ac.special_events.forEach(e => {
+          body += `<div class="note-item">${esc(e.title)} <span style="opacity:0.65;font-size:11px">${esc(e.date)}</span></div>`;
+        });
+      }
+
       body += `</div>`;
     }
 
-    // Dump rules
-    if ((b.dump_rules||[]).length) {
-      body += `<div class="bsec"><div class="bsec-label">Dump rules</div>`;
-      b.dump_rules.forEach(d => {
-        body += `<div class="note-item hi">${esc(d.rule)}`;
-        if (d.address) body += ` <span style="font-family:'DM Mono',monospace;font-size:9px;opacity:0.7">&mdash; ${esc(d.address)}</span>`;
-        body += `</div>`;
-      });
-      body += `</div>`;
-    }
-
-    // Plants list
-    if ((b.plants||[]).length) {
-      body += `<div class="bsec"><div class="bsec-label">Plants list</div><div class="item-list">`;
-      b.plants.forEach(p => {
-        body += `<div class="plant-row">
-          <span class="plant-name">${esc(p.name)}</span>
-          <span class="plant-badge">
-            ${p.count ? `<span class="plant-ct">&times;${esc(p.count)}</span>` : ''}
-            ${p.size  ? `<span class="plant-size">${esc(p.size)}</span>` : ''}
-          </span>
-          ${p.source ? `<span class="plant-src">${esc(p.source)}</span>` : ''}
-        </div>`;
-      });
-      body += `</div></div>`;
+    if (!body.includes('bsec')) {
+      body += `<div class="brief-empty">No notes for today.</div>`;
     }
   }
 
+  const dotCls = morningBrief ? 'live' : '';
   wrap.className = `brief-wrap${isOpen ? ' open' : ''}`;
   wrap.innerHTML = `
     <div class="brief-toggle" onclick="toggleBrief('${team}')">
