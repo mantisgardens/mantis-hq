@@ -44,8 +44,7 @@
 
 <div class="status-bar">
   <div class="status-pill"><div class="sdot" id="sd-clients"></div><span id="sl-clients">Clients: not loaded</span></div>
-  <div class="status-pill"><div class="sdot" id="sd-maint"></div><span id="sl-maint">Maintenance brief: not loaded</span></div>
-  <div class="status-pill"><div class="sdot" id="sd-install"></div><span id="sl-install">Install brief: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-brief"></div><span id="sl-brief">Morning brief: not loaded</span></div>
   <div class="status-pill"><div class="sdot" id="sd-calendar"></div><span id="sl-calendar">Calendar: not loaded</span></div>
   <button class="reload-btn" id="reload-btn" onclick="clearCrewCache(); loadAll()">&#8635; Load all sheets</button>
 </div>
@@ -65,7 +64,7 @@
     <span class="ttab-hrs" id="t2-hrs">—</span>
   </div>
   <div class="team-tab" id="ttab-t3" onclick="switchTeam('t3')">
-    <span class="ttab-dot t3"></span>Install
+    <span class="ttab-dot t3"></span>Maint+
     <span class="ttab-hrs" id="t3-hrs">—</span>
   </div>
 </div>
