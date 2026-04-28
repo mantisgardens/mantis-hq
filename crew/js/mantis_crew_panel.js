@@ -1764,14 +1764,21 @@ async function loadHistory(clientName) {
   document.getElementById('htab-ct-fert').textContent    = '';
 
   try {
-    // Look up folderId — cache keys may use calendar event titles (e.g. "Paiva - Monthly")
-    // while clientName is the sheet name (e.g. "Paiva, Michael & Alison").
-    // Search all cache entries for any key that shares a surname with clientName.
-    let folderId = _folderIdCache[clientName] || '';
-    if (!folderId) {
-      const nameLow = clientName.toLowerCase();
-      const surnames = clientName.split(/[\s,&]+/).filter(p => p.length > 2)
-                                 .map(p => p.toLowerCase());
+    // Resolution order for folderId:
+    // 1. Drive Folder ID stored in the Client Database sheet (most reliable)
+    // 2. _folderIdCache populated from previous prefetch or history load
+    // 3. Empty string — server will do fuzzy search and write ID back to sheet
+    let folderId = '';
+    const sc = sheetClients.find(c => {
+      const n = (c['Name(s)'] || '').toLowerCase().trim();
+      const q = clientName.toLowerCase().trim();
+      return n === q || n.includes(q) || q.includes(n);
+    });
+    if (sc && sc['Drive Folder ID']) {
+      folderId = sc['Drive Folder ID'];
+    } else {
+      // Fall back to runtime cache (handles name format mismatches)
+      const surnames = clientName.split(/[\s,&]+/).filter(p => p.length > 2).map(p => p.toLowerCase());
       for (const [key, id] of Object.entries(_folderIdCache)) {
         const keyLow = key.toLowerCase();
         if (surnames.some(s => keyLow.includes(s))) { folderId = id; break; }
