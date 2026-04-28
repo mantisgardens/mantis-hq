@@ -573,6 +573,10 @@ function renderJobs(cid, jobs, teamClass) {
                     onclick="openWorkRecord('${j.id}');event.stopPropagation()">
               &#128203; Work record
             </button>
+            <button class="abtn abtn-history"
+                    onclick="openHistoryForClient('${esc(j.client)}');event.stopPropagation()">
+              &#128196; History
+            </button>
             <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
                     onclick="toggleChecklist('${j.id}');event.stopPropagation()"
                     style="display:none">
@@ -1617,4 +1621,373 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// =============================================================
+// SECTION 19 — SERVICE HISTORY
+// openHistory()            — opens modal, populates client list
+// openHistoryForClient(name) — opens modal pre-selected to client
+// loadHistory(clientName)  — fetches + renders history
+// switchHistoryTab(tab)    — switches Notes/Records/Fertilizers
+// filterHistory(query)     — real-time keyword search across all
+// closeHistory()           — closes the modal
+// =============================================================
+
+let _historyData       = null;   // last fetched history payload
+let _historyClient     = '';     // currently loaded client name
+let _historyTab        = 'notes'; // active tab
+let _historyQuery      = '';     // current search string
+
+// ── Open / close ──────────────────────────────────────────────
+function openHistory() {
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function openHistoryForClient(clientName) {
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (clientName) {
+    const matched = _matchClientName(clientName);
+    const selName = matched || clientName;
+    document.getElementById('history-client-select').value = selName;
+    loadHistory(selName);
+  }
+}
+
+// Try to find the closest sheetClient name to a calendar event title
+function _matchClientName(calName) {
+  if (!sheetClients.length) return null;
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const calNorm = norm(calName);
+
+  // Helper to check a name against all sheet clients
+  function findMatch(nameToCheck) {
+    const n = norm(nameToCheck);
+    return sheetClients.find(c => {
+      const cn = norm(c['Name(s)'] || c['name'] || '');
+      return cn === n || cn.includes(n) || n.includes(cn);
+    });
+  }
+
+  // 1. Exact norm match
+  const exact = sheetClients.find(c =>
+    norm(c['Name(s)'] || c['name'] || '') === calNorm
+  );
+  if (exact) return exact['Name(s)'] || exact['name'];
+
+  // 2. Direct contains match
+  const contains = findMatch(calName);
+  if (contains) return contains['Name(s)'] || contains['name'];
+
+  // 3. For compound names split on " & ", try each person's surname
+  const people = calName.split(/\s*&\s*/);
+  for (const person of people) {
+    const surname = person.trim().split(/[\s,]+/)[0];
+    if (surname && surname.length > 2) {
+      const m = sheetClients.find(c => {
+        const cn = c['Name(s)'] || c['name'] || '';
+        return cn.toLowerCase().includes(surname.toLowerCase());
+      });
+      if (m) return m['Name(s)'] || m['name'];
+    }
+  }
+
+  // 4. Word overlap fallback
+  const calWords = calNorm.split(' ').filter(w => w.length > 2);
+  let best = null, bestScore = 0;
+  sheetClients.forEach(c => {
+    const n = c['Name(s)'] || c['name'] || '';
+    const cWords = norm(n).split(' ').filter(w => w.length > 2);
+    const overlap = calWords.filter(w => cWords.includes(w)).length;
+    if (overlap > bestScore) { bestScore = overlap; best = n; }
+  });
+  return bestScore >= 1 ? best : null;
+}
+
+function closeHistory() {
+  document.getElementById('history-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeHistoryOutside(e) {
+  if (e.target.id === 'history-modal') closeHistory();
+}
+
+function _populateHistorySelect() {
+  const sel = document.getElementById('history-client-select');
+  // Clear all but the placeholder and reset to it
+  while (sel.options.length > 1) sel.remove(1);
+  sel.value = '';
+  // Add all active clients sorted alphabetically
+  const sorted = [...sheetClients].sort((a, b) => {
+    const na = (a['Name(s)'] || a['name'] || '').toLowerCase();
+    const nb = (b['Name(s)'] || b['name'] || '').toLowerCase();
+    return na.localeCompare(nb);
+  });
+  sorted.forEach(c => {
+    const name = c['Name(s)'] || c['name'] || '';
+    if (!name) return;
+    const opt  = document.createElement('option');
+    opt.value       = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Load history for a client ──────────────────────────────────
+async function loadHistory(clientName) {
+  if (!clientName) {
+    document.getElementById('history-body').innerHTML =
+      '<div class="history-empty">Select a client above to view their service history.</div>';
+    document.getElementById('history-tabs').style.display       = 'none';
+    document.getElementById('history-search-wrap').style.display = 'none';
+    document.getElementById('history-client-label').textContent  = '';
+    return;
+  }
+
+  _historyClient = clientName;
+  _historyQuery  = '';
+  _historyData   = null;   // clear stale data immediately
+  document.getElementById('history-search').value           = '';
+  document.getElementById('history-search-clear').style.display = 'none';
+  document.getElementById('history-client-label').textContent   = clientName;
+  document.getElementById('history-body').innerHTML =
+    '<div class="history-loading"><div class="history-spinner"></div>Loading history for ' + esc(clientName) + '…</div>';
+  document.getElementById('history-tabs').style.display        = 'none';
+  document.getElementById('history-search-wrap').style.display = 'none';
+  // Reset tab counts so stale numbers don't show if load fails
+  document.getElementById('htab-ct-notes').textContent   = '';
+  document.getElementById('htab-ct-records').textContent = '';
+  document.getElementById('htab-ct-fert').textContent    = '';
+
+  try {
+    // Look up folderId — cache keys may use calendar event titles (e.g. "Paiva - Monthly")
+    // while clientName is the sheet name (e.g. "Paiva, Michael & Alison").
+    // Search all cache entries for any key that shares a surname with clientName.
+    let folderId = _folderIdCache[clientName] || '';
+    if (!folderId) {
+      const nameLow = clientName.toLowerCase();
+      const surnames = clientName.split(/[\s,&]+/).filter(p => p.length > 2)
+                                 .map(p => p.toLowerCase());
+      for (const [key, id] of Object.entries(_folderIdCache)) {
+        const keyLow = key.toLowerCase();
+        if (surnames.some(s => keyLow.includes(s))) { folderId = id; break; }
+      }
+    }
+    const idToken  = sessionStorage.getItem('mg_id_token') || '';
+    const authParam = idToken
+      ? `&id_token=${encodeURIComponent(idToken)}`
+      : `&key=${encodeURIComponent(KEY)}`;
+    const url = `${SCRIPT_URL}?action=service_history${authParam}`
+              + `&client=${encodeURIComponent(clientName)}`
+              + `&folderId=${encodeURIComponent(folderId)}`
+              + `&_=${Date.now()}`;
+
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    _historyData = data;
+    _historyTab  = 'notes';
+
+    // Show tabs + search
+    document.getElementById('history-tabs').style.display        = 'flex';
+    document.getElementById('history-search-wrap').style.display = 'flex';
+
+    // Update tab counts
+    document.getElementById('htab-ct-notes').textContent   = data.notes.length       || '';
+    document.getElementById('htab-ct-records').textContent = data.workRecords.length  || '';
+    document.getElementById('htab-ct-fert').textContent    = data.fertilizers.length  || '';
+
+    // Reset tab highlight
+    document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+    document.getElementById('htab-notes').classList.add('active');
+
+    _renderHistoryTab();
+
+    // Prefetch folder ID for future work record submits
+    if (data.folderId && !_folderIdCache[clientName]) {
+      _folderIdCache[clientName] = data.folderId;
+    }
+
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      `<div class="history-error">&#9888; Could not load history: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────
+function switchHistoryTab(tab) {
+  _historyTab = tab;
+  document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+  document.getElementById('htab-' + tab).classList.add('active');
+  _renderHistoryTab();
+}
+
+// ── Search / filter ───────────────────────────────────────────
+function filterHistory(query) {
+  _historyQuery = query.toLowerCase().trim();
+  document.getElementById('history-search-clear').style.display =
+    _historyQuery ? '' : 'none';
+  _renderHistoryTab();
+}
+
+function clearHistorySearch() {
+  document.getElementById('history-search').value = '';
+  filterHistory('');
+}
+
+// ── Render current tab with current search query ──────────────
+function _renderHistoryTab() {
+  if (!_historyData) return;
+  const body = document.getElementById('history-body');
+  const q    = _historyQuery;
+
+  if (_historyTab === 'notes') {
+    _renderNotes(body, q);
+  } else if (_historyTab === 'records') {
+    _renderWorkRecords(body, q);
+  } else {
+    _renderFertilizers(body, q);
+  }
+}
+
+// highlight matching text in a string
+function _hl(text, q) {
+  if (!q || !text) return esc(text);
+  const safe  = esc(text);
+  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return safe.replace(new RegExp(`(${safeQ})`, 'gi'),
+    '<mark class="hl">$1</mark>');
+}
+
+// ── Notes tab ────────────────────────────────────────────────
+function _renderNotes(body, q) {
+  let notes = _historyData.notes || [];
+  if (q) {
+    notes = notes.filter(n =>
+      n.text.toLowerCase().includes(q) ||
+      n.date.toLowerCase().includes(q)
+    );
+  }
+
+  if (!notes.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No notes match <strong>${esc(q)}</strong></div>`
+      : '<div class="history-empty">No service notes found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = notes.map((n, i) => `
+    <div class="hn-card" id="hn-${i}" onclick="toggleNote(${i})">
+      <div class="hn-header">
+        <div class="hn-date">${esc(n.date)}</div>
+        <div class="hn-arrow">&#8250;</div>
+      </div>
+      <div class="hn-body">
+        <p class="hn-text">${_hl(n.text, q)}</p>
+      </div>
+    </div>
+  `).join('');
+
+  // Auto-expand all when searching
+  if (q) {
+    body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+  }
+}
+
+function toggleNote(i) {
+  const card = document.getElementById('hn-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Work Records tab ─────────────────────────────────────────
+function _renderWorkRecords(body, q) {
+  let recs = _historyData.workRecords || [];
+  if (q) {
+    recs = recs.filter(r =>
+      r.date.toLowerCase().includes(q)           ||
+      r.team.toLowerCase().includes(q)           ||
+      r.workers.toLowerCase().includes(q)        ||
+      r.fertilizers.toLowerCase().includes(q)    ||
+      r.materials.toLowerCase().includes(q)      ||
+      r.serviceNotes.toLowerCase().includes(q)   ||
+      r.internalNotes.toLowerCase().includes(q)
+    );
+  }
+
+  if (!recs.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No records match <strong>${esc(q)}</strong></div>`
+      : '<div class="history-empty">No work records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = recs.map((r, i) => `
+    <div class="hr-card open" id="hr-${i}">
+      <div class="hr-header" onclick="toggleRecord(${i})">
+        <div class="hr-meta">
+          <span class="hr-date">${esc(r.date)}</span>
+          <span class="hr-team">${esc(r.team)}</span>
+          ${r.hours ? `<span class="hr-hours">${esc(r.hours)} hrs</span>` : ''}
+        </div>
+        ${r.serviceNotes ? `<div class="hr-preview">${_hl(r.serviceNotes.slice(0,90) + (r.serviceNotes.length > 90 ? '…' : ''), q)}</div>` : ''}
+        <div class="hn-arrow">&#8250;</div>
+      </div>
+      <div class="hr-body">
+        ${r.workers       ? `<div class="hr-row"><span class="hr-label">Crew</span><span class="hr-val">${_hl(r.workers, q)}</span></div>` : ''}
+        ${r.fertilizers   ? `<div class="hr-row"><span class="hr-label">&#127807; Fertilizers</span><span class="hr-val fert-val">${_hl(r.fertilizers, q)}</span></div>` : ''}
+        ${r.materials     ? `<div class="hr-row"><span class="hr-label">&#128295; Materials</span><span class="hr-val">${_hl(r.materials, q)}</span></div>` : ''}
+        ${r.serviceNotes  ? `<div class="hr-row"><span class="hr-label">Service Notes</span><span class="hr-val">${_hl(r.serviceNotes, q)}</span></div>` : ''}
+        ${r.internalNotes ? `<div class="hr-row"><span class="hr-label" style="color:var(--rd)">Internal</span><span class="hr-val" style="color:var(--rd)">${_hl(r.internalNotes, q)}</span></div>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  if (q) {
+    body.querySelectorAll('.hr-card').forEach(c => c.classList.add('open'));
+  }
+}
+
+function toggleRecord(i) {
+  const card = document.getElementById('hr-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Fertilizers tab ──────────────────────────────────────────
+function _renderFertilizers(body, q) {
+  let entries = _historyData.fertilizers || [];
+  if (q) {
+    entries = entries.filter(e =>
+      e.date.toLowerCase().includes(q) ||
+      e.items.some(it =>
+        it.name.toLowerCase().includes(q) ||
+        it.qty.toLowerCase().includes(q)
+      )
+    );
+  }
+
+  if (!entries.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No fertilizers match <strong>${esc(q)}</strong></div>`
+      : '<div class="history-empty">No fertilizer records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map(e => `
+    <div class="hf-entry">
+      <div class="hf-date">${esc(e.date)}</div>
+      <div class="hf-items">
+        ${e.items.map(it => `
+          <div class="hf-item">
+            <span class="hf-name">${_hl(it.name, q)}</span>
+            ${it.qty ? `<span class="hf-qty">${_hl(it.qty, q)}${it.unit ? ' ' + esc(it.unit) : ''}</span>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
 }
