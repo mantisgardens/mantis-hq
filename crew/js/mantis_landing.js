@@ -60,7 +60,7 @@ function initGoogleSignIn() {
     { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
   );
 
-  safePrompt();
+  google.accounts.id.prompt();
 }
 
 // Called by Google after successful sign-in with a JWT credential
@@ -172,31 +172,6 @@ function goTo(dest) {
 // SECTION 6 — STARTUP
 // =============================================================
 
-// Guard against multiple simultaneous google.accounts.id.prompt() calls
-// which throw "Only one navigator.credentials.get request may be outstanding"
-let _gisPromptPending = false;
-function safePrompt() {
-  if (_gisPromptPending) return;
-  _gisPromptPending = true;
-  try {
-    google.accounts.id.prompt(notification => {
-      _gisPromptPending = false;
-    });
-  } catch(e) {
-    _gisPromptPending = false;
-    console.warn('GIS prompt suppressed:', e.message);
-  }
-}
-
-window.addEventListener('load', () => {
-  if (typeof google !== 'undefined' && google.accounts) {
-    initGoogleSignIn();
-  } else {
-    const gisScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
-    if (gisScript) gisScript.addEventListener('load', initGoogleSignIn);
-  }
-});
-
 // Show timeout message if redirected here due to inactivity
 if (sessionStorage.getItem('mg_timeout') === '1') {
   sessionStorage.removeItem('mg_timeout');
@@ -207,43 +182,53 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
   }
 }
 
-// Skip login if a valid localStorage session exists (persists across window close)
-// On resume, session_timeout uses sessionStorage — seed it from localStorage.
-(function checkPersistedSession() {
-  const auth   = localStorage.getItem('mg_auth');
-  const expiry = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
-  const name   = localStorage.getItem('mg_user_name')  || '';
-  const email  = localStorage.getItem('mg_user_email') || '';
+// Check for a valid persisted localStorage session (survives window close)
+const _persistedAuth   = localStorage.getItem('mg_auth');
+const _persistedExpiry = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
+const _persistedName   = localStorage.getItem('mg_user_name')  || '';
+const _persistedEmail  = localStorage.getItem('mg_user_email') || '';
+const _hasPersistedSession = _persistedAuth === '1' && Date.now() < _persistedExpiry;
 
-  if (auth === '1' && Date.now() < expiry) {
-    // Seed sessionStorage so session_timeout.js and the crew panel work normally
-    sessionStorage.setItem('mg_auth',       '1');
-    sessionStorage.setItem('mg_user_email', email);
-    sessionStorage.setItem('mg_user_name',  name);
-    setupHome(name);
-    show('home');
-    // Silently ask Google for a fresh ID token in the background.
-    // Uses safePrompt() to prevent collision with initGoogleSignIn's prompt().
-    window.addEventListener('load', () => {
-      if (typeof google !== 'undefined' && google.accounts) {
-        google.accounts.id.initialize({
-          client_id:   CLIENT_ID,
-          callback:    function(resp) {
-            if (resp && resp.credential) {
-              sessionStorage.setItem('mg_id_token', resp.credential);
-            }
-          },
-          auto_select: true,
-        });
-        safePrompt();
-      }
+if (_hasPersistedSession) {
+  // Seed sessionStorage so session_timeout.js and the crew panel work normally
+  sessionStorage.setItem('mg_auth',       '1');
+  sessionStorage.setItem('mg_user_email', _persistedEmail);
+  sessionStorage.setItem('mg_user_name',  _persistedName);
+  setupHome(_persistedName);
+  show('home');
+
+  // Initialize GIS once and do a silent prompt to get a fresh ID token.
+  // We do NOT call initGoogleSignIn() here — that would double-initialize.
+  window.addEventListener('load', () => {
+    if (typeof google === 'undefined' || !google.accounts) return;
+    google.accounts.id.initialize({
+      client_id:   CLIENT_ID,
+      callback:    function(resp) {
+        if (resp && resp.credential) {
+          sessionStorage.setItem('mg_id_token', resp.credential);
+        }
+      },
+      auto_select: true,
     });
-  } else {
-    // Expired or no persisted session — clear stale localStorage and show login
-    localStorage.removeItem('mg_auth');
-    localStorage.removeItem('mg_user_email');
-    localStorage.removeItem('mg_user_name');
-    localStorage.removeItem('mg_auth_expiry');
-    show('login');
-  }
-})();
+    // Silent prompt only — no UI shown to the user
+    google.accounts.id.prompt();
+  });
+
+} else {
+  // No valid persisted session — clear stale localStorage and show login
+  localStorage.removeItem('mg_auth');
+  localStorage.removeItem('mg_user_email');
+  localStorage.removeItem('mg_user_name');
+  localStorage.removeItem('mg_auth_expiry');
+  show('login');
+
+  // Initialize GIS for the login screen
+  window.addEventListener('load', () => {
+    if (typeof google !== 'undefined' && google.accounts) {
+      initGoogleSignIn();
+    } else {
+      const gisScript = document.querySelector('script[src*="accounts.google.com/gsi"]');
+      if (gisScript) gisScript.addEventListener('load', initGoogleSignIn);
+    }
+  });
+}
