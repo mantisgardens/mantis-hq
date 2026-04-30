@@ -119,9 +119,8 @@ function setStatus(id, state, msg) {
 
 async function loadAll() {
   document.getElementById('reload-btn').disabled = true;
-  // Re-show status bar during reload so crew can see progress
-  const statusBar = document.querySelector('.status-bar');
-  if (statusBar) statusBar.style.display = '';
+  // Re-show status pills during reload so crew can see progress
+  document.querySelectorAll('.status-pill').forEach(p => p.style.display = '');
   setStatus('clients',  'loading', 'Clients: loading...');
   setStatus('brief',    'loading', 'Morning brief: loading...');
   setStatus('calendar', 'loading', 'Calendar: loading...');
@@ -220,14 +219,16 @@ async function loadAll() {
 
   document.getElementById('reload-btn').disabled = false;
 
-  // ── Hide status bar if all items loaded successfully ─────────
-  // If any item has an error the bar stays visible so crew can see it.
-  // A small delay lets the final status text render before hiding.
+  // ── Hide status pills when all loaded successfully ────────────
+  // The reload button always stays visible so crew can force-refresh
+  // if David updates the calendar early morning.
+  // If any pill has an error, all pills stay visible.
   setTimeout(() => {
-    const dots = document.querySelectorAll('.sdot');
+    const dots   = document.querySelectorAll('.sdot');
     const allLive = Array.from(dots).every(d => d.classList.contains('live'));
-    const bar = document.querySelector('.status-bar');
-    if (bar) bar.style.display = allLive ? 'none' : '';
+    document.querySelectorAll('.status-pill').forEach(p => {
+      p.style.display = allLive ? 'none' : '';
+    });
   }, 800);
 
   // ── Debug panel (set display:none -> block on the div to enable) ──
@@ -715,9 +716,12 @@ function doSignOut() {
 
 // ── Cache clear (called by the reload button) ────────────────
 function clearCrewCache() {
+  // Clear client-side sessionStorage cache
   Object.keys(sessionStorage)
     .filter(k => k.startsWith('mg_cache_'))
     .forEach(k => sessionStorage.removeItem(k));
+  // Also bust server-side CacheService so force-reload gets truly fresh data
+  apiFetch('clear_server_cache').catch(() => {});
 }
 
 // ── Session timeout — 10 hours inactivity for crew ───────────
