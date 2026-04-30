@@ -1667,12 +1667,26 @@ function _matchClientName(calName) {
   const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   const calNorm = norm(calName);
 
-  // Helper to check a name against all sheet clients
+  // Helper to check a name against all sheet clients using word overlap
+  // Avoids substring false positives (e.g. "Len" matching "Helen")
   function findMatch(nameToCheck) {
-    const n = norm(nameToCheck);
+    const n      = norm(nameToCheck);
+    const nWords = n.split(/\s+/).filter(w => w.length > 2);
+    if (!nWords.length) return null;
+    // Exact norm match
+    const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === n);
+    if (exact) return exact;
+    // One name fully contains the other as complete words only
     return sheetClients.find(c => {
-      const cn = norm(c['Name(s)'] || c['name'] || '');
-      return cn === n || cn.includes(n) || n.includes(cn);
+      const cn      = norm(c['Name(s)'] || c['name'] || '');
+      const cnWords = cn.split(/\s+/);
+      // All words of the shorter name must appear as complete words in the longer
+      if (n.length <= cn.length) {
+        return nWords.every(w => cnWords.includes(w));
+      } else {
+        const cnW = cnWords.filter(w => w.length > 2);
+        return cnW.every(w => nWords.includes(w));
+      }
     });
   }
 
@@ -1687,13 +1701,17 @@ function _matchClientName(calName) {
   if (contains) return contains['Name(s)'] || contains['name'];
 
   // 3. For compound names split on " & ", try each person's surname
+  // Use whole-word matching only — substring matching causes false positives
+  // e.g. "Len" matching "Helen" via .includes()
   const people = calName.split(/\s*&\s*/);
   for (const person of people) {
     const surname = person.trim().split(/[\s,]+/)[0];
     if (surname && surname.length > 2) {
+      const surnameLow = surname.toLowerCase();
       const m = sheetClients.find(c => {
         const cn = c['Name(s)'] || c['name'] || '';
-        return cn.toLowerCase().includes(surname.toLowerCase());
+        // Split into words and check for exact word match only
+        return cn.toLowerCase().split(/[\s,&]+/).includes(surnameLow);
       });
       if (m) return m['Name(s)'] || m['name'];
     }
