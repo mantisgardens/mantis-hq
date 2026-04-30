@@ -569,19 +569,19 @@ function renderJobs(cid, jobs, teamClass) {
                     onclick="toggleJobStatus('${j.id}');event.stopPropagation()">
               ${statuses[j.id]==='done' ? '&#10003; Done' : statuses[j.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
             </button>
-            <button class="abtn" id="wr-btn-${j.id}"
-                    style="background:var(--b3);color:var(--b);border-color:var(--b4)"
-                    onclick="openWorkRecord('${j.id}');event.stopPropagation()">
-              &#128203; Work record
-            </button>
             <button class="abtn abtn-history"
                     onclick="openHistoryForClient('${esc(j.client)}');event.stopPropagation()">
-              &#128196; History
+              &#128196; Historical Data
             </button>
             <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
                     onclick="toggleChecklist('${j.id}');event.stopPropagation()"
                     style="display:none">
               &#9989; Checklist
+            </button>
+            <button class="abtn" id="wr-btn-${j.id}"
+                    style="background:var(--b3);color:var(--b);border-color:var(--b4)"
+                    onclick="openWorkRecord('${j.id}');event.stopPropagation()">
+              &#128203; Create Work Record
             </button>
             <button class="abtn abtn-hide" onclick="hideJob('${j.id}');event.stopPropagation()">&#8722; Minimize</button>
           </div>` : ''}
