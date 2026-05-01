@@ -229,12 +229,12 @@
   </div><!-- end checklist-body -->
 </div><!-- end checklist-panel -->
 
-<!-- ── Service History Modal ── -->
+<!-- ── Historical Data Modal ── -->
 <div class="modal-overlay" id="history-modal" onclick="closeHistoryOutside(event)">
   <div class="modal modal-history">
     <div class="modal-header">
       <div>
-        <div class="modal-title">Service History</div>
+        <div class="modal-title">Historical Data</div>
         <div class="modal-client" id="history-client-label"></div>
       </div>
       <button class="modal-close" onclick="closeHistory()">&#10005;</button>
@@ -251,27 +251,30 @@
     <div class="history-search-wrap" id="history-search-wrap" style="display:none">
       <span class="history-search-icon">&#128269;</span>
       <input class="history-search" id="history-search" type="text"
-             placeholder="Search notes, fertilizers, materials…"
+             placeholder="Search notes, fertilizers, labor…"
              oninput="filterHistory(this.value)"/>
       <button class="history-search-clear" id="history-search-clear"
               onclick="clearHistorySearch()" style="display:none">&#10005;</button>
     </div>
 
-    <!-- Tab bar -->
+    <!-- Tab bar: Notes → Fertilizer → Labor → Photos -->
     <div class="history-tabs" id="history-tabs" style="display:none">
-      <button class="htab active" id="htab-notes"    onclick="switchHistoryTab('notes')">
+      <button class="htab active" id="htab-notes"   onclick="switchHistoryTab('notes')">
         &#128196; Notes <span class="htab-ct" id="htab-ct-notes"></span>
       </button>
-      <button class="htab" id="htab-records"  onclick="switchHistoryTab('records')">
-        &#128203; Work Records <span class="htab-ct" id="htab-ct-records"></span>
+      <button class="htab" id="htab-fert"    onclick="switchHistoryTab('fert')">
+        &#127807; Fertilizer <span class="htab-ct" id="htab-ct-fert"></span>
       </button>
-      <button class="htab" id="htab-fert"     onclick="switchHistoryTab('fert')">
-        &#127807; Fertilizers <span class="htab-ct" id="htab-ct-fert"></span>
+      <button class="htab" id="htab-records" onclick="switchHistoryTab('records')">
+        &#128203; Labor <span class="htab-ct" id="htab-ct-records"></span>
+      </button>
+      <button class="htab" id="htab-photos"  onclick="switchHistoryTab('photos')">
+        &#128247; Photos <span class="htab-ct" id="htab-ct-photos"></span>
       </button>
     </div>
 
-    <div class="history-body" id="history-body">
-      <div class="history-empty">Select a client above to view their service history.</div>
+    <div class="modal-body" id="history-body">
+      <div class="history-empty">Select a client above to view their historical data.</div>
     </div>
   </div>
 </div>
@@ -279,10 +282,10 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../config.js?v=10"></script>
-<script src="js/mantis_config.js?v=10"></script>
-<script src="js/session_timeout.js?v=10"></script>
-<script src="js/mantis_data_loader.js?v=10"></script>
-<script src="js/mantis_crew_panel.js?v=11"></script>
+<script src="../config.js?v=15"></script>
+<script src="js/mantis_config.js?v=15"></script>
+<script src="js/session_timeout.js?v=15"></script>
+<script src="js/mantis_data_loader.js?v=15"></script>
+<script src="js/mantis_crew_panel.js?v=15"></script>
 </body>
 </html>
