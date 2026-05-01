@@ -54,6 +54,7 @@ let currentDay   = null;
 
 let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, t3:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
+let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 
 
 // =============================================================
@@ -65,9 +66,10 @@ let clientCache  = {}, sheetClients = [], morningBrief = null;
 // ── API ───────────────────────────────────────────────────────
 // Cache TTLs (milliseconds)
 const CACHE_TTL = {
-  active_clients:   10 * 60 * 1000,   // 10 min  — client list rarely changes during a day
-  morning_brief:     5 * 60 * 1000,   //  5 min  — cached for fast navigation returns; busted by reload button
-  schedule:          3 * 60 * 1000,   //  3 min  — calendar most likely to change
+  active_clients:   10 * 60 * 1000,
+  morning_brief:     5 * 60 * 1000,
+  schedule:          3 * 60 * 1000,
+  crew_teams:       60 * 60 * 1000,   // 60 min — team rosters change rarely
 };
 
 async function apiFetch(action, extra) {
@@ -132,6 +134,7 @@ async function loadAll() {
     apiFetch('active_clients'),
     delay(300).then(() => apiFetch('schedule', '&weeks=2')),
     delay(600).then(() => apiFetch('morning_brief')),
+    delay(900).then(() => apiFetch('crew_teams')),
   ]);
 
   // ── Clients ──
@@ -215,6 +218,22 @@ async function loadAll() {
     setStatus('brief', 'live', `Morning brief: loaded${detail}`);
   } else {
     setStatus('brief', 'error', `Morning brief: ${results[2].reason && results[2].reason.message}`);
+  }
+
+  // ── Crew teams (silent — no status pill) ──
+  if (results[3] && results[3].status === 'fulfilled') {
+    crewTeams = results[3].value;
+    // Rebuild crew datalist now that we have names
+    const dl = document.getElementById('dl-crew-global');
+    if (dl) {
+      dl.innerHTML = '';
+      const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[])];
+      allNames.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
   }
 
   document.getElementById('reload-btn').disabled = false;
@@ -822,106 +841,92 @@ function openWorkRecord(jobId) {
   if (!job) return;
 
   currentJobId   = jobId;
-
-  // Checklist state persists per job — reset happens on submit
   currentJobData = job;
 
-  // Determine team name
-  const teamName = d.t1 && d.t1.find(j=>j.id===jobId) ? 'Maintenance — Team 1'
-                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 'Maintenance — Team 2'
+  // Determine team
+  const teamKey  = d.t1 && d.t1.find(j=>j.id===jobId) ? 't1'
+                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2' : 't3';
+  const teamName = teamKey === 't1' ? 'Maintenance — Team 1'
+                 : teamKey === 't2' ? 'Maintenance — Team 2'
                  : 'Install Team';
 
-  // Set header
   document.getElementById('modal-title').textContent  = 'Work Record';
   document.getElementById('modal-client').textContent = job.client + (job.addr ? '  ·  ' + job.addr : '');
   document.getElementById('wr-team').value  = teamName;
   document.getElementById('wr-date').value  = currentDay;
 
   // Reset form
-  document.getElementById('workers-list').innerHTML        = '';
-  document.getElementById('fert-list').innerHTML           = '';
+  document.getElementById('workers-list').innerHTML         = '';
+  document.getElementById('fert-list').innerHTML            = '';
   document.getElementById('other-materials-list').innerHTML = '';
-  document.getElementById('wr-service-notes').value        = '';
-  document.getElementById('wr-internal-notes').value       = '';
-  document.getElementById('photo-previews').innerHTML      = '';
+  document.getElementById('wr-service-notes').value         = '';
+  document.getElementById('wr-internal-notes').value        = '';
+  document.getElementById('photo-previews').innerHTML       = '';
   photoFiles = [];
 
-  // Restore saved data if exists
+  // Ensure crew name datalist exists
+  _ensureCrewDatalist();
+
+  // Show modal immediately
+  document.getElementById('work-modal').classList.add('open');
+
+  // Restore saved draft if exists
   const saved = savedRecords[jobId];
-  if (saved) {
-    (saved.workers       || []).forEach(w => addWorker(w.name, w.hours));
-    (saved.fertilizers   || []).forEach(f => addFert(f.item, f.qty, f.unit));
-    (saved.otherMaterials|| []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
-    // Legacy: if old record only had 'materials', restore into otherMaterials
+  if (saved && !saved.submitted) {
+    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours));
+    (saved.fertilizers    || []).forEach(f => addFert(f.item, f.qty, f.unit));
+    (saved.otherMaterials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
     if (!saved.fertilizers && !saved.otherMaterials) {
       (saved.materials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
     }
     document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
     document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
+    return;
   }
 
-  // Show modal now so the crew member sees it open immediately
-  document.getElementById('work-modal').classList.add('open');
-
-  // Load service data (fertilizers + irrigation) if not yet available,
-  // showing a brief loading message in the fert/materials sections.
-  const fertList  = document.getElementById('fert-list');
-  const irrList   = document.getElementById('other-materials-list');
+  // Load service data (fert/materials lists) then auto-populate
+  const fertList = document.getElementById('fert-list');
+  const irrList  = document.getElementById('other-materials-list');
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
 
-  if (needsLoad && typeof loadServiceData === 'function') {
-    // Show loading placeholder in both sections
-    const loadingHtml = `<div class="sm-loading-row">
-      <span class="sm-spinner"></span> Loading product list…
-    </div>`;
-    if (!fertList.children.length) fertList.innerHTML  = loadingHtml;
-    if (!irrList.children.length)  irrList.innerHTML   = loadingHtml;
+  const afterServiceDataLoaded = () => {
+    refreshFertDatalist();
 
+    // ── Auto-populate workers from today's team brief ──────
+    const brief = _historyData && _historyData._teamBrief;  // not available here
+    // Use the team's crew names from the morning brief all_crew list if available
+    const teamWorkers = _getTeamWorkers(teamKey);
+    if (teamWorkers.length) {
+      teamWorkers.forEach(name => addWorker(name, ''));
+    } else {
+      addWorker();  // blank row if no names available
+    }
+
+    // ── Auto-populate fertilizers from most recent visit ───
+    // Fetch from Historical Data sheet in background
+    _prefillLastFertilizers(job.client, fertList, irrList);
+  };
+
+  if (needsLoad && typeof loadServiceData === 'function') {
+    const loadingHtml = `<div class="sm-loading-row"><span class="sm-spinner"></span> Loading…</div>`;
+    fertList.innerHTML = loadingHtml;
+    irrList.innerHTML  = loadingHtml;
     loadServiceData()
       .then(() => {
-        // Clear loading placeholders and populate rows
-        if (fertList.querySelector('.sm-loading-row'))  fertList.innerHTML  = '';
-        if (irrList.querySelector('.sm-loading-row'))   irrList.innerHTML   = '';
-        refreshFertDatalist();
-        if (!fertList.children.length)  addFert();
-        if (!irrList.children.length)   addOtherMaterial();
+        if (fertList.querySelector('.sm-loading-row')) fertList.innerHTML = '';
+        if (irrList.querySelector('.sm-loading-row'))  irrList.innerHTML  = '';
+        afterServiceDataLoaded();
       })
       .catch(() => {
-        // On failure fall back to hardcoded list
-        if (fertList.querySelector('.sm-loading-row'))  fertList.innerHTML  = '';
-        if (irrList.querySelector('.sm-loading-row'))   irrList.innerHTML   = '';
-        refreshFertDatalist();
-        if (!fertList.children.length)  addFert();
-        if (!irrList.children.length)   addOtherMaterial();
+        if (fertList.querySelector('.sm-loading-row')) fertList.innerHTML = '';
+        if (irrList.querySelector('.sm-loading-row'))  irrList.innerHTML  = '';
+        afterServiceDataLoaded();
       });
   } else {
-    // Data already loaded — populate immediately
-    refreshFertDatalist();
-    if (!fertList.children.length)  addFert();
-    if (!irrList.children.length)   addOtherMaterial();
+    afterServiceDataLoaded();
   }
 
-  // (modal open is handled above so we skip the duplicate call below)
-  return;
-
-  // Update submit button state based on whether record was already submitted
-  const submitBtn = document.getElementById('wr-submit-btn');
-  const alreadySubmitted = saved && saved.submitted && saved.recordId;
-  if (submitBtn) {
-    submitBtn.disabled    = !!alreadySubmitted;
-    submitBtn.textContent = alreadySubmitted ? 'Submitted ✓' : 'Submit';
-    submitBtn.style.background   = alreadySubmitted ? 'var(--g)'  : '';
-    submitBtn.style.borderColor  = alreadySubmitted ? 'var(--g)'  : '';
-    submitBtn.style.opacity      = alreadySubmitted ? '0.6'       : '';
-    submitBtn.style.cursor       = alreadySubmitted ? 'not-allowed' : '';
-  }
-
-  // (modal already opened above)
-  document.body.style.overflow = 'hidden';
-
-  // Pre-fetch the client's Drive folder ID in the background.
-  // By the time the crew member fills the form and hits Submit,
-  // the folder is already found — skipping the slowest step.
+  // Prefetch folder ID in background for faster submit
   if (job.client && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
     prefetchClientFolder(job.client);
   }
@@ -929,6 +934,95 @@ function openWorkRecord(jobId) {
 
 // Cache: client name → Drive folder ID
 const _folderIdCache = {};
+
+// ── Crew name datalist ────────────────────────────────────────
+// Built from the all_crew list returned by getMorningBrief.
+// Gives crew members name autocomplete when filling out workers.
+
+function _ensureCrewDatalist() {
+  if (document.getElementById('dl-crew-global')) return;
+  const dl = document.createElement('datalist');
+  dl.id = 'dl-crew-global';
+  const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[])];
+  allNames.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    dl.appendChild(opt);
+  });
+  document.body.appendChild(dl);
+}
+
+// ── Get workers for a team from crewTeams ─────────────────────
+
+function _getTeamWorkers(teamKey) {
+  return crewTeams[teamKey] || [];
+}
+
+// ── Auto-fill last fertilizers ────────────────────────────────
+// Fetches the most recent Fertilizer entry from the Historical Data
+// sheet and pre-populates the fert rows. Falls back to one empty row.
+
+function _prefillLastFertilizers(clientName, fertList, irrList) {
+  // Look up Hist Data ID from sheetClients
+  const sc = sheetClients.find(c => {
+    const n = (c['Name(s)'] || '').toLowerCase().trim();
+    const q = (clientName || '').toLowerCase().trim();
+    return n === q || n.includes(q) || q.includes(n);
+  });
+  const histId   = sc && sc['Hist Data ID']    ? sc['Hist Data ID'].trim()    : '';
+  const folderId = sc && sc['Drive Folder ID'] ? sc['Drive Folder ID'].trim() : '';
+
+  if (!histId && !folderId) {
+    // No IDs — just add blank rows
+    if (!fertList.children.length) addFert();
+    if (!irrList.children.length)  addOtherMaterial();
+    return;
+  }
+
+  const idToken   = sessionStorage.getItem('mg_id_token') || '';
+  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+  const url = `${SCRIPT_URL}?action=historical_data${authParam}`
+            + `&client=${encodeURIComponent(clientName)}`
+            + `&histId=${encodeURIComponent(histId)}`
+            + `&folderId=${encodeURIComponent(folderId)}`
+            + `&_=${Date.now()}`;
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error || !data.fertilizers || !data.fertilizers.length) {
+        if (!fertList.children.length) addFert();
+        if (!irrList.children.length)  addOtherMaterial();
+        return;
+      }
+      // Most recent fertilizer entry (already sorted newest-first)
+      const lastEntry = data.fertilizers[0];
+      const products  = (lastEntry.product || '').split(' | ').filter(p => p.trim());
+      if (products.length) {
+        products.forEach(p => {
+          // Parse "Product Name — qty unit"
+          const dashIdx = p.indexOf(' — ');
+          if (dashIdx > 0) {
+            const item    = p.slice(0, dashIdx).trim();
+            const qtyPart = p.slice(dashIdx + 3).trim();
+            const parts   = qtyPart.split(' ');
+            const qty     = parts[0] || '';
+            const unit    = parts.slice(1).join(' ') || '';
+            addFert(item, qty, unit);
+          } else {
+            addFert(p.trim());
+          }
+        });
+      } else {
+        addFert();
+      }
+      if (!irrList.children.length) addOtherMaterial();
+    })
+    .catch(() => {
+      if (!fertList.children.length) addFert();
+      if (!irrList.children.length)  addOtherMaterial();
+    });
+}
 
 function prefetchClientFolder(clientName) {
   if (_folderIdCache[clientName]) return;  // already cached
@@ -971,6 +1065,7 @@ function addWorker(name, hours) {
   row.className = 'dynamic-row';
   row.innerHTML = `
     <input class="form-input" type="text" placeholder="Worker name"
+           list="dl-crew-global" autocomplete="off"
            value="${esc(name||'')}" style="flex:2"/>
     <input class="form-input" type="number" placeholder="Hours" min="0" step="0.25"
            value="${hours||''}" style="flex:1;max-width:90px"/>
@@ -1259,6 +1354,13 @@ function collectFormData() {
   const fertilizers    = collectRows('fert-list');
   const otherMaterials = collectRows('other-materials-list');
 
+  // Look up Hist Data ID and folder ID from client database for fast submit
+  const _sc = sheetClients.find(c => {
+    const n = (c['Name(s)'] || '').toLowerCase().trim();
+    const q = (currentJobData ? currentJobData.client : '').toLowerCase().trim();
+    return n === q || n.includes(q) || q.includes(n);
+  });
+
   return {
     jobId:         currentJobId,
     client:        currentJobData ? currentJobData.client : '',
@@ -1271,7 +1373,9 @@ function collectFormData() {
     serviceNotes:  document.getElementById('wr-service-notes').value.trim(),
     internalNotes: document.getElementById('wr-internal-notes').value.trim(),
     photoCount:    photoFiles.length,
-    savedAt:       new Date().toISOString()
+    savedAt:       new Date().toISOString(),
+    histId:        (_sc && _sc['Hist Data ID'])    ? _sc['Hist Data ID'].trim()    : '',
+    cachedFolderId:(_sc && _sc['Drive Folder ID']) ? _sc['Drive Folder ID'].trim() : '',
   };
 }
 
@@ -1359,25 +1463,19 @@ function submitForm() {
       })
       .then(json => {
         if (json.error) throw new Error(json.error);
-        data.recordId = json.recordId;
-        // Clear checklist state for this job — it's been submitted
+        // Clear checklist state for this job
         if (currentJobId) delete _checklistStates[currentJobId];
         const panel = document.getElementById('checklist-panel');
         if (panel) {
           panel.style.display = 'none';
           panel.dataset.jobId = '';
-          if (panel.querySelector('.checklist-body')) {
-            panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
-          }
+          panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
         }
-        // Keep a minimal stub so the Submit button stays disabled on reopen.
-        // Strip heavy fields (photos, notes) to keep localStorage lean.
         savedRecords[currentJobId] = {
-          submitted:  true,
-          recordId:   json.recordId,
-          savedAt:    new Date().toISOString(),
-          client:     data.client || '',
-          date:       data.date   || '',
+          submitted: true,
+          savedAt:   new Date().toISOString(),
+          client:    data.client || '',
+          date:      data.date   || '',
         };
         safeLocalSave();
 
@@ -1385,7 +1483,7 @@ function submitForm() {
         if (currentJobId) setSt(currentJobId, 'done');
         setTimeout(() => {
           hideSubmitProgress();
-          showToast('Submitted ✓  ' + json.recordId);
+          showToast('Submitted ✓');
           setTimeout(() => closeModal(), 1500);
         }, 600);
       })
@@ -1628,19 +1726,408 @@ function showToast(msg) {
 }
 
 // =============================================================
-// SECTION 19 — SERVICE HISTORY
-// openHistory()            — opens modal, populates client list
-// openHistoryForClient(name) — opens modal pre-selected to client
-// loadHistory(clientName)  — fetches + renders history
-// switchHistoryTab(tab)    — switches Notes/Records/Fertilizers
-// filterHistory(query)     — real-time keyword search across all
-// closeHistory()           — closes the modal
+// SECTION 19 — HISTORICAL DATA PANEL
+// openHistory()               — opens modal, populates client list
+// openHistoryForClient(name)  — opens modal pre-selected to client
+// loadHistory(clientName)     — fetches from Historical Data sheet
+// switchHistoryTab(tab)       — switches Notes/Fert/Labor/Photos
+// filterHistory(query)        — real-time search across all tabs
+// closeHistory()              — closes the modal
 // =============================================================
 
-let _historyData       = null;   // last fetched history payload
-let _historyClient     = '';     // currently loaded client name
-let _historyTab        = 'notes'; // active tab
-let _historyQuery      = '';     // current search string
+let _historyData   = null;    // last fetched payload
+let _historyClient = '';      // currently loaded client name
+let _historyTab    = 'notes'; // active tab: 'notes'|'fert'|'records'|'photos'
+let _historyQuery  = '';      // current search string
+
+// ── Open / close ──────────────────────────────────────────────
+
+function openHistory() {
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function openHistoryForClient(clientName) {
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (clientName) {
+    const matched = _matchClientName(clientName);
+    const selName = matched || clientName;
+    const sel = document.getElementById('history-client-select');
+    if (sel) sel.value = selName;
+    loadHistory(selName);
+  }
+}
+
+function closeHistory() {
+  document.getElementById('history-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeHistoryOutside(e) {
+  if (e.target.id === 'history-modal') closeHistory();
+}
+
+// ── Client name matching (calendar title → sheet client name) ─
+
+function _matchClientName(calName) {
+  if (!sheetClients.length) return null;
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const calNorm = norm(calName);
+
+  function findMatch(nameToCheck) {
+    const n      = norm(nameToCheck);
+    const nWords = n.split(/\s+/).filter(w => w.length > 2);
+    if (!nWords.length) return null;
+    const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === n);
+    if (exact) return exact;
+    return sheetClients.find(c => {
+      const cn      = norm(c['Name(s)'] || c['name'] || '');
+      const cnWords = cn.split(/\s+/);
+      if (n.length <= cn.length) return nWords.every(w => cnWords.includes(w));
+      const cnW = cnWords.filter(w => w.length > 2);
+      return cnW.every(w => nWords.includes(w));
+    });
+  }
+
+  const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === calNorm);
+  if (exact) return exact['Name(s)'] || exact['name'];
+
+  const contains = findMatch(calName);
+  if (contains) return contains['Name(s)'] || contains['name'];
+
+  const people = calName.split(/\s*&\s*/);
+  for (const person of people) {
+    const surname = person.trim().split(/[\s,]+/)[0];
+    if (surname && surname.length > 2) {
+      const surnameLow = surname.toLowerCase();
+      const m = sheetClients.find(c => {
+        const cn = c['Name(s)'] || c['name'] || '';
+        return cn.toLowerCase().split(/[\s,&]+/).includes(surnameLow);
+      });
+      if (m) return m['Name(s)'] || m['name'];
+    }
+  }
+
+  const calWords = calNorm.split(' ').filter(w => w.length > 2);
+  let best = null, bestScore = 0;
+  sheetClients.forEach(c => {
+    const cWords = norm(c['Name(s)'] || c['name'] || '').split(' ').filter(w => w.length > 2);
+    const overlap = calWords.filter(w => cWords.includes(w)).length;
+    if (overlap > bestScore) { bestScore = overlap; best = c['Name(s)'] || c['name']; }
+  });
+  return bestScore >= 1 ? best : null;
+}
+
+// ── Populate client dropdown ───────────────────────────────────
+
+function _populateHistorySelect() {
+  const sel = document.getElementById('history-client-select');
+  while (sel.options.length > 1) sel.remove(1);
+  sel.value = '';
+  [...sheetClients]
+    .sort((a, b) => (a['Name(s)'] || '').localeCompare(b['Name(s)'] || ''))
+    .forEach(c => {
+      const name = c['Name(s)'] || c['name'] || '';
+      if (!name) return;
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      sel.appendChild(opt);
+    });
+}
+
+// ── Load history ───────────────────────────────────────────────
+
+async function loadHistory(clientName) {
+  if (!clientName) {
+    _historyShowEmpty('Select a client above to view their historical data.');
+    return;
+  }
+
+  _historyClient = clientName;
+  _historyData   = null;
+  _historyQuery  = '';
+
+  const search = document.getElementById('history-search');
+  const clear  = document.getElementById('history-search-clear');
+  const label  = document.getElementById('history-client-label');
+  if (search) search.value = '';
+  if (clear)  clear.style.display  = 'none';
+  if (label)  label.textContent    = clientName;
+
+  document.getElementById('history-tabs').style.display        = 'none';
+  document.getElementById('history-search-wrap').style.display = 'none';
+  ['htab-ct-notes','htab-ct-records','htab-ct-fert','htab-ct-photos'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '';
+  });
+
+  document.getElementById('history-body').innerHTML =
+    `<div class="history-loading"><div class="history-spinner"></div>Loading history for ${esc(clientName)}…</div>`;
+
+  try {
+    // Look up Hist Data ID and folder ID from client database
+    const sc = sheetClients.find(c => {
+      const n = (c['Name(s)'] || '').toLowerCase().trim();
+      const q = clientName.toLowerCase().trim();
+      return n === q || n.includes(q) || q.includes(n);
+    });
+
+    const histId   = (sc && sc['Hist Data ID'])    ? sc['Hist Data ID'].trim()    : '';
+    const folderId = (sc && sc['Drive Folder ID']) ? sc['Drive Folder ID'].trim() : '';
+
+    const idToken   = sessionStorage.getItem('mg_id_token') || '';
+    const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+    const url = `${SCRIPT_URL}?action=historical_data${authParam}`
+              + `&client=${encodeURIComponent(clientName)}`
+              + `&histId=${encodeURIComponent(histId)}`
+              + `&folderId=${encodeURIComponent(folderId)}`
+              + `&_=${Date.now()}`;
+
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    _historyData = data;
+    _historyTab  = 'notes';
+
+    // Show tabs and search
+    document.getElementById('history-tabs').style.display        = 'flex';
+    document.getElementById('history-search-wrap').style.display = 'flex';
+
+    // Update tab counts
+    const nc = document.getElementById('htab-ct-notes');
+    const rc = document.getElementById('htab-ct-records');
+    const fc = document.getElementById('htab-ct-fert');
+    const pc = document.getElementById('htab-ct-photos');
+    if (nc) nc.textContent = (data.notes        || []).length || '';
+    if (rc) rc.textContent = (data.labor        || []).length || '';
+    if (fc) fc.textContent = (data.fertilizers  || []).length || '';
+    if (pc) pc.textContent = Array.isArray(data.photos) && data.photos.length ? data.photos.length : '';
+
+    // Activate Notes tab
+    document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+    const notesTab = document.getElementById('htab-notes');
+    if (notesTab) notesTab.classList.add('active');
+
+    _renderHistoryTab();
+
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      `<div class="history-error">&#9888; Could not load history: ${esc(e.message)}</div>`;
+  }
+}
+
+function _historyShowEmpty(msg) {
+  document.getElementById('history-body').innerHTML =
+    `<div class="history-empty">${esc(msg)}</div>`;
+  document.getElementById('history-tabs').style.display        = 'none';
+  document.getElementById('history-search-wrap').style.display = 'none';
+  const label = document.getElementById('history-client-label');
+  if (label) label.textContent = '';
+}
+
+// ── Tab switching ──────────────────────────────────────────────
+
+function switchHistoryTab(tab) {
+  _historyTab = tab;
+  document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById('htab-' + tab);
+  if (el) el.classList.add('active');
+  _renderHistoryTab();
+}
+
+// ── Search ─────────────────────────────────────────────────────
+
+function filterHistory(query) {
+  _historyQuery = query.toLowerCase().trim();
+  const clear = document.getElementById('history-search-clear');
+  if (clear) clear.style.display = _historyQuery ? '' : 'none';
+  _renderHistoryTab();
+}
+
+function clearHistorySearch() {
+  const search = document.getElementById('history-search');
+  if (search) search.value = '';
+  filterHistory('');
+}
+
+// ── Render dispatcher ──────────────────────────────────────────
+
+function _renderHistoryTab() {
+  if (!_historyData) return;
+  const body = document.getElementById('history-body');
+  const q    = _historyQuery;
+  if      (_historyTab === 'notes')   _renderNotes(body, q);
+  else if (_historyTab === 'fert')    _renderFertilizers(body, q);
+  else if (_historyTab === 'records') _renderLabor(body, q);
+  else if (_historyTab === 'photos')  _renderPhotos(body, q);
+}
+
+// Highlight matching text
+function _hl(text, q) {
+  if (!q || !text) return esc(text);
+  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return esc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark class="hl">$1</mark>');
+}
+
+// ── Notes tab ─────────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the note text.
+
+function _renderNotes(body, q) {
+  let notes = (_historyData.notes || []).filter(n => n.text || n.date);
+  if (q) notes = notes.filter(n =>
+    (n.date  || '').toLowerCase().includes(q) ||
+    (n.text  || '').toLowerCase().includes(q)
+  );
+
+  if (!notes.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No notes match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No service notes found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = notes.map((n, i) => `
+    <div class="hn-card" id="hn-${i}" onclick="toggleNote(${i})">
+      <div class="hn-header">
+        <span class="hn-date">${esc(n.date)}</span>
+        <span class="hn-arrow">&#8250;</span>
+      </div>
+      <div class="hn-body">
+        ${n.text ? `<p class="hn-text">${_hl(n.text, q)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  // Auto-expand all when searching
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function toggleNote(i) {
+  const card = document.getElementById('hn-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Fertilizer tab ────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the products.
+// Multiple products per date are pipe-delimited in the value.
+
+function _renderFertilizers(body, q) {
+  let entries = (_historyData.fertilizers || []).filter(e => e.product || e.date);
+  if (q) entries = entries.filter(e =>
+    (e.date    || '').toLowerCase().includes(q) ||
+    (e.product || '').toLowerCase().includes(q)
+  );
+
+  if (!entries.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No fertilizers match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No fertilizer records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map((e, i) => {
+    // Split pipe-delimited products into individual lines
+    const products = (e.product || '').split(' | ').filter(p => p.trim());
+    const productHTML = products.map(p =>
+      `<div class="hf-item">${_hl(p.trim(), q)}</div>`
+    ).join('');
+    return `
+      <div class="hn-card" id="hf-${i}" onclick="toggleFert(${i})">
+        <div class="hn-header">
+          <span class="hn-date">${esc(e.date)}</span>
+          <span class="hf-preview">${esc(products[0] || '')}${products.length > 1 ? ` +${products.length - 1} more` : ''}</span>
+          <span class="hn-arrow">&#8250;</span>
+        </div>
+        <div class="hn-body hf-body">${productHTML}</div>
+      </div>`;
+  }).join('');
+
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function toggleFert(i) {
+  const card = document.getElementById('hf-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Labor tab ─────────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the description.
+
+function _renderLabor(body, q) {
+  let entries = (_historyData.labor || []).filter(e => e.description || e.date);
+  if (q) entries = entries.filter(e =>
+    (e.date        || '').toLowerCase().includes(q) ||
+    (e.description || '').toLowerCase().includes(q)
+  );
+
+  if (!entries.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No labor records match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No labor records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map((e, i) => {
+    // Split pipe-delimited descriptions
+    const items = (e.description || '').split(' | ').filter(d => d.trim());
+    const itemsHTML = items.map(d =>
+      `<div class="hr-item">${_hl(d.trim(), q)}</div>`
+    ).join('');
+    return `
+      <div class="hn-card" id="hr-${i}" onclick="toggleRecord(${i})">
+        <div class="hn-header">
+          <span class="hn-date">${esc(e.date)}</span>
+          <span class="hr-preview">${esc((items[0] || '').slice(0, 60))}${(items[0] || '').length > 60 || items.length > 1 ? '…' : ''}</span>
+          <span class="hn-arrow">&#8250;</span>
+        </div>
+        <div class="hn-body">${itemsHTML}</div>
+      </div>`;
+  }).join('');
+
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function toggleRecord(i) {
+  const card = document.getElementById('hr-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Photos tab ────────────────────────────────────────────────
+// Flat list of photos with date and filename. Filename links to
+// the file in Google Drive.
+
+function _renderPhotos(body, q) {
+  let photos = (_historyData.photos || []).filter(p => p.fileId || p.filename);
+  if (q) photos = photos.filter(p =>
+    (p.date     || '').toLowerCase().includes(q) ||
+    (p.filename || '').toLowerCase().includes(q)
+  );
+
+  if (!photos.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No photos match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No photos found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="hp-list">` +
+    photos.map(p => {
+      const driveUrl = p.fileId
+        ? `https://drive.google.com/file/d/${esc(p.fileId)}/view`
+        : '#';
+      const name = _hl(p.filename || p.fileId || '(unnamed)', q);
+      return `
+        <div class="hp-row">
+          <span class="hp-date">${esc(p.date)}</span>
+          <a class="hp-link" href="${driveUrl}" target="_blank" rel="noopener">
+            &#128247; ${name}
+          </a>
+        </div>`;
+    }).join('') +
+  `</div>`;
+}
 
 // ── Open / close ──────────────────────────────────────────────
 function openHistory() {
@@ -1668,19 +2155,15 @@ function _matchClientName(calName) {
   const calNorm = norm(calName);
 
   // Helper to check a name against all sheet clients using word overlap
-  // Avoids substring false positives (e.g. "Len" matching "Helen")
   function findMatch(nameToCheck) {
     const n      = norm(nameToCheck);
     const nWords = n.split(/\s+/).filter(w => w.length > 2);
     if (!nWords.length) return null;
-    // Exact norm match
     const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === n);
     if (exact) return exact;
-    // One name fully contains the other as complete words only
     return sheetClients.find(c => {
       const cn      = norm(c['Name(s)'] || c['name'] || '');
       const cnWords = cn.split(/\s+/);
-      // All words of the shorter name must appear as complete words in the longer
       if (n.length <= cn.length) {
         return nWords.every(w => cnWords.includes(w));
       } else {
@@ -1690,19 +2173,14 @@ function _matchClientName(calName) {
     });
   }
 
-  // 1. Exact norm match
   const exact = sheetClients.find(c =>
     norm(c['Name(s)'] || c['name'] || '') === calNorm
   );
   if (exact) return exact['Name(s)'] || exact['name'];
 
-  // 2. Direct contains match
   const contains = findMatch(calName);
   if (contains) return contains['Name(s)'] || contains['name'];
 
-  // 3. For compound names split on " & ", try each person's surname
-  // Use whole-word matching only — substring matching causes false positives
-  // e.g. "Len" matching "Helen" via .includes()
   const people = calName.split(/\s*&\s*/);
   for (const person of people) {
     const surname = person.trim().split(/[\s,]+/)[0];
@@ -1710,14 +2188,12 @@ function _matchClientName(calName) {
       const surnameLow = surname.toLowerCase();
       const m = sheetClients.find(c => {
         const cn = c['Name(s)'] || c['name'] || '';
-        // Split into words and check for exact word match only
         return cn.toLowerCase().split(/[\s,&]+/).includes(surnameLow);
       });
       if (m) return m['Name(s)'] || m['name'];
     }
   }
 
-  // 4. Word overlap fallback
   const calWords = calNorm.split(' ').filter(w => w.length > 2);
   let best = null, bestScore = 0;
   sheetClients.forEach(c => {
@@ -1740,10 +2216,8 @@ function closeHistoryOutside(e) {
 
 function _populateHistorySelect() {
   const sel = document.getElementById('history-client-select');
-  // Clear all but the placeholder and reset to it
   while (sel.options.length > 1) sel.remove(1);
   sel.value = '';
-  // Add all active clients sorted alphabetically
   const sorted = [...sheetClients].sort((a, b) => {
     const na = (a['Name(s)'] || a['name'] || '').toLowerCase();
     const nb = (b['Name(s)'] || b['name'] || '').toLowerCase();
@@ -1752,271 +2226,10 @@ function _populateHistorySelect() {
   sorted.forEach(c => {
     const name = c['Name(s)'] || c['name'] || '';
     if (!name) return;
-    const opt  = document.createElement('option');
-    opt.value       = name;
-    opt.textContent = name;
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = name;
     sel.appendChild(opt);
   });
 }
 
-// ── Load history for a client ──────────────────────────────────
-async function loadHistory(clientName) {
-  if (!clientName) {
-    document.getElementById('history-body').innerHTML =
-      '<div class="history-empty">Select a client above to view their service history.</div>';
-    document.getElementById('history-tabs').style.display       = 'none';
-    document.getElementById('history-search-wrap').style.display = 'none';
-    document.getElementById('history-client-label').textContent  = '';
-    return;
-  }
-
-  _historyClient = clientName;
-  _historyQuery  = '';
-  _historyData   = null;   // clear stale data immediately
-  document.getElementById('history-search').value           = '';
-  document.getElementById('history-search-clear').style.display = 'none';
-  document.getElementById('history-client-label').textContent   = clientName;
-  document.getElementById('history-body').innerHTML =
-    '<div class="history-loading"><div class="history-spinner"></div>Loading history for ' + esc(clientName) + '…</div>';
-  document.getElementById('history-tabs').style.display        = 'none';
-  document.getElementById('history-search-wrap').style.display = 'none';
-  // Reset tab counts so stale numbers don't show if load fails
-  document.getElementById('htab-ct-notes').textContent   = '';
-  document.getElementById('htab-ct-records').textContent = '';
-  document.getElementById('htab-ct-fert').textContent    = '';
-
-  try {
-    // Resolution order for folderId:
-    // 1. Drive Folder ID stored in the Client Database sheet (most reliable)
-    // 2. _folderIdCache populated from previous prefetch or history load
-    // 3. Empty string — server will do fuzzy search and write ID back to sheet
-    let folderId = '';
-    const sc = sheetClients.find(c => {
-      const n = (c['Name(s)'] || '').toLowerCase().trim();
-      const q = clientName.toLowerCase().trim();
-      return n === q || n.includes(q) || q.includes(n);
-    });
-    if (sc && sc['Drive Folder ID']) {
-      folderId = sc['Drive Folder ID'];
-    } else {
-      // Fall back to runtime cache (handles name format mismatches)
-      const surnames = clientName.split(/[\s,&]+/).filter(p => p.length > 2).map(p => p.toLowerCase());
-      for (const [key, id] of Object.entries(_folderIdCache)) {
-        const keyLow = key.toLowerCase();
-        if (surnames.some(s => keyLow.includes(s))) { folderId = id; break; }
-      }
-    }
-    const idToken  = sessionStorage.getItem('mg_id_token') || '';
-    const authParam = idToken
-      ? `&id_token=${encodeURIComponent(idToken)}`
-      : `&key=${encodeURIComponent(KEY)}`;
-    const url = `${SCRIPT_URL}?action=service_history${authParam}`
-              + `&client=${encodeURIComponent(clientName)}`
-              + `&folderId=${encodeURIComponent(folderId)}`
-              + `&_=${Date.now()}`;
-
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-
-    _historyData = data;
-    _historyTab  = 'notes';
-
-    // Show tabs + search
-    document.getElementById('history-tabs').style.display        = 'flex';
-    document.getElementById('history-search-wrap').style.display = 'flex';
-
-    // Update tab counts
-    document.getElementById('htab-ct-notes').textContent   = data.notes.length       || '';
-    document.getElementById('htab-ct-records').textContent = data.workRecords.length  || '';
-    document.getElementById('htab-ct-fert').textContent    = data.fertilizers.length  || '';
-
-    // Reset tab highlight
-    document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
-    document.getElementById('htab-notes').classList.add('active');
-
-    _renderHistoryTab();
-
-    // Prefetch folder ID for future work record submits
-    if (data.folderId && !_folderIdCache[clientName]) {
-      _folderIdCache[clientName] = data.folderId;
-    }
-
-  } catch(e) {
-    document.getElementById('history-body').innerHTML =
-      `<div class="history-error">&#9888; Could not load history: ${esc(e.message)}</div>`;
-  }
-}
-
-// ── Tab switching ─────────────────────────────────────────────
-function switchHistoryTab(tab) {
-  _historyTab = tab;
-  document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
-  document.getElementById('htab-' + tab).classList.add('active');
-  _renderHistoryTab();
-}
-
-// ── Search / filter ───────────────────────────────────────────
-function filterHistory(query) {
-  _historyQuery = query.toLowerCase().trim();
-  document.getElementById('history-search-clear').style.display =
-    _historyQuery ? '' : 'none';
-  _renderHistoryTab();
-}
-
-function clearHistorySearch() {
-  document.getElementById('history-search').value = '';
-  filterHistory('');
-}
-
-// ── Render current tab with current search query ──────────────
-function _renderHistoryTab() {
-  if (!_historyData) return;
-  const body = document.getElementById('history-body');
-  const q    = _historyQuery;
-
-  if (_historyTab === 'notes') {
-    _renderNotes(body, q);
-  } else if (_historyTab === 'records') {
-    _renderWorkRecords(body, q);
-  } else {
-    _renderFertilizers(body, q);
-  }
-}
-
-// highlight matching text in a string
-function _hl(text, q) {
-  if (!q || !text) return esc(text);
-  const safe  = esc(text);
-  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return safe.replace(new RegExp(`(${safeQ})`, 'gi'),
-    '<mark class="hl">$1</mark>');
-}
-
-// ── Notes tab ────────────────────────────────────────────────
-function _renderNotes(body, q) {
-  let notes = _historyData.notes || [];
-  if (q) {
-    notes = notes.filter(n =>
-      n.text.toLowerCase().includes(q) ||
-      n.date.toLowerCase().includes(q)
-    );
-  }
-
-  if (!notes.length) {
-    body.innerHTML = q
-      ? `<div class="history-empty">No notes match <strong>${esc(q)}</strong></div>`
-      : '<div class="history-empty">No service notes found for this client.</div>';
-    return;
-  }
-
-  body.innerHTML = notes.map((n, i) => `
-    <div class="hn-card" id="hn-${i}" onclick="toggleNote(${i})">
-      <div class="hn-header">
-        <div class="hn-date">${esc(n.date)}</div>
-        <div class="hn-arrow">&#8250;</div>
-      </div>
-      <div class="hn-body">
-        <p class="hn-text">${_hl(n.text, q)}</p>
-      </div>
-    </div>
-  `).join('');
-
-  // Auto-expand all when searching
-  if (q) {
-    body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
-  }
-}
-
-function toggleNote(i) {
-  const card = document.getElementById('hn-' + i);
-  if (card) card.classList.toggle('open');
-}
-
-// ── Work Records tab ─────────────────────────────────────────
-function _renderWorkRecords(body, q) {
-  let recs = _historyData.workRecords || [];
-  if (q) {
-    recs = recs.filter(r =>
-      r.date.toLowerCase().includes(q)           ||
-      r.team.toLowerCase().includes(q)           ||
-      r.workers.toLowerCase().includes(q)        ||
-      r.fertilizers.toLowerCase().includes(q)    ||
-      r.materials.toLowerCase().includes(q)      ||
-      r.serviceNotes.toLowerCase().includes(q)   ||
-      r.internalNotes.toLowerCase().includes(q)
-    );
-  }
-
-  if (!recs.length) {
-    body.innerHTML = q
-      ? `<div class="history-empty">No records match <strong>${esc(q)}</strong></div>`
-      : '<div class="history-empty">No work records found for this client.</div>';
-    return;
-  }
-
-  body.innerHTML = recs.map((r, i) => `
-    <div class="hr-card open" id="hr-${i}">
-      <div class="hr-header" onclick="toggleRecord(${i})">
-        <div class="hr-meta">
-          <span class="hr-date">${esc(r.date)}</span>
-          <span class="hr-team">${esc(r.team)}</span>
-          ${r.hours ? `<span class="hr-hours">${esc(r.hours)} hrs</span>` : ''}
-        </div>
-        ${r.serviceNotes ? `<div class="hr-preview">${_hl(r.serviceNotes.slice(0,90) + (r.serviceNotes.length > 90 ? '…' : ''), q)}</div>` : ''}
-        <div class="hn-arrow">&#8250;</div>
-      </div>
-      <div class="hr-body">
-        ${r.workers       ? `<div class="hr-row"><span class="hr-label">Crew</span><span class="hr-val">${_hl(r.workers, q)}</span></div>` : ''}
-        ${r.fertilizers   ? `<div class="hr-row"><span class="hr-label">&#127807; Fertilizers</span><span class="hr-val fert-val">${_hl(r.fertilizers, q)}</span></div>` : ''}
-        ${r.materials     ? `<div class="hr-row"><span class="hr-label">&#128295; Materials</span><span class="hr-val">${_hl(r.materials, q)}</span></div>` : ''}
-        ${r.serviceNotes  ? `<div class="hr-row"><span class="hr-label">Service Notes</span><span class="hr-val">${_hl(r.serviceNotes, q)}</span></div>` : ''}
-        ${r.internalNotes ? `<div class="hr-row"><span class="hr-label" style="color:var(--rd)">Internal</span><span class="hr-val" style="color:var(--rd)">${_hl(r.internalNotes, q)}</span></div>` : ''}
-      </div>
-    </div>
-  `).join('');
-
-  if (q) {
-    body.querySelectorAll('.hr-card').forEach(c => c.classList.add('open'));
-  }
-}
-
-function toggleRecord(i) {
-  const card = document.getElementById('hr-' + i);
-  if (card) card.classList.toggle('open');
-}
-
-// ── Fertilizers tab ──────────────────────────────────────────
-function _renderFertilizers(body, q) {
-  let entries = _historyData.fertilizers || [];
-  if (q) {
-    entries = entries.filter(e =>
-      e.date.toLowerCase().includes(q) ||
-      e.items.some(it =>
-        it.name.toLowerCase().includes(q) ||
-        it.qty.toLowerCase().includes(q)
-      )
-    );
-  }
-
-  if (!entries.length) {
-    body.innerHTML = q
-      ? `<div class="history-empty">No fertilizers match <strong>${esc(q)}</strong></div>`
-      : '<div class="history-empty">No fertilizer records found for this client.</div>';
-    return;
-  }
-
-  body.innerHTML = entries.map(e => `
-    <div class="hf-entry">
-      <div class="hf-date">${esc(e.date)}</div>
-      <div class="hf-items">
-        ${e.items.map(it => `
-          <div class="hf-item">
-            <span class="hf-name">${_hl(it.name, q)}</span>
-            ${it.qty ? `<span class="hf-qty">${_hl(it.qty, q)}${it.unit ? ' ' + esc(it.unit) : ''}</span>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-}
+// ── Load history from Historical Data sheet ───────────────────
