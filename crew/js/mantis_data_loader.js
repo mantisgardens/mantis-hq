@@ -25,7 +25,18 @@ var FERT_PRODUCTS    = [];
 var VEHICLES         = [];
 var POWER_TOOLS      = [];
 var HAND_TOOLS       = [];
-var EVERYDAY_ITEMS   = [];
+var EVERYDAY_ITEMS = [
+  'Water jug', 'Electrolyte packets', 'Trash bags (roll)', 'Tarp (large)', 'Tarp (small)',
+  'Safety glasses', 'Ear plugs', 'Dust masks', '18V batteries (all)',
+  'Colored flags (blue, white, pink)', 'String line + line level',
+  'Spray paint (white, orange)', 'Extension cord 50ft', 'Hose + washing nozzle',
+  'Caution tape', 'Flagging sticks', 'Cones', 'General tool box',
+  'Bar/Chain oil (bottle)', 'Isopropyl dip', 'Vinegar sprayer + mix',
+  'Sluggo', 'Sawzall + pruning blade', 'Blower + batteries',
+  'Ratchet straps x6', 'Jumper cables', 'Contractor hose (Flexzilla)',
+  'Garden hose (Flexzilla)', 'Pressure nozzles x2', 'Cones x3',
+  'Pop-up shade structure', 'Tire inflator', 'Rock dolly',
+];
 var IRRIGATION_ITEMS = [];
 var SPRAY_HEADS      = [];
 
@@ -137,12 +148,12 @@ function applyServiceManualData(data) {
   SPRAY_HEADS      = data.sprayHeads  || [];
 
   const allTools = data.tools || [];
-  POWER_TOOLS    = allTools.filter(t =>
-    t.name.startsWith('\u26a1') || (t.category||'').toLowerCase() === 'power');
-  EVERYDAY_ITEMS = allTools.filter(t => t.name.startsWith('\U0001f4e6'));
-  HAND_TOOLS     = allTools.filter(t =>
-    !t.name.startsWith('\u26a1') && !t.name.startsWith('\U0001f4e6') &&
-    (t.category||'').toLowerCase() !== 'power');
+  // Exclude section header rows (name is just the category title like "⚡  Power Tools")
+  const realTools = allTools.filter(t => t.name && t.brand);
+  POWER_TOOLS    = realTools.filter(t => (t.category||'').toLowerCase() === 'power');
+  HAND_TOOLS     = realTools.filter(t => (t.category||'').toLowerCase() !== 'power');
+  // Note: EVERYDAY_ITEMS is intentionally NOT set here — it comes from the
+  // static array in mantis_equipment_data.js and must not be overwritten.
 }
 
 // ── Apply plant data ──────────────────────────────────────────

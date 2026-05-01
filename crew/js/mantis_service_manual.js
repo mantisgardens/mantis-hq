@@ -314,20 +314,23 @@ function renderEquip() {
   html += `<div class="equip-section">
     <div class="equip-section-title">Power Tools &amp; Equipment</div>
     <div class="tool-grid">`;
-  POWER_TOOLS.forEach(t => {
-    const links = [];
-    if (t.manual)     links.push(`<a class="tool-link" href="${t.manual}" target="_blank" rel="noopener">Product page</a>`);
-    if (t.manual_pdf) links.push(`<a class="tool-link pdf" href="${t.manual_pdf}" target="_blank" rel="noopener">PDF manual</a>`);
-    html += `<div class="tool-card power-card">
+  POWER_TOOLS
+    .filter(t => t.name && !t.name.match(/^⚡\s*Power Tools\s*$/i))  // skip section header row
+    .forEach(t => {
+      const links = [];
+      if (t.page)   links.push(`<a class="tool-link" href="${t.page}" target="_blank" rel="noopener">Product page</a>`);
+      if (t.manual) links.push(`<a class="tool-link pdf" href="${t.manual}" target="_blank" rel="noopener">PDF manual</a>`);
+      const qty = t.qty || t.count;
+      html += `<div class="tool-card power-card">
       <div style="flex:1;min-width:0">
         <div class="tool-name">${esc(t.name)}</div>
         <div class="tool-brand">${esc(t.brand)}</div>
         ${t.serial && t.serial !== '—' ? `<div class="tool-detail">S/N: ${esc(t.serial)}</div>` : ''}
         ${links.length ? `<div class="tool-links">${links.join(' ')}</div>` : ''}
       </div>
-      <div class="tool-count">×${t.count}</div>
+      ${qty ? `<div class="tool-count">×${esc(String(qty))}</div>` : ''}
     </div>`;
-  });
+    });
   html += `</div></div>`;
 
   // Hand tools by category
@@ -348,12 +351,13 @@ function renderEquip() {
       <div class="equip-section-title">${cat.label}</div>
       <div class="tool-grid">`;
     tools.forEach(t => {
+      const qty = t.qty || t.count;
       html += `<div class="tool-card">
         <div>
           <div class="tool-name">${esc(t.name)}</div>
           ${t.detail ? `<div class="tool-detail">${esc(t.detail)}</div>` : ''}
         </div>
-        <div class="tool-count">×${t.count}</div>
+        ${qty ? `<div class="tool-count">×${esc(String(qty))}</div>` : ''}
       </div>`;
     });
     html += `</div></div>`;
