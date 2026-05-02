@@ -15,7 +15,7 @@ const MANTIS_SHARED = {
   // ── Apps Script URL ────────────────────────────────────────
   // Update this after every Apps Script redeployment.
   // Found in: Apps Script → Deploy → Manage deployments → Copy /exec URL
-  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzxI9VPszaZowcYOJ837gil04QwFsw1TQiB47bqFFhk_HI4rFcA8NEvyQsQ7Y1FEZgh6Q/exec",
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyLUAmGutSXoxbLAcrgxJvBVvuRZmOAoUSqAVG2CNPDqaPyBiqhFyJQxCaV2uaoc00aXA/exec",
   
   // ── Google OAuth Client ID ─────────────────────────────────
   // Found in: console.cloud.google.com → APIs & Services → Credentials
