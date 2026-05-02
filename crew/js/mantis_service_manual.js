@@ -1,6 +1,7 @@
 /* =============================================================
    mantis_service_manual.js
    Mantis Gardens — Service Manual Logic & Rendering
+   Data is fetched live from Apps Script via mantis_data_loader.js.
    ============================================================= */
 
 // SECTION 4 — SECTION NAVIGATION
@@ -13,8 +14,10 @@ function showSection(id) {
   document.getElementById('section-' + id).classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
   currentSection = id;
-  // Clear search when switching sections
-  document.getElementById('search-input').value = '';
+  // Clear search and update placeholder when switching sections
+  const inp = document.getElementById('search-input');
+  inp.value = '';
+  inp.placeholder = (id === 'plants') ? 'Search by name, botanical name, or type…' : 'Search…';
   updateCount();
   // Render section content on first visit
   if (id === 'prune') renderPruning();
@@ -31,9 +34,7 @@ function doSearch(q) {
   if (globalSearch) globalSearch.style.display = (currentSection === 'prune') ? 'none' : '';
 
   if (currentSection === 'plants') {
-    // Plant panel has its own search input — delegate to it
-    const inp = document.getElementById('plant-search-input');
-    if (inp) { inp.value = q; plantDoSearch(q); }
+    plantDoSearch(q);
 
   } else if (currentSection === 'fert') {
     let visible = 0;
@@ -79,13 +80,14 @@ let plantSearchResults = [];  // current filtered list
 let plantSelected      = null; // currently shown plant
 
 function renderPlants() {
-  // Wire up search input (idempotent — safe to call multiple times)
-  const inp = document.getElementById('plant-search-input');
-  if (inp && !inp._wired) {
-    inp._wired = true;
-    inp.addEventListener('input', () => plantDoSearch(inp.value));
+  // Wire up the global search input for the plants tab (idempotent)
+  const inp = document.getElementById('search-input');
+  if (inp && !inp._plantWired) {
+    inp._plantWired = true;
     inp.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { inp.value = ''; plantDoSearch(''); }
+      if (e.key === 'Escape' && currentSection === 'plants') {
+        inp.value = ''; plantDoSearch('');
+      }
     });
   }
   plantDoSearch('');
@@ -95,7 +97,7 @@ function plantDoSearch(q) {
   const query  = (q || '').toLowerCase().trim();
   const list   = document.getElementById('plant-results-list');
   const card   = document.getElementById('plant-profile-card');
-  const count  = document.getElementById('plant-result-count');
+  const count  = document.getElementById('search-count');
   if (!list) return;
 
   if (!query) {
@@ -251,9 +253,13 @@ function renderFert() {
       </tr></thead>
       <tbody>`;
     products.forEach(p => {
-      const warn = p.warn ? ' style="background:#fff8f0"' : '';
+      const warn  = p.warn ? ' style="background:#fff8f0"' : '';
+      const links = [];
+      if (p.msds_url) links.push(`<a class="tool-link pdf" href="${p.msds_url}" target="_blank" rel="noopener">SDS</a>`);
+      if (p.info_url) links.push(`<a class="tool-link" href="${p.info_url}" target="_blank" rel="noopener">Product Info</a>`);
+      const linkHtml = links.length ? `<div class="tool-links">${links.join(' ')}</div>` : '';
       html += `<tr data-row="1"${warn}>
-        <td><b>${esc(p.name)}</b>${p.abbrev && p.abbrev !== '—' ? `<br><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--ink3)">${esc(p.abbrev)}</span>` : ''}</td>
+        <td><b>${esc(p.name)}</b>${p.abbrev && p.abbrev !== '—' ? `<br><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--ink3)">${esc(p.abbrev)}</span>` : ''}${linkHtml}</td>
         <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${esc(p.unit)}</td>
         <td>${esc(p.type)}</td>
         <td>${esc(p.use)}</td>
@@ -443,6 +449,9 @@ if (sessionStorage.getItem('mg_auth') !== '1') {
     loginUrl:   'index.html',
     onSignOut:  () => { sessionStorage.clear(); },
   });
+  // Plants is the default tab — set its placeholder on the global search bar
+  const globalSearch = document.getElementById('search-input');
+  if (globalSearch) globalSearch.placeholder = 'Search by name, botanical name, or type…';
   // Data is loaded asynchronously via Apps Script JSON API.
   // initServiceManual() triggers the load and calls
   // renderPlants / renderFert / renderEquip when ready.
