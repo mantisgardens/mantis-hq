@@ -561,7 +561,8 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .history-search-clear:hover{color:var(--ink);background:var(--bg3)}
 
 /* Tab bar */
-.history-tabs{display:flex;gap:0;padding:10px 18px 0;border-bottom:1px solid var(--bg3);flex-shrink:0}
+.history-tabs{display:flex;gap:0;padding:10px 18px 0;border-bottom:1px solid var(--bg3);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.history-tabs::-webkit-scrollbar{display:none}
 .htab{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.07em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid transparent;padding:7px 12px;cursor:pointer;color:var(--ink3);transition:all 0.15s;display:flex;align-items:center;gap:5px;white-space:nowrap}
 .htab:hover{color:var(--ink)}
 .htab.active{color:var(--a);border-bottom-color:var(--a)}
