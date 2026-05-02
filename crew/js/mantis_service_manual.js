@@ -14,14 +14,8 @@ function showSection(id) {
   document.getElementById('section-' + id).classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
   currentSection = id;
-  // Reset all plant filter dropdowns when leaving plants tab
-  if (currentSection !== 'plants') {
-    Object.keys(plantFilters).forEach(k => { plantFilters[k] = ''; });
-    ['pf-fert', 'pf-sun', 'pf-water', 'pf-zone'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.value = ''; el.classList.remove('active'); }
-    });
-  }
+  // Reset all plant filters when leaving the plants tab
+  if (currentSection !== 'plants') clearPlantFilters();
   const inp = document.getElementById('search-input');
   inp.value = '';
   inp.placeholder = (id === 'plants') ? 'Search by name, botanical name, or type…' : 'Search…';
@@ -92,9 +86,24 @@ let plantSelected      = null; // currently shown plant
 
 function applyPlantFilter(key, val) {
   plantFilters[key] = val;
-  // Highlight the select element when a filter is active
   const el = document.getElementById('pf-' + key);
   if (el) el.classList.toggle('active', !!val);
+  // Show clear button wrapper when any filter is active
+  const anyActive = Object.values(plantFilters).some(v => v);
+  const wrap = document.getElementById('pf-clear-wrap');
+  if (wrap) wrap.style.visibility = anyActive ? 'visible' : 'hidden';
+  const q = document.getElementById('search-input').value;
+  plantDoSearch(q);
+}
+
+function clearPlantFilters() {
+  Object.keys(plantFilters).forEach(k => { plantFilters[k] = ''; });
+  ['pf-fert', 'pf-sun', 'pf-water', 'pf-zone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('active'); }
+  });
+  const wrap = document.getElementById('pf-clear-wrap');
+  if (wrap) wrap.style.visibility = 'hidden';
   const q = document.getElementById('search-input').value;
   plantDoSearch(q);
 }
@@ -230,11 +239,12 @@ function plantShowProfile(p) {
 
       <div class="pp-section">
         <div class="pp-section-title">&#127774; Basic Care</div>
-        ${row('Sun',   p.sun)}
-        ${row('Water', p.water)}
-        ${row('Height', p.height)}
-        ${row('Width',  p.width)}
-        ${row('Bloom',  p.bloom)}
+        ${row('Sun',       p.sun)}
+        ${row('Water',     p.water)}
+        ${row('USDA Zone', p.usda_zone)}
+        ${row('Height',    p.height)}
+        ${row('Width',     p.width)}
+        ${row('Bloom',     p.bloom)}
       </div>
 
       <div class="pp-section pp-prune">
