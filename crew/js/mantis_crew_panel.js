@@ -904,7 +904,7 @@ function openWorkRecord(jobId) {
 
     // ── Auto-populate fertilizers from most recent visit ───
     // Fetch from Historical Data sheet in background
-    _prefillLastFertilizers(job.client, fertList, irrList);
+    _prefillLastFertilizers(job.client, fertList, irrList, jobId);
   };
 
   if (needsLoad && typeof loadServiceData === 'function') {
@@ -962,7 +962,7 @@ function _getTeamWorkers(teamKey) {
 // Fetches the most recent Fertilizer entry from the Historical Data
 // sheet and pre-populates the fert rows. Falls back to one empty row.
 
-function _prefillLastFertilizers(clientName, fertList, irrList) {
+function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
   // Look up Hist Data ID from sheetClients
   const sc = sheetClients.find(c => {
     const n = (c['Name(s)'] || '').toLowerCase().trim();
@@ -979,6 +979,11 @@ function _prefillLastFertilizers(clientName, fertList, irrList) {
     return;
   }
 
+  // Show loading message while fetching last visit data
+  const loadingHtml = `<div class="sm-loading-row"><span class="sm-spinner"></span> Loading last visit…</div>`;
+  fertList.innerHTML = loadingHtml;
+  irrList.innerHTML  = loadingHtml;
+
   const idToken   = sessionStorage.getItem('mg_id_token') || '';
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
   const url = `${SCRIPT_URL}?action=historical_data${authParam}`
@@ -990,6 +995,10 @@ function _prefillLastFertilizers(clientName, fertList, irrList) {
   fetch(url)
     .then(r => r.json())
     .then(data => {
+      // Discard if user has already moved to a different job
+      if (currentJobId !== jobId) return;
+      fertList.innerHTML = '';
+      irrList.innerHTML  = '';
       if (data.error || !data.fertilizers || !data.fertilizers.length) {
         if (!fertList.children.length) addFert();
         if (!irrList.children.length)  addOtherMaterial();
@@ -1019,6 +1028,9 @@ function _prefillLastFertilizers(clientName, fertList, irrList) {
       if (!irrList.children.length) addOtherMaterial();
     })
     .catch(() => {
+      if (currentJobId !== jobId) return;
+      fertList.innerHTML = '';
+      irrList.innerHTML  = '';
       if (!fertList.children.length) addFert();
       if (!irrList.children.length)  addOtherMaterial();
     });
