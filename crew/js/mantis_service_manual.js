@@ -14,7 +14,14 @@ function showSection(id) {
   document.getElementById('section-' + id).classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
   currentSection = id;
-  // Clear search and update placeholder when switching sections
+  // Reset all plant filter dropdowns when leaving plants tab
+  if (currentSection !== 'plants') {
+    Object.keys(plantFilters).forEach(k => { plantFilters[k] = ''; });
+    ['pf-fert', 'pf-sun', 'pf-water', 'pf-zone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('active'); }
+    });
+  }
   const inp = document.getElementById('search-input');
   inp.value = '';
   inp.placeholder = (id === 'plants') ? 'Search by name, botanical name, or type…' : 'Search…';
@@ -75,9 +82,22 @@ function updateCount(shown, total) {
 // SECTION 6 — PLANT RENDERING (search + profile card)
 // =============================================================
 
+// ── Filter state ───────────────────────────────────────────
+// Each key holds the currently selected value string, or '' for no filter.
+const plantFilters = { fert: '', sun: '', water: '', zone: '' };
+
 // ── State ─────────────────────────────────────────────────
 let plantSearchResults = [];  // current filtered list
 let plantSelected      = null; // currently shown plant
+
+function applyPlantFilter(key, val) {
+  plantFilters[key] = val;
+  // Highlight the select element when a filter is active
+  const el = document.getElementById('pf-' + key);
+  if (el) el.classList.toggle('active', !!val);
+  const q = document.getElementById('search-input').value;
+  plantDoSearch(q);
+}
 
 function renderPlants() {
   // Wire up the global search input for the plants tab (idempotent)
@@ -100,13 +120,40 @@ function plantDoSearch(q) {
   const count  = document.getElementById('search-count');
   if (!list) return;
 
-  if (!query) {
-    plantSearchResults = PLANTS;
-  } else {
-    plantSearchResults = PLANTS.filter(p =>
-      (p.botanical + ' ' + p.common + ' ' + p.plant_type).toLowerCase().includes(query)
-    );
+  // Start with all plants, apply text filter
+  let results = query
+    ? PLANTS.filter(p => (p.botanical + ' ' + p.common + ' ' + p.plant_type).toLowerCase().includes(query))
+    : PLANTS.slice();
+
+  // Apply active dropdown filters (AND across categories)
+  if (plantFilters.fert) {
+    results = results.filter(p => p.fert_cat === plantFilters.fert);
   }
+  if (plantFilters.sun) {
+    results = results.filter(p => {
+      const vals = (p.sun || '').split(',').map(s => s.trim());
+      return vals.includes(plantFilters.sun);
+    });
+  }
+  if (plantFilters.water) {
+    results = results.filter(p => {
+      const vals = (p.water || '').split(',').map(s => s.trim());
+      return vals.includes(plantFilters.water);
+    });
+  }
+  if (plantFilters.zone) {
+    const n = parseInt(plantFilters.zone);
+    results = results.filter(p => {
+      const zStr = (p.usda_zone || '').trim();
+      if (!zStr) return false;
+      const parts = zStr.split('-');
+      const min = parseInt(parts[0]);
+      const max = parseInt(parts[1] || parts[0]);
+      return !isNaN(min) && !isNaN(max) && n >= min && n <= max;
+    });
+  }
+
+  plantSearchResults = results;
 
   // Update count
   if (count) count.textContent = plantSearchResults.length + ' plants';

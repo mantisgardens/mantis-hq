@@ -81,9 +81,9 @@ function hideLoadingOverlay() {
 function loadServiceData() {
   return new Promise((resolve, reject) => {
 
-    // v4 = added msds_url and info_url to fertilizers
-    const smKey        = 'sm_data_v4_'    + SCRIPT_URL_SM.slice(-12);
-    const plantKey     = 'plant_data_v4_' + SCRIPT_URL_SM.slice(-12);
+    // v6 = fixed usda_zone date conversion in GS
+    const smKey        = 'sm_data_v6_'    + SCRIPT_URL_SM.slice(-12);
+    const plantKey     = 'plant_data_v6_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
 
