@@ -11,7 +11,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Service Manual</title>
-  <link rel="stylesheet" href="css/mantis_service_manual.css?v=17"/>
+  <link rel="stylesheet" href="css/mantis_service_manual.css?v=21"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
@@ -80,6 +80,44 @@
 <!-- ══ SECTION: PLANT DATABASE ══ -->
 <div id="section-plants" class="section active">
 
+  <!-- Filter bar -->
+  <div class="plant-filters" id="plant-filters">
+    <select class="pf-select" id="pf-fert" onchange="applyPlantFilter('fert', this.value)">
+      <option value="">All Fertilizer Types</option>
+      <option>Acid</option>
+      <option>Acid Loving</option>
+      <option>Bulb</option>
+      <option>Citrus</option>
+      <option>Fruit</option>
+      <option>Low-water</option>
+      <option>Native</option>
+      <option>Other</option>
+      <option>Roses</option>
+      <option>Tropical</option>
+    </select>
+    <select class="pf-select" id="pf-sun" onchange="applyPlantFilter('sun', this.value)">
+      <option value="">All Sun</option>
+      <option>Full</option>
+      <option>Half</option>
+      <option>Shade</option>
+      <option>Deep Shade</option>
+    </select>
+    <select class="pf-select" id="pf-water" onchange="applyPlantFilter('water', this.value)">
+      <option value="">All Water</option>
+      <option>Very Low</option>
+      <option>Low</option>
+      <option>Medium</option>
+      <option>High</option>
+      <option>Extra in Summer</option>
+    </select>
+    <select class="pf-select" id="pf-zone" onchange="applyPlantFilter('zone', this.value)">
+      <option value="">All Zones</option>
+      <option>2</option><option>3</option><option>4</option><option>5</option>
+      <option>6</option><option>7</option><option>8</option><option>9</option>
+      <option>10</option><option>11</option>
+    </select>
+  </div>
+
   <!-- Split pane: results list | profile card -->
   <div class="plant-lookup-pane">
     <div class="plant-results-col">
@@ -110,10 +148,10 @@
   <div id="prune-content"></div>
 </div>
 
-<script src="../config.js?v=17"></script>
-<script src="js/mantis_config.js?v=17"></script>
-<script src="js/session_timeout.js?v=17"></script>
-<script src="js/mantis_data_loader.js?v=17"></script>
-  <script src="js/mantis_service_manual.js?v=17"></script>
+<script src="../config.js?v=21"></script>
+<script src="js/mantis_config.js?v=21"></script>
+<script src="js/session_timeout.js?v=21"></script>
+<script src="js/mantis_data_loader.js?v=21"></script>
+  <script src="js/mantis_service_manual.js?v=21"></script>
 </body>
 </html>
