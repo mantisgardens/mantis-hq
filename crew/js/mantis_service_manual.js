@@ -1,9 +1,6 @@
 /* =============================================================
    mantis_service_manual.js
    Mantis Gardens — Service Manual Logic & Rendering
-   Data lives in:
-     mantis_plants_data.js     — plant & fertilizer records
-     mantis_equipment_data.js  — vehicles, tools, daily items
    ============================================================= */
 
 // SECTION 4 — SECTION NAVIGATION
