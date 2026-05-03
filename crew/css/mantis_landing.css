@@ -145,6 +145,8 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   padding:8px 20px;display:flex;align-items:center;justify-content:space-between;
 }
 .date-greeting{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);letter-spacing:0.06em}
+.date-category{font-family:"DM Mono",monospace;font-size:10px;color:var(--g2);font-weight:600;letter-spacing:0.08em;background:var(--bg3);border-radius:4px;padding:2px 7px;empty-cells:hide}
+.date-category:empty{display:none}
 .date-today{font-family:"DM Mono",monospace;font-size:11px;color:var(--g2);font-weight:500;letter-spacing:0.06em}
 
 .home-body{

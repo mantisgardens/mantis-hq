@@ -146,6 +146,10 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 /* All-crew section */
 .bsec-allcrew{border-top:2px solid var(--g);padding-top:10px;margin-top:10px;background:var(--bg2);border-radius:6px;padding:10px;margin-top:12px}
 .bsec-team{background:var(--bg2);border-radius:6px;padding:10px;border-top:2px solid var(--b,#2980b9)}
+.bsec-manager{background:#fdf6ec;border-radius:6px;padding:10px;border-top:2px solid #e07b00;margin-top:4px}
+.bsec-manager .bsec-label{font-size:10px;color:#b05f00;border-bottom-color:#e8c080;font-weight:700;letter-spacing:0.14em}
+.bsec-leads{background:#f0f4ff;border-radius:6px;padding:10px;border-top:2px solid #3a5fc8;margin-top:4px}
+.bsec-leads .bsec-label{font-size:10px;color:#2c4aa8;border-bottom-color:#a8bcf0;font-weight:700;letter-spacing:0.14em}
 .bsec-allcrew .bsec-label{font-size:10px;color:var(--g);border-bottom-color:var(--g);font-weight:700;letter-spacing:0.14em}
 .bsec-team .bsec-label{font-size:10px;color:var(--b,#2980b9);border-bottom-color:var(--b,#2980b9);font-weight:700;letter-spacing:0.14em}
 .bsec-sublabel{font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);margin:8px 0 3px;opacity:0.8}
