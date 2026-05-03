@@ -166,7 +166,7 @@ function setupHome(userName, crewCategory) {
   document.getElementById('greeting-text').textContent =
     greeting + (name ? ', ' + name.split(' ')[0] : '');
   const catEl = document.getElementById('greeting-category');
-  if (catEl) catEl.textContent = cat || '';
+  if (catEl) catEl.textContent = cat ? 'Team: ' + cat : '';
   document.getElementById('today-text').textContent =
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 }
