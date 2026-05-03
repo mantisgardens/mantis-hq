@@ -84,7 +84,7 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 }
 .ttab-dot.t1{background:#4a90d9}
 .ttab-dot.t2{background:#5cb85c}
-.ttab-dot.t3{background:#e8a838}
+.ttab-dot.install{background:#e8a838}
 .ttab-hrs{
   font-size:11px;font-weight:400;color:var(--ink3);
   background:var(--bg3);border-radius:10px;
@@ -103,14 +103,14 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 }
 .team-header.t1{background:#eef3f9}
 .team-header.t2{background:#eef4ec}
-.team-header.t3{background:#fdf5ec}
+.team-header.install{background:#fdf5ec}
 .team-name{font-family:"Fraunces",serif;font-size:13px;font-weight:400;font-style:italic}
-.t1 .team-name{color:#1a3a5c}.t2 .team-name{color:var(--g)}.t3 .team-name{color:var(--t3)}
+.t1 .team-name{color:#1a3a5c}.t2 .team-name{color:var(--g)}.install .team-name{color:var(--t3)}
 .team-meta{font-family:"DM Mono",monospace;font-size:9px;color:var(--ink3);margin-top:1px}
 .team-hrs{font-family:"DM Mono",monospace;font-size:9px;padding:2px 7px;border-radius:8px}
 .t1 .team-hrs{background:#e4eef8;color:#1a3a5c;border:1px solid #b8d0e8}
 .t2 .team-hrs{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
-.t3 .team-hrs{background:var(--t3b);color:var(--t3);border:1px solid var(--t3s)}
+.install .team-hrs{background:var(--t3b);color:var(--t3);border:1px solid var(--t3s)}
 
 /* ── Morning Brief ── */
 .brief-wrap{border-bottom:2px solid var(--bg3)}
@@ -182,7 +182,7 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .job-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.07)}
 .job-card.t1-card{border-left:3px solid #1a3a5c}
 .job-card.t2-card{border-left:3px solid var(--g)}
-.job-card.t3-card{border-left:3px solid var(--t3)}
+.job-card.install-card{border-left:3px solid var(--t3)}
 .job-card.load-in{border-left:3px solid #aaa;opacity:0.75}
 .job-top{padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
 .jtc{min-width:46px;text-align:right}
