@@ -129,10 +129,11 @@ function handleCredential(response) {
 }
 
 function doSignOut() {
-  const email = sessionStorage.getItem('mg_user_email') || localStorage.getItem('mg_user_email');
-  if (email && typeof google !== 'undefined') {
-    google.accounts.id.revoke(email, () => {});
-  }
+  // Note: we intentionally do NOT call google.accounts.id.revoke() here.
+  // Revoking causes GIS to suppress the next credential callback, which
+  // results in a broken login state until the page is refreshed.
+  // disableAutoSelect() below is sufficient to prevent auto sign-in.
+
   // Clear both storage layers
   localStorage.removeItem('mg_auth');
   localStorage.removeItem('mg_user_email');
@@ -166,7 +167,9 @@ function setupHome(userName, crewCategory) {
   document.getElementById('greeting-text').textContent =
     greeting + (name ? ', ' + name.split(' ')[0] : '');
   const catEl = document.getElementById('greeting-category');
-  if (catEl) catEl.textContent = cat ? 'Team: ' + cat : '';
+  const isLead = (sessionStorage.getItem('mg_user_role') || '').toLowerCase() === 'lead';
+  if (catEl) catEl.textContent = cat ? 'Team: ' + cat + (isLead ? ' (Lead)' : '') : '';
+
   document.getElementById('today-text').textContent =
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 }

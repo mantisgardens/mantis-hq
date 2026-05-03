@@ -52,7 +52,22 @@ let activeTeam   = 't1';       // currently visible team tab
 let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
 let currentDay   = null;
 
-let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, t3:true, install:true };
+// getUserTeamSlug() reads mg_user_category from sessionStorage at call time
+// (not at parse time) so it's always evaluated after login has completed.
+// Managers get null (all panels unlocked). Unknown category also returns null
+// (fail open — better than accidentally locking out a valid user).
+function getUserTeamSlug() {
+  const cat = (sessionStorage.getItem('mg_user_category')
+            || localStorage.getItem('mg_user_category') || '').toLowerCase();
+  if (!cat || cat.includes('manager')) return null;
+  if (cat.includes('team 1'))  return 't1';
+  if (cat.includes('team 2'))  return 't2';
+  if (cat.includes('team 3'))  return 't3';
+  if (cat.includes('install')) return 'install';
+  return null;
+}
+
+let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, install:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
 let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 
@@ -416,7 +431,7 @@ function renderBrief(wrapId, team) {
     let teamLabel  = '';
     if      (team === 't1')      { teamNotes = mb.team1_notes   || []; teamLabel = 'Team 1'; }
     else if (team === 't2')      { teamNotes = mb.team2_notes   || []; teamLabel = 'Team 2'; }
-    else if (team === 't3')      { teamNotes = mb.team3_notes   || []; teamLabel = 'Team 3'; }
+    else if (team === 'install') { teamNotes = mb.install_notes  || []; teamLabel = 'Install'; }
     else if (team === 'install') { teamNotes = mb.install_notes || []; teamLabel = 'Install'; }
 
     if (teamNotes.length) {
@@ -434,8 +449,10 @@ function renderBrief(wrapId, team) {
     // Read the logged-in user's category and role from sessionStorage,
     // set during login. Managers see manager_notes. Leads see their
     // column of lead_notes (one column per team in the sheet).
-    const _userCategory = (sessionStorage.getItem('mg_user_category') || '').toLowerCase();
-    const _userRole     = (sessionStorage.getItem('mg_user_role')     || '').toLowerCase();
+    const _userCategory = (sessionStorage.getItem('mg_user_category')
+                        || localStorage.getItem('mg_user_category') || '').toLowerCase();
+    const _userRole     = (sessionStorage.getItem('mg_user_role')
+                        || localStorage.getItem('mg_user_role')     || '').toLowerCase();
     const _isManager    = _userCategory.includes('manager');
     const _isLead       = _userRole === 'lead';
 
@@ -452,22 +469,30 @@ function renderBrief(wrapId, team) {
         body += `</div>`;
       }
     } else if (_isLead) {
-      // lead_notes has parallel columns: Team 1, Team 2, Team 3, Install
-      const ln = mb.lead_notes || {};
-      const headers = ln.headers || [];
-      const columns = ln.columns || [];
-      // Match the current brief's team to the right lead column
-      const _teamColMap = { t1: 0, t2: 1, t3: 2, install: 3 };
-      const _colIdx = _teamColMap[team];
-      const _colHeader = headers[_colIdx] || '';
-      const _colItems  = (_colIdx !== undefined && columns[_colIdx]) ? columns[_colIdx] : [];
-      if (_colItems.length) {
-        body += `<div class="bsec bsec-leads"><div class="bsec-label">&#128204; Leads</div>`;
-        if (_colHeader) body += `<div class="bsec-sublabel">${esc(_colHeader)}</div>`;
-        _colItems.forEach(item => {
-          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
-        });
-        body += `</div>`;
+      // Lead notes: only show on the lead's own team brief, not on other panels.
+      // Derive the lead's own team slug from their category (same logic as getUserTeamSlug).
+      const _leadTeam = _userCategory.includes('team 1') ? 't1'
+                      : _userCategory.includes('team 2') ? 't2'
+                      : _userCategory.includes('team 3') ? 't3'
+                      : _userCategory.includes('install') ? 'install'
+                      : null;
+      if (_leadTeam && _leadTeam === team) {
+        // lead_notes has parallel columns: Team 1, Team 2, Team 3, Install
+        const ln = mb.lead_notes || {};
+        const headers = ln.headers || [];
+        const columns = ln.columns || [];
+        const _teamColMap = { t1: 0, t2: 1, t3: 2, install: 3 };
+        const _colIdx    = _teamColMap[team];
+        const _colHeader = headers[_colIdx] || '';
+        const _colItems  = (_colIdx !== undefined && columns[_colIdx]) ? columns[_colIdx] : [];
+        if (_colItems.length) {
+          body += `<div class="bsec bsec-leads"><div class="bsec-label">&#128204; Leads</div>`;
+          if (_colHeader) body += `<div class="bsec-sublabel">${esc(_colHeader)}</div>`;
+          _colItems.forEach(item => {
+            body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+          });
+          body += `</div>`;
+        }
       }
     }
 
@@ -587,6 +612,11 @@ function renderJobs(cid, jobs, teamClass) {
     return;
   }
 
+  // Compute once per renderJobs call — which team's WR button to show
+  const _slug   = getUserTeamSlug();
+  const _showWR = !_slug || teamClass.startsWith(_slug);
+
+
   jobs.forEach(j => {
     const isLoad = j.type === 'load-in';
     const sc     = !isLoad ? findClient(j.client) : null;
@@ -655,11 +685,11 @@ function renderJobs(cid, jobs, teamClass) {
                     style="display:none">
               &#9989; Checklist
             </button>
-            <button class="abtn" id="wr-btn-${j.id}"
+            ${_showWR ? `<button class="abtn" id="wr-btn-${j.id}"
                     style="background:var(--b3);color:var(--b);border-color:var(--b4)"
                     onclick="openWorkRecord('${j.id}');event.stopPropagation()">
               &#128203; Create Work Record
-            </button>
+            </button>` : ''}
             <button class="abtn abtn-hide" onclick="hideJob('${j.id}');event.stopPropagation()">&#8722; Minimize</button>
           </div>` : ''}
       </div>`;
@@ -743,14 +773,14 @@ function render() {
   const d   = currentDay ? (SCHEDULE[currentDay] || { t1:[], t2:[], t3:[] }) : { t1:[], t2:[], t3:[] };
   renderJobs('t1-jobs', d.t1, 't1-card');
   renderJobs('t2-jobs', d.t2, 't2-card');
-  renderJobs('t3-jobs', d.t3, 't3-card');
+  renderJobs('install-jobs', d.t3, 'install-card');
   renderBrief('brief-t1', 't1');
   renderBrief('brief-t2', 't2');
-  renderBrief('brief-t3', 't3');
+  renderBrief('brief-install', 'install');
   renderBrief('brief-install', 'install');
   document.getElementById('t1-hrs').textContent = calcHrs(d.t1);
   document.getElementById('t2-hrs').textContent = calcHrs(d.t2);
-  document.getElementById('t3-hrs').textContent = calcHrs(d.t3);
+  document.getElementById('install-hrs').textContent = calcHrs(d.t3);
 
   const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].filter(j => j.type !== 'load-in');
   const prog      = all.filter(j => statuses[j.id] === 'inprogress').length;
@@ -910,7 +940,7 @@ function openWorkRecord(jobId) {
 
   // Determine team
   const teamKey  = d.t1 && d.t1.find(j=>j.id===jobId) ? 't1'
-                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2' : 't3';
+                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2' : 'install';
   const teamName = teamKey === 't1' ? 'Maintenance — Team 1'
                  : teamKey === 't2' ? 'Maintenance — Team 2'
                  : 'Install Team';
