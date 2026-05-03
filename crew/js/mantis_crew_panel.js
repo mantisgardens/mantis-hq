@@ -426,6 +426,47 @@ function renderBrief(wrapId, team) {
       body += `</div>`;
     }
 
+    // ── Role-based notes (Managers or Leads only) ────────────
+    // Read the logged-in user's category and role from sessionStorage,
+    // set during login. Managers see manager_notes. Leads see their
+    // column of lead_notes (one column per team in the sheet).
+    const _userCategory = (sessionStorage.getItem('mg_user_category') || '').toLowerCase();
+    const _userRole     = (sessionStorage.getItem('mg_user_role')     || '').toLowerCase();
+    const _isManager    = _userCategory.includes('manager');
+    const _isLead       = _userRole === 'lead';
+
+    if (_isManager) {
+      const mgNotes = mb.manager_notes || [];
+      if (mgNotes.length) {
+        body += `<div class="bsec bsec-manager"><div class="bsec-label">&#128203; Managers</div>`;
+        mgNotes.forEach(sec => {
+          if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
+          (sec.items || []).forEach(item => {
+            body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+          });
+        });
+        body += `</div>`;
+      }
+    } else if (_isLead) {
+      // lead_notes has parallel columns: Team 1, Team 2, Team 3, Install
+      const ln = mb.lead_notes || {};
+      const headers = ln.headers || [];
+      const columns = ln.columns || [];
+      // Match the current brief's team to the right lead column
+      const _teamColMap = { t1: 0, t2: 1, t3: 2, install: 3 };
+      const _colIdx = _teamColMap[team];
+      const _colHeader = headers[_colIdx] || '';
+      const _colItems  = (_colIdx !== undefined && columns[_colIdx]) ? columns[_colIdx] : [];
+      if (_colItems.length) {
+        body += `<div class="bsec bsec-leads"><div class="bsec-label">&#128204; Leads</div>`;
+        if (_colHeader) body += `<div class="bsec-sublabel">${esc(_colHeader)}</div>`;
+        _colItems.forEach(item => {
+          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+        });
+        body += `</div>`;
+      }
+    }
+
     // ── All-Crew section (shown on every team's brief) ────────
     const ac           = mb.all_crew || {};
     const allcrewNotes = mb.allcrew_notes || [];

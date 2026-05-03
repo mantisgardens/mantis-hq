@@ -97,16 +97,22 @@ function handleCredential(response) {
           return;
         }
         // Approved — store identity in localStorage with 10-hour expiry
-        const expiry = Date.now() + (10 * 60 * 60 * 1000);
-        localStorage.setItem('mg_auth',        '1');
-        localStorage.setItem('mg_user_email',  email);
-        localStorage.setItem('mg_user_name',   name);
-        localStorage.setItem('mg_auth_expiry', expiry.toString());
+        const expiry   = Date.now() + (10 * 60 * 60 * 1000);
+        const category = json.crewCategory || '';
+        const role     = json.crewRole     || '';
+        localStorage.setItem('mg_auth',          '1');
+        localStorage.setItem('mg_user_email',    email);
+        localStorage.setItem('mg_user_name',     name);
+        localStorage.setItem('mg_user_category', category);
+        localStorage.setItem('mg_user_role',     role);
+        localStorage.setItem('mg_auth_expiry',   expiry.toString());
         // Also seed sessionStorage so session_timeout.js works
-        sessionStorage.setItem('mg_auth',       '1');
-        sessionStorage.setItem('mg_user_email', email);
-        sessionStorage.setItem('mg_user_name',  name);
-        setupHome(name);
+        sessionStorage.setItem('mg_auth',          '1');
+        sessionStorage.setItem('mg_user_email',    email);
+        sessionStorage.setItem('mg_user_name',     name);
+        sessionStorage.setItem('mg_user_category', category);
+        sessionStorage.setItem('mg_user_role',     role);
+        setupHome(name, category);
         show('home');
       })
       .catch(err => {
@@ -131,6 +137,8 @@ function doSignOut() {
   localStorage.removeItem('mg_auth');
   localStorage.removeItem('mg_user_email');
   localStorage.removeItem('mg_user_name');
+  localStorage.removeItem('mg_user_category');
+  localStorage.removeItem('mg_user_role');
   localStorage.removeItem('mg_auth_expiry');
   sessionStorage.clear();
   show('login');
@@ -147,13 +155,18 @@ function doSignOut() {
 // =============================================================
 // SECTION 4 — HOME SETUP
 // =============================================================
-function setupHome(userName) {
+function setupHome(userName, crewCategory) {
   const now  = new Date();
   const hr   = now.getHours();
   const greeting = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
   const name = userName || sessionStorage.getItem('mg_user_name') || '';
+  const cat  = crewCategory !== undefined
+    ? crewCategory
+    : (sessionStorage.getItem('mg_user_category') || localStorage.getItem('mg_user_category') || '');
   document.getElementById('greeting-text').textContent =
     greeting + (name ? ', ' + name.split(' ')[0] : '');
+  const catEl = document.getElementById('greeting-category');
+  if (catEl) catEl.textContent = cat || '';
   document.getElementById('today-text').textContent =
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 }
@@ -191,10 +204,14 @@ const _hasPersistedSession = _persistedAuth === '1' && Date.now() < _persistedEx
 
 if (_hasPersistedSession) {
   // Seed sessionStorage so session_timeout.js and the crew panel work normally
-  sessionStorage.setItem('mg_auth',       '1');
-  sessionStorage.setItem('mg_user_email', _persistedEmail);
-  sessionStorage.setItem('mg_user_name',  _persistedName);
-  setupHome(_persistedName);
+  const _persistedCategory = localStorage.getItem('mg_user_category') || '';
+  const _persistedRole     = localStorage.getItem('mg_user_role')     || '';
+  sessionStorage.setItem('mg_auth',          '1');
+  sessionStorage.setItem('mg_user_email',    _persistedEmail);
+  sessionStorage.setItem('mg_user_name',     _persistedName);
+  sessionStorage.setItem('mg_user_category', _persistedCategory);
+  sessionStorage.setItem('mg_user_role',     _persistedRole);
+  setupHome(_persistedName, _persistedCategory);
   show('home');
 
   // Initialize GIS once and do a silent prompt to get a fresh ID token.
@@ -219,6 +236,8 @@ if (_hasPersistedSession) {
   localStorage.removeItem('mg_auth');
   localStorage.removeItem('mg_user_email');
   localStorage.removeItem('mg_user_name');
+  localStorage.removeItem('mg_user_category');
+  localStorage.removeItem('mg_user_role');
   localStorage.removeItem('mg_auth_expiry');
   show('login');
 
