@@ -9,8 +9,8 @@
      4.  Tab Navigation
      5.  Schedule Tab
      6.  Clients Tab  (list, search, add, edit, profile)
-     7.  Work Records Tab
-     8.  Crew Hours Tab
+     7.  Work Documents Tab
+     8.  Morning Notes Tab
      9.  Utilities  (esc, toast, formatDate)
      10. Startup
    ============================================================= */
@@ -21,7 +21,6 @@
 const SCRIPT_URL = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_URL : '';
 
 let allClients      = [];
-let allRecords      = [];
 let scheduleData    = {};
 let schedWeekDelta  = 0;
 let currentEditId   = null;  // Client ID being edited
@@ -61,7 +60,6 @@ function doSignOut() {
 // =============================================================
 const CACHE_TTL = {
   ownerClients:  5 * 60 * 1000,
-  ownerRecords:  3 * 60 * 1000,
   ownerSchedule: 3 * 60 * 1000,
 };
 
@@ -127,15 +125,14 @@ async function loadAll() {
   document.querySelector('.reload-btn').disabled = true;
   setStatus('clients',  'loading', 'Clients: loading…');
   setStatus('schedule', 'loading', 'Schedule: loading…');
-  setStatus('records',  'loading', 'Records: loading…');
+  setStatus('records',  'live',    'Documents: ready');
 
   // Fire a warm-up ping
   fetch(`${SCRIPT_URL}?action=ping&id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
 
-  const [clientsRes, scheduleRes, recordsRes] = await Promise.allSettled([
+  const [clientsRes, scheduleRes] = await Promise.allSettled([
     ownerFetch('ownerClients'),
     ownerFetch('ownerSchedule'),
-    ownerFetch('ownerRecords'),
   ]);
 
   if (clientsRes.status === 'fulfilled') {
@@ -155,15 +152,6 @@ async function loadAll() {
     setStatus('schedule', 'error', `Schedule: ${scheduleRes.reason.message}`);
   }
 
-  if (recordsRes.status === 'fulfilled') {
-    allRecords = recordsRes.value.records || [];
-    setStatus('records', 'live', `Records: ${allRecords.length} loaded`);
-    filterRecords();
-    buildHoursSummary();
-  } else {
-    setStatus('records', 'error', `Records: ${recordsRes.reason.message}`);
-  }
-
   document.querySelector('.reload-btn').disabled = false;
 }
 
@@ -175,6 +163,8 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
+  // Lazy-load notes on first visit
+  if (tab === 'notes' && !notesData) loadNotes();
 }
 
 // =============================================================
@@ -327,6 +317,7 @@ function openProfile(clientId) {
     ['Client ID',            c['Client ID']],
     ['Address',              c['Address']],
     ['Phone',                c['Phone']],
+    ['Email',                c['Email']],
     ['Visit Interval',       c['Visit Interval']],
     ['Labor Hours',          c['Labor Hours']],
     ['Scheduling Notes',     c['Scheduling Notes']],
@@ -337,37 +328,20 @@ function openProfile(clientId) {
     ['Billing Notes',        c['Billing Notes']],
   ];
 
-  // Recent work records for this client
-  const clientRecords = allRecords
-    .filter(r => (r.client||'').toLowerCase().includes((c['Name(s)']||'').split(',')[0].toLowerCase()))
-    .slice(0, 10);
-
   let body = `<div class="profile-fields">`;
   fields.forEach(([label, val]) => {
-    if (!val) return;
+    if (!val && label !== 'Email') return;
+    const display = label === 'Email'
+      ? (val
+          ? `<a href="mailto:${esc(val)}" style="color:var(--g)">${esc(val)}</a>`
+          : `<span style="color:var(--ink3);font-style:italic">not on file</span>`)
+      : esc(val);
     body += `<div class="profile-row">
       <span class="profile-label">${esc(label)}</span>
-      <span class="profile-val">${esc(val)}</span>
+      <span class="profile-val">${display}</span>
     </div>`;
   });
   body += `</div>`;
-
-  if (clientRecords.length) {
-    body += `<div class="profile-section-title">Recent Work Records</div>`;
-    body += `<div class="profile-records">`;
-    clientRecords.forEach(r => {
-      body += `<div class="profile-record">
-        <span class="pr-date">${esc(r.date||'')}</span>
-        <span class="pr-team">${esc(r.team||'')}</span>
-        <span class="pr-workers">${esc((r.workers||[]).map(w=>w.name).join(', '))}</span>
-        ${r.serviceNotes ? `<div class="pr-notes">${esc(r.serviceNotes.slice(0,120))}${r.serviceNotes.length>120?'…':''}</div>` : ''}
-      </div>`;
-    });
-    body += `</div>`;
-  } else {
-    body += `<div class="profile-section-title">Work Records</div>
-      <div class="empty-state small">No work records found for this client</div>`;
-  }
 
   document.getElementById('profile-modal-body').innerHTML = body;
   document.getElementById('profile-modal').classList.add('open');
@@ -399,6 +373,7 @@ function editCurrentClient() {
   document.getElementById('cf-name').value         = c['Name(s)']              || '';
   document.getElementById('cf-address').value      = c['Address']              || '';
   document.getElementById('cf-phone').value        = c['Phone']                || '';
+  document.getElementById('cf-email').value        = c['Email']                || '';
   document.getElementById('cf-interval').value     = c['Visit Interval']       || '';
   document.getElementById('cf-hours').value        = c['Labor Hours']          || '';
   document.getElementById('cf-active').value       = c['Active']               || '';
@@ -420,7 +395,7 @@ function closeClientModal(e) {
 }
 
 function clearClientForm() {
-  ['cf-name','cf-address','cf-phone','cf-interval','cf-hours',
+  ['cf-name','cf-address','cf-phone','cf-email','cf-interval','cf-hours',
    'cf-service-notes','cf-gate','cf-irrigation','cf-dogs','cf-scheduling','cf-billing']
     .forEach(id => {
       const el = document.getElementById(id);
@@ -442,6 +417,7 @@ async function saveClient() {
     name,
     address:      document.getElementById('cf-address').value.trim(),
     phone:        document.getElementById('cf-phone').value.trim(),
+    email:        document.getElementById('cf-email').value.trim(),
     interval:     document.getElementById('cf-interval').value,
     laborHours:   document.getElementById('cf-hours').value.trim(),
     active:       document.getElementById('cf-active').value,
@@ -472,8 +448,23 @@ async function saveClient() {
 }
 
 // =============================================================
-// SECTION 7 — WORK RECORDS TAB
+// SECTION 7 — WORK DOCUMENTS TAB
 // =============================================================
+
+// MIME type → human label + icon
+const MIME_LABELS = {
+  'application/vnd.google-apps.document':     { label: 'Doc',      icon: '📄' },
+  'application/vnd.google-apps.spreadsheet':  { label: 'Sheet',    icon: '📊' },
+  'application/pdf':                          { label: 'PDF',      icon: '📋' },
+  'image/jpeg':                               { label: 'Photo',    icon: '🖼️' },
+  'image/png':                                { label: 'Photo',    icon: '🖼️' },
+  'image/heic':                               { label: 'Photo',    icon: '🖼️' },
+};
+
+function mimeInfo(mimeType) {
+  return MIME_LABELS[mimeType] || { label: 'File', icon: '📎' };
+}
+
 function populateClientFilter() {
   const sel = document.getElementById('records-filter-client');
   const cur = sel.value;
@@ -488,127 +479,311 @@ function populateClientFilter() {
   });
 }
 
-function filterRecords() {
-  const clientFilter = document.getElementById('records-filter-client').value;
-  const days         = parseInt(document.getElementById('records-filter-days').value) || 30;
-  const cutoff       = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr    = cutoff.toISOString().slice(0, 10);
+async function loadDocuments() {
+  const clientName = document.getElementById('records-filter-client').value;
+  const days       = parseInt(document.getElementById('records-filter-days').value) || 0;
+  const list       = document.getElementById('records-list');
 
-  // days=0 means "All time" — no date filter
-  let filtered = days === 0
-    ? allRecords.slice()
-    : allRecords.filter(r => !r.date || r.date >= cutoffStr);
-  if (clientFilter) {
-    filtered = filtered.filter(r =>
-      (r.client||'').toLowerCase().includes(clientFilter.toLowerCase()));
+  list.innerHTML = `<div class="empty-state">
+    <span class="doc-loading-spinner"></span> Loading documents…
+  </div>`;
+  setStatus('records', 'loading', 'Documents: loading…');
+
+  try {
+    const data = await ownerPost('ownerGetDocuments', { clientName, days });
+    const docs = data.documents || [];
+
+    setStatus('records', 'live', `Documents: ${docs.length} found`);
+
+    if (!docs.length) {
+      const period = days > 0 ? ` in the last ${days} days` : '';
+      const who    = clientName ? ` for ${clientName}` : '';
+      list.innerHTML = `<div class="empty-state">No documents found${who}${period}.</div>`;
+      return;
+    }
+
+    // Group by client when showing all clients
+    if (!clientName) {
+      // Group docs by client name
+      const groups = {};
+      docs.forEach(d => {
+        if (!groups[d.client]) groups[d.client] = [];
+        groups[d.client].push(d);
+      });
+
+      list.innerHTML = Object.entries(groups).map(([name, clientDocs]) => `
+        <div class="doc-group">
+          <div class="doc-group-name">${esc(name)}</div>
+          ${clientDocs.map(d => docRow(d, false)).join('')}
+        </div>`).join('');
+    } else {
+      list.innerHTML = docs.map(d => docRow(d, true)).join('');
+    }
+
+  } catch(err) {
+    setStatus('records', 'error', 'Documents: error');
+    list.innerHTML = `<div class="empty-state">Failed to load documents: ${esc(err.message)}</div>`;
   }
+}
 
-  // Sort newest first
-  filtered.sort((a, b) => (b.date||'') > (a.date||'') ? 1 : -1);
-
-  const list = document.getElementById('records-list');
-  if (!filtered.length) {
-    list.innerHTML = `<div class="empty-state">
-      No records found${days > 0 ? ' in the last ' + days + ' days' : ''}.
-      ${allRecords.length === 0 ? ' (0 total records loaded — check Work Records Log sheet)' : ' (' + allRecords.length + ' total records, none match filter)'}
-    </div>`;
-    return;
+async function rebuildDocsCache() {
+  const btn = document.getElementById('rebuild-cache-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⚙ Rebuilding…'; }
+  setStatus('records', 'loading', 'Documents: rebuilding cache…');
+  try {
+    const data = await ownerPost('ownerRebuildDocsCache', {});
+    setStatus('records', 'live', `Cache rebuilt — ${data.count} documents indexed`);
+    showToast(`Cache rebuilt ✓ — ${data.count} documents`);
+    // Reload the current view from the fresh cache
+    loadDocuments();
+  } catch(err) {
+    setStatus('records', 'error', 'Rebuild failed');
+    showToast('Cache rebuild failed: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚙ Rebuild Cache'; }
   }
+}
 
-  list.innerHTML = filtered.map(r => {
-    const workers  = (r.workers||[]).map(w => `${w.name}${w.hours?' ('+w.hours+'h)':''}`).join(', ');
-    const ferts    = (r.fertilizers||[]).map(f => f.item).join(', ');
-    const mats     = (r.otherMaterials||[]).map(m => m.item).join(', ');
-
-    return `<div class="record-row">
-      <div class="record-header">
-        <span class="record-date">${esc(r.date||'—')}</span>
-        <span class="record-client">${esc(r.client||'—')}</span>
-        <span class="record-team">${esc(r.team||'')}</span>
-        ${r.recordId ? `<span class="record-id">${esc(r.recordId)}</span>` : ''}
-      </div>
-      ${workers ? `<div class="record-detail"><span class="rd-label">Crew</span> ${esc(workers)}</div>` : ''}
-      ${ferts   ? `<div class="record-detail"><span class="rd-label">Fertilizers</span> ${esc(ferts)}</div>` : ''}
-      ${mats    ? `<div class="record-detail"><span class="rd-label">Materials</span> ${esc(mats)}</div>` : ''}
-      ${r.serviceNotes  ? `<div class="record-notes">${esc(r.serviceNotes)}</div>` : ''}
-      ${r.internalNotes ? `<div class="record-internal">&#128274; ${esc(r.internalNotes)}</div>` : ''}
-    </div>`;
-  }).join('');
+function docRow(d, showClient) {
+  const { label, icon } = mimeInfo(d.mimeType);
+  return `<div class="doc-row">
+    <span class="doc-icon">${icon}</span>
+    <div class="doc-info">
+      <a class="doc-name" href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>
+      ${showClient ? `<span class="doc-client">${esc(d.client)}</span>` : ''}
+    </div>
+    <span class="doc-meta">
+      <span class="doc-type">${esc(label)}</span>
+      <span class="doc-date">${esc(d.modified)}</span>
+    </span>
+  </div>`;
 }
 
 // =============================================================
-// SECTION 8 — CREW HOURS TAB
+// SECTION 8 — MORNING NOTES TAB
 // =============================================================
-function buildHoursSummary() {
-  const days    = parseInt(document.getElementById('hours-filter-period').value) || 30;
-  const cutoff  = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
 
-  const filtered = allRecords.filter(r => !r.date || r.date >= cutoffStr);
+let notesData    = null;   // { t1, t2, t3, install } — sections per team
+let currentTeam  = 't1';   // which team tab is active
+let notesDirty   = false;  // unsaved changes flag
 
-  // Tally hours per worker
-  const workerHours  = {};
-  const workerVisits = {};
-  const workerClients = {};
+const NOTES_TEAM_LABELS = {
+  t1: 'Maint Team 1', t2: 'Maint Team 2', t3: 'Maint Team 3',
+  install: 'Install', allcrew: 'All Crew', managers: 'Managers', leads: 'Leads'
+};
 
-  filtered.forEach(r => {
-    (r.workers||[]).forEach(w => {
-      if (!w.name) return;
-      const hrs = parseFloat(w.hours) || 0;
-      workerHours[w.name]  = (workerHours[w.name]  || 0) + hrs;
-      workerVisits[w.name] = (workerVisits[w.name] || 0) + 1;
-      if (!workerClients[w.name]) workerClients[w.name] = new Set();
-      if (r.client) workerClients[w.name].add(r.client);
-    });
+async function loadNotes() {
+  setStatus('notes', 'loading', 'Notes: loading…');
+  const editor = document.getElementById('notes-editor');
+  editor.innerHTML = `<div class="empty-state"><span class="doc-loading-spinner"></span> Loading notes…</div>`;
+  try {
+    const data = await ownerFetch('ownerGetNotes');
+    notesData  = data.tabs || { t1: [], t2: [], t3: [], install: [] };
+    setStatus('notes', 'live', 'Notes: loaded');
+    renderNotesEditor();
+  } catch(err) {
+    setStatus('notes', 'error', 'Notes: error');
+    editor.innerHTML = `<div class="empty-state">Failed to load notes: ${esc(err.message)}</div>`;
+  }
+}
+
+function switchNotesTeam(team) {
+  if (notesDirty) {
+    if (!confirm('You have unsaved changes. Switch team anyway?')) return;
+    notesDirty = false;
+  }
+  currentTeam = team;
+  document.querySelectorAll('.notes-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.notesteam === team);
   });
+  renderNotesEditor();
+}
 
-  const workers = Object.keys(workerHours).sort((a,b) => workerHours[b] - workerHours[a]);
-  const totalHrs = Object.values(workerHours).reduce((s,h) => s+h, 0);
-
-  const el = document.getElementById('hours-summary');
-  if (!workers.length) {
-    el.innerHTML = `<div class="empty-state">No records found for selected period</div>`;
+function renderNotesEditor() {
+  const editor = document.getElementById('notes-editor');
+  if (!notesData) {
+    editor.innerHTML = `<div class="empty-state">Click &#8635; Refresh to load notes.</div>`;
     return;
   }
 
-  let html = `<div class="hours-table">
-    <div class="hours-header">
-      <span>Crew Member</span>
-      <span>Visits</span>
-      <span>Clients</span>
-      <span>Total Hours</span>
-    </div>`;
+  if (currentTeam === 'leads') {
+    renderLeadsEditor();
+    return;
+  }
 
-  workers.forEach(name => {
-    const hrs     = workerHours[name] || 0;
-    const visits  = workerVisits[name] || 0;
-    const clients = workerClients[name] ? workerClients[name].size : 0;
-    const pct     = totalHrs > 0 ? (hrs / totalHrs * 100) : 0;
+  const sections = (notesData[currentTeam] || []);
+  let html = `<div class="notes-sections" id="notes-sections">`;
+  sections.forEach((sec, si) => { html += noteSectionHtml(sec, si); });
+  html += `</div>
+    <button class="notes-add-section" onclick="addSection()">+ Add Section</button>`;
+  editor.innerHTML = html;
+}
 
-    html += `<div class="hours-row">
-      <span class="hours-name">${esc(name)}</span>
-      <span class="hours-visits">${visits}</span>
-      <span class="hours-clients">${clients}</span>
-      <span class="hours-total">
-        <span class="hours-num">${hrs % 1 === 0 ? hrs : hrs.toFixed(1)}</span>
-        <div class="hours-bar-wrap">
-          <div class="hours-bar" style="width:${pct.toFixed(1)}%"></div>
-        </div>
-      </span>
+function renderLeadsEditor() {
+  const editor  = document.getElementById('notes-editor');
+  const leads   = notesData.leads || { headers: [], columns: [] };
+  const { headers, columns } = leads;
+
+  if (!headers.length) {
+    editor.innerHTML = `<div class="empty-state">No lead columns found in the Leads tab.</div>`;
+    return;
+  }
+
+  let html = `<div class="leads-grid">`;
+  headers.forEach((header, ci) => {
+    const items = columns[ci] || [];
+    html += `<div class="leads-column">
+      <div class="leads-column-header">${esc(header)}</div>
+      <div class="leads-items" id="lead-col-${ci}">`;
+    items.forEach((item, ii) => {
+      html += `<div class="notes-item-row">
+        <input class="notes-item-input" value="${esc(item)}"
+          oninput="updateLeadItem(${ci},${ii},this.value)"
+          onkeydown="leadItemKeydown(event,${ci},${ii})"/>
+        <button class="notes-item-del" onclick="deleteLeadItem(${ci},${ii})" title="Remove">&#10005;</button>
+      </div>`;
+    });
+    html += `</div>
+      <button class="notes-add-item" onclick="addLeadItem(${ci})">+ Add note</button>
     </div>`;
   });
-
-  html += `<div class="hours-footer">
-    <span>Total</span>
-    <span>${filtered.length} visits</span>
-    <span></span>
-    <span class="hours-num">${totalHrs % 1 === 0 ? totalHrs : totalHrs.toFixed(1)} hrs</span>
-  </div>`;
-
   html += `</div>`;
-  el.innerHTML = html;
+  editor.innerHTML = html;
+}
+
+function updateLeadItem(ci, ii, val) {
+  notesData.leads.columns[ci][ii] = val;
+  markDirty();
+}
+
+function addLeadItem(ci) {
+  if (!notesData.leads.columns[ci]) notesData.leads.columns[ci] = [];
+  notesData.leads.columns[ci].push('');
+  markDirty();
+  renderLeadsEditor();
+  const inputs = document.querySelectorAll(`#lead-col-${ci} .notes-item-input`);
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function deleteLeadItem(ci, ii) {
+  notesData.leads.columns[ci].splice(ii, 1);
+  markDirty();
+  renderLeadsEditor();
+}
+
+function leadItemKeydown(e, ci, ii) {
+  if (e.key === 'Enter') { e.preventDefault(); addLeadItem(ci); }
+  else if (e.key === 'Backspace' && e.target.value === '') {
+    e.preventDefault(); deleteLeadItem(ci, ii);
+  }
+}
+
+function noteSectionHtml(sec, si) {
+  const items = (sec.items || []).map((item, ii) => `
+    <div class="notes-item-row" data-si="${si}" data-ii="${ii}">
+      <span class="notes-bullet">•</span>
+      <input class="notes-item-input" value="${esc(item)}"
+        oninput="updateItem(${si},${ii},this.value)"
+        onkeydown="itemKeydown(event,${si},${ii})"/>
+      <button class="notes-item-del" onclick="deleteItem(${si},${ii})" title="Remove">&#10005;</button>
+    </div>`).join('');
+
+  return `<div class="notes-section" data-si="${si}">
+    <div class="notes-section-header">
+      <input class="notes-title-input" value="${esc(sec.title || '')}"
+        placeholder="Section title…"
+        oninput="updateTitle(${si},this.value)"/>
+      <button class="notes-section-del" onclick="deleteSection(${si})" title="Delete section">&#128465;</button>
+    </div>
+    <div class="notes-items" id="items-${si}">
+      ${items}
+    </div>
+    <button class="notes-add-item" onclick="addItem(${si})">+ Add item</button>
+  </div>`;
+}
+
+function markDirty() {
+  notesDirty = true;
+  const btn = document.getElementById('notes-save-btn');
+  if (btn) btn.classList.add('unsaved');
+}
+
+function updateTitle(si, val) {
+  notesData[currentTeam][si].title = val;
+  markDirty();
+}
+
+function updateItem(si, ii, val) {
+  notesData[currentTeam][si].items[ii] = val;
+  markDirty();
+}
+
+function addSection() {
+  if (!notesData[currentTeam]) notesData[currentTeam] = [];
+  notesData[currentTeam].push({ title: '', items: [] });
+  markDirty();
+  renderNotesEditor();
+  // Focus the new title input
+  const sections = document.querySelectorAll('.notes-title-input');
+  if (sections.length) sections[sections.length - 1].focus();
+}
+
+function deleteSection(si) {
+  notesData[currentTeam].splice(si, 1);
+  markDirty();
+  renderNotesEditor();
+}
+
+function addItem(si) {
+  notesData[currentTeam][si].items.push('');
+  markDirty();
+  renderNotesEditor();
+  // Focus the new item input
+  const inputs = document.querySelectorAll(`#items-${si} .notes-item-input`);
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function deleteItem(si, ii) {
+  notesData[currentTeam][si].items.splice(ii, 1);
+  markDirty();
+  renderNotesEditor();
+}
+
+function itemKeydown(e, si, ii) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addItem(si);
+  } else if (e.key === 'Backspace') {
+    const input = e.target;
+    if (input.value === '') {
+      e.preventDefault();
+      deleteItem(si, ii);
+    }
+  }
+}
+
+async function saveNotes() {
+  const btn = document.getElementById('notes-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  setStatus('notes', 'loading', 'Notes: saving…');
+  try {
+    const payload = { tab: currentTeam };
+    if (currentTeam === 'leads') {
+      payload.leadsData = notesData.leads;
+    } else {
+      payload.sections = notesData[currentTeam] || [];
+    }
+    await ownerPost('ownerSaveNotes', payload);
+    notesDirty = false;
+    if (btn) btn.classList.remove('unsaved');
+    setStatus('notes', 'live', 'Notes: saved ✓');
+    showToast('Notes saved ✓');
+  } catch(err) {
+    setStatus('notes', 'error', 'Notes: save failed');
+    showToast('Save failed: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Save'; }
+  }
 }
 
 // =============================================================
