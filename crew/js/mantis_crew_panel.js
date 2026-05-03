@@ -175,10 +175,20 @@ async function loadAll() {
       return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
     });
 
-    // Snap to today if in the window, else nearest future day, else first day
+    // Snap to today if in the window.
+    // On Sunday, jump straight to next Monday so last week isn't prominent.
+    // Otherwise snap to the nearest future day, else the first available day.
     const todayKey = todayDateKey();
-    if (DAYS.includes(todayKey)) {
+    const isSunday = new Date().getDay() === 0;
+    if (!isSunday && DAYS.includes(todayKey)) {
       currentDay = todayKey;
+    } else if (isSunday) {
+      // Find the Monday immediately following today
+      const nextMonday = new Date();
+      nextMonday.setDate(nextMonday.getDate() + 1);  // Sunday + 1 = Monday
+      const nextMondayKey = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth()+1).padStart(2,'0')}-${String(nextMonday.getDate()).padStart(2,'0')}`;
+      const future = DAYS.find(d => d >= nextMondayKey);
+      currentDay = future || DAYS[0] || null;
     } else {
       // Find nearest day >= today
       const future = DAYS.find(d => d >= todayKey);
@@ -326,13 +336,7 @@ function shiftWeek(dir) {
 
   currentDay = found;
   updateWeekLabel();
-  render();
-
-  // Scroll the active tab into view after render rebuilds the DOM
-  requestAnimationFrame(() => {
-    const active = document.querySelector('.day-tab.active');
-    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  });
+  render();  // render() handles scrollIntoView internally
 }
 
 
@@ -764,6 +768,12 @@ function render() {
     <div class="sitem"><span class="snum a">${prog}</span>&nbsp;in progress</div>
     <div class="sitem"><span class="snum b">${submitted}</span>&nbsp;submitted</div>
     <div class="sitem" style="margin-left:auto"><span class="snum k">${fh}</span>&nbsp;field hrs</div>`;
+
+  // Always scroll the active day tab into view after the DOM is rebuilt
+  setTimeout(() => {
+    const active = document.querySelector('.day-tab.active');
+    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, 50);
 }
 
 
