@@ -52,15 +52,16 @@ function initGoogleSignIn() {
   google.accounts.id.initialize({
     client_id:   CLIENT_ID,
     callback:    handleCredential,
-    auto_select: true,
+    auto_select: false,
   });
 
   google.accounts.id.renderButton(
     document.getElementById('google-signin-btn'),
     { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
   );
-
-  google.accounts.id.prompt();
+  // No prompt() here — user must tap the button explicitly.
+  // prompt() triggers One Tap which can fire handleCredential automatically,
+  // racing with cleared storage state after sign-out.
 }
 
 // Called by Google after successful sign-in with a JWT credential
@@ -143,8 +144,16 @@ function doSignOut() {
   localStorage.removeItem('mg_auth_expiry');
   sessionStorage.clear();
   show('login');
-  if (typeof google !== 'undefined') {
+  hideLoginError();
+  if (typeof google !== 'undefined' && google.accounts) {
+    // Re-initialize with auto_select:false so GIS doesn't immediately fire
+    // the callback with a cached credential before the user taps the button.
     google.accounts.id.disableAutoSelect();
+    google.accounts.id.initialize({
+      client_id:   CLIENT_ID,
+      callback:    handleCredential,
+      auto_select: false,
+    });
     google.accounts.id.renderButton(
       document.getElementById('google-signin-btn'),
       { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
