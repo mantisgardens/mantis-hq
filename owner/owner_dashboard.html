@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css">
+  <link rel="stylesheet" href="css/owner.css?v=23">
 </head>
 <body>
 
@@ -27,9 +27,9 @@
 <!-- ══ NAV TABS ════════════════════════════════════════════ -->
 <nav class="nav-tabs">
   <button class="nav-tab active" data-tab="schedule"   onclick="switchTab('schedule')">&#128197; Schedule</button>
+  <button class="nav-tab"        data-tab="notes"      onclick="switchTab('notes')">&#128221; Morning Notes</button>
   <button class="nav-tab"        data-tab="clients"    onclick="switchTab('clients')">&#128101; Clients</button>
-  <button class="nav-tab"        data-tab="records"    onclick="switchTab('records')">&#128196; Work Records</button>
-  <button class="nav-tab"        data-tab="hours"      onclick="switchTab('hours')">&#9200; Crew Hours</button>
+  <button class="nav-tab"        data-tab="records"    onclick="switchTab('records')">&#128196; Work Documents</button>
 </nav>
 
 <!-- ══ STATUS BAR ══════════════════════════════════════════ -->
@@ -44,7 +44,11 @@
   </div>
   <div class="status-pill" id="sp-records">
     <span class="sdot" id="sd-records"></span>
-    <span id="sl-records">Records: loading…</span>
+    <span id="sl-records">Documents: —</span>
+  </div>
+  <div class="status-pill" id="sp-notes">
+    <span class="sdot" id="sd-notes"></span>
+    <span id="sl-notes">Notes: —</span>
   </div>
   <button class="reload-btn" onclick="clearOwnerCache(); loadAll()">&#8635; Refresh</button>
 </div>
@@ -78,39 +82,57 @@
     <div id="client-list" class="client-list"></div>
   </div>
 
-  <!-- ── WORK RECORDS TAB ─────────────────────────────────── -->
+  <!-- ── WORK DOCUMENTS TAB ──────────────────────────────────── -->
   <div id="tab-records" class="tab-panel">
     <div class="panel-header">
-      <div class="panel-title">Work Records</div>
+      <div class="panel-title">Work Documents</div>
       <div class="panel-actions">
-        <select id="records-filter-client" class="filter-select" onchange="filterRecords()">
+        <select id="records-filter-client" class="filter-select" onchange="loadDocuments()">
           <option value="">All clients</option>
         </select>
-        <select id="records-filter-days" class="filter-select" onchange="filterRecords()">
+        <select id="records-filter-days" class="filter-select" onchange="loadDocuments()">
           <option value="7">Last 7 days</option>
           <option value="14">Last 14 days</option>
           <option value="30" selected>Last 30 days</option>
           <option value="90">Last 90 days</option>
+          <option value="180">Last 6 months</option>
           <option value="0">All time</option>
         </select>
+        <button class="action-btn" onclick="loadDocuments()">&#8635; Load</button>
+        <button class="action-btn" id="rebuild-cache-btn" onclick="rebuildDocsCache()">&#9881; Rebuild Cache</button>
       </div>
+    </div>
+    <div class="docs-info-bar">
+      &#8505; <b>All Clients</b> loads from a nightly cache — results reflect documents as of last night.
+      Use <b>Rebuild Cache</b> to index today's documents (may take a minute or two).
+      Selecting a specific client always loads live from Drive.
     </div>
     <div id="records-list" class="records-list"></div>
   </div>
 
-  <!-- ── CREW HOURS TAB ───────────────────────────────────── -->
-  <div id="tab-hours" class="tab-panel">
+  <!-- ── MORNING NOTES TAB ─────────────────────────────────── -->
+  <div id="tab-notes" class="tab-panel">
     <div class="panel-header">
-      <div class="panel-title">Crew Hours Summary</div>
+      <div class="panel-title">Morning Notes</div>
       <div class="panel-actions">
-        <select id="hours-filter-period" class="filter-select" onchange="buildHoursSummary()">
-          <option value="7">This week</option>
-          <option value="14">Last 2 weeks</option>
-          <option value="30" selected>This month</option>
-        </select>
+        <button class="action-btn primary" onclick="saveNotes()" id="notes-save-btn">&#10003; Save</button>
       </div>
     </div>
-    <div id="hours-summary" class="hours-summary"></div>
+    <div class="notes-info-bar">
+      Edit notes for each crew group below. Select a tab, make your changes, then press <b>Save</b> — changes are not applied until saved. Crews will see updated notes on their next morning brief load.
+    </div>
+
+    <!-- Team sub-tabs -->
+    <div class="notes-tabs">
+      <button class="notes-tab active" data-notesteam="t1"       onclick="switchNotesTeam('t1')">Maint 1</button>
+      <button class="notes-tab"        data-notesteam="t2"       onclick="switchNotesTeam('t2')">Maint 2</button>
+      <button class="notes-tab"        data-notesteam="t3"       onclick="switchNotesTeam('t3')">Maint 3</button>
+      <button class="notes-tab"        data-notesteam="install"  onclick="switchNotesTeam('install')">Install</button>
+      <button class="notes-tab"        data-notesteam="allcrew"  onclick="switchNotesTeam('allcrew')">All Crew</button>
+      <button class="notes-tab"        data-notesteam="managers" onclick="switchNotesTeam('managers')">Managers</button>
+      <button class="notes-tab"        data-notesteam="leads"    onclick="switchNotesTeam('leads')">Leads</button>
+    </div>
+    <div id="notes-editor" class="notes-editor"></div>
   </div>
 
 </main>
@@ -126,67 +148,77 @@
 
       <div class="form-grid">
         <div class="form-group full">
-          <label class="form-label">Name(s) <span class="required">*</span></label>
-          <input class="form-input" id="cf-name" type="text" placeholder="Last, First & Last, First"/>
+          <label class="form-label">Full Name(s) <span class="required">*</span></label>
+          <input class="form-input" id="cf-name" type="text" placeholder="Last, First &amp; Last, First"/>
         </div>
         <div class="form-group full">
-          <label class="form-label">Address</label>
+          <label class="form-label">Property Address</label>
           <input class="form-input" id="cf-address" type="text" placeholder="123 Main St, Sacramento"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Phone</label>
+          <label class="form-label">Phone Number(s)</label>
           <input class="form-input" id="cf-phone" type="text" placeholder="916-555-0100"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Visit Interval</label>
+          <label class="form-label">Email Address(es)</label>
+          <input class="form-input" id="cf-email" type="text" placeholder="email@example.com"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Service Frequency</label>
           <select class="form-input" id="cf-interval">
             <option value="">— select —</option>
-            <option>Weekly</option>
             <option>Bi-weekly</option>
             <option>Monthly</option>
             <option>Bi-monthly</option>
             <option>Quarterly</option>
-            <option>As needed</option>
+            <option>Bi-annual</option>
+            <option>On-call</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Labor Hours (est.)</label>
-          <input class="form-input" id="cf-hours" type="text" placeholder="e.g. 2.5"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Active</label>
-          <select class="form-input" id="cf-active">
-            <option value="✓">✓ Active</option>
-            <option value="">Inactive</option>
-          </select>
+          <label class="form-label">Labor Hours per Service</label>
+          <input class="form-input" id="cf-hours" type="text" placeholder="e.g. 4-6"/>
         </div>
         <div class="form-group full">
-          <label class="form-label">General Service Notes</label>
+          <label class="form-label">Property Notes</label>
           <textarea class="form-textarea" id="cf-service-notes"
-            placeholder="General notes about the property and service…"></textarea>
-        </div>
-        <div class="form-group full">
-          <label class="form-label">Gate / Access</label>
-          <input class="form-input" id="cf-gate" type="text" placeholder="Gate code, key location, etc."/>
-        </div>
-        <div class="form-group full">
-          <label class="form-label">Irrigation Notes</label>
-          <textarea class="form-textarea" id="cf-irrigation"
-            placeholder="Controller type, zone notes, known issues…"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Dogs / Animals</label>
-          <input class="form-input" id="cf-dogs" type="text" placeholder="e.g. 2 dogs, keep gate closed"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Scheduling Notes</label>
-          <input class="form-input" id="cf-scheduling" type="text" placeholder="e.g. Not before 9am"/>
-        </div>
-        <div class="form-group full">
-          <label class="form-label">Billing Notes</label>
-          <input class="form-input" id="cf-billing" type="text" placeholder="Invoice details, billing contact…"/>
+            placeholder="Dogs onsite, gate codes, general property notes…"></textarea>
         </div>
       </div>
+
+      <details class="form-extra-details">
+        <summary class="form-extra-summary">Additional Details</summary>
+        <div class="form-grid" style="padding-top:12px">
+          <div class="form-group full">
+            <label class="form-label">Gate / Access</label>
+            <input class="form-input" id="cf-gate" type="text" placeholder="Gate code, key location, etc."/>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Irrigation Notes</label>
+            <textarea class="form-textarea" id="cf-irrigation"
+              placeholder="Controller type, zone notes, known issues…"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dogs / Animals</label>
+            <input class="form-input" id="cf-dogs" type="text" placeholder="e.g. 2 dogs, keep gate closed"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Scheduling Notes</label>
+            <input class="form-input" id="cf-scheduling" type="text" placeholder="e.g. Not before 9am"/>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Billing Notes</label>
+            <input class="form-input" id="cf-billing" type="text" placeholder="Invoice details, billing contact…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Active</label>
+            <select class="form-input" id="cf-active">
+              <option value="✓">✓ Active</option>
+              <option value="">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </details>
 
     </div>
     <div class="modal-footer">
@@ -213,9 +245,9 @@
 <!-- ══ TOAST ════════════════════════════════════════════════ -->
 <div class="toast" id="toast"></div>
 
-<script src="../config.js"></script>
-  <script src="js/owner_config.js"></script>
-<script src="js/session_timeout.js"></script>
-<script src="js/owner_dashboard.js"></script>
+<script src="../config.js?v=23"></script>
+  <script src="js/owner_config.js?v=23"></script>
+<script src="js/session_timeout.js?v=23"></script>
+<script src="js/owner_dashboard.js?v=23"></script>
 </body>
 </html>
