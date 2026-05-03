@@ -52,7 +52,7 @@ let activeTeam   = 't1';       // currently visible team tab
 let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
 let currentDay   = null;
 
-let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, t3:true };
+let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, t3:true, install:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
 let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 
@@ -408,28 +408,41 @@ function renderBrief(wrapId, team) {
     }
 
     // ── Team-specific notes ───────────────────────────────────
-    let teamNotes = [];
-    if      (team === 't1') teamNotes = mb.team1_notes  || [];
-    else if (team === 't2') teamNotes = mb.team2_notes  || [];
-    else if (team === 't3') teamNotes = mb.team3_notes  || [];
+    let teamNotes  = [];
+    let teamLabel  = '';
+    if      (team === 't1')      { teamNotes = mb.team1_notes   || []; teamLabel = 'Team 1'; }
+    else if (team === 't2')      { teamNotes = mb.team2_notes   || []; teamLabel = 'Team 2'; }
+    else if (team === 't3')      { teamNotes = mb.team3_notes   || []; teamLabel = 'Team 3'; }
+    else if (team === 'install') { teamNotes = mb.install_notes || []; teamLabel = 'Install'; }
 
-    const mgrNotes = mb.manager_notes || [];
-
-    if (teamNotes.length || mgrNotes.length) {
-      body += `<div class="bsec"><div class="bsec-label">Daily Notes</div>`;
-      teamNotes.forEach(n => { body += `<div class="note-item">${esc(n)}</div>`; });
-      mgrNotes.forEach(n  => { body += `<div class="note-item note-mgr">&#128337; ${esc(n)}</div>`; });
+    if (teamNotes.length) {
+      body += `<div class="bsec bsec-team"><div class="bsec-label">${esc(teamLabel)}</div>`;
+      teamNotes.forEach(sec => {
+        if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
+        (sec.items || []).forEach(item => {
+          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+        });
+      });
       body += `</div>`;
     }
 
     // ── All-Crew section (shown on every team's brief) ────────
-    const ac = mb.all_crew || {};
-    const hasTimeOff = (ac.time_off||[]).length > 0;
-    const hasBdays   = (ac.birthdays||[]).length > 0;
-    const hasEvents  = (ac.special_events||[]).length > 0;
+    const ac           = mb.all_crew || {};
+    const allcrewNotes = mb.allcrew_notes || [];
+    const hasTimeOff   = (ac.time_off||[]).length > 0;
+    const hasBdays     = (ac.birthdays||[]).length > 0;
+    const hasEvents    = (ac.special_events||[]).length > 0;
 
-    if (hasTimeOff || hasBdays || hasEvents) {
+    if (allcrewNotes.length || hasTimeOff || hasBdays || hasEvents) {
       body += `<div class="bsec bsec-allcrew"><div class="bsec-label">All Crew</div>`;
+
+      // Notes from the All Crew Notes sheet tab
+      allcrewNotes.forEach(sec => {
+        if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
+        (sec.items || []).forEach(item => {
+          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+        });
+      });
 
       if (hasTimeOff) {
         body += `<div class="bsec-sublabel">&#127774; Time Off</div>`;
@@ -689,6 +702,7 @@ function render() {
   renderBrief('brief-t1', 't1');
   renderBrief('brief-t2', 't2');
   renderBrief('brief-t3', 't3');
+  renderBrief('brief-install', 'install');
   document.getElementById('t1-hrs').textContent = calcHrs(d.t1);
   document.getElementById('t2-hrs').textContent = calcHrs(d.t2);
   document.getElementById('t3-hrs').textContent = calcHrs(d.t3);
