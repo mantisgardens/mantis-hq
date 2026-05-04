@@ -4,7 +4,7 @@
    Mantis Gardens — Crew Assignment Panel
    
    Sections:
-     1.  Configuration  (SCRIPT_URL, KEY, calendar IDs)
+     1.  Configuration  (SCRIPT_URL, calendar IDs)
      2.  Schedule Data  (DAYS, DAY_LABELS, SCHEDULE object)
      3.  Application State  (currentDay, expanded, statuses, etc.)
      4.  API Layer  (apiFetch, setStatus, loadAll)
@@ -26,11 +26,9 @@
 // =============================================================
 // SECTION 1 — CONFIGURATION
 // Edit SCRIPT_URL after each Apps Script redeployment.
-// KEY must match the SECRET constant in the Apps Script.
 // =============================================================
 // Read from mantis_config.js — edit that file to update the URL
 const SCRIPT_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : "PASTE_YOUR_EXEC_URL_HERE";
-const KEY        = (typeof MANTIS_CONFIG !== 'undefined') ? (MANTIS_CONFIG.KEY || '') : '';  // legacy — no longer used
 
 
 // =============================================================
@@ -167,11 +165,8 @@ async function apiFetch(action, extra) {
   }
 
   // Include Google ID token for server-side verification.
-  // Falls back to legacy key if no token (e.g. local dev).
   const idToken = sessionStorage.getItem('mg_id_token') || '';
-  const authParam = idToken
-    ? `&id_token=${encodeURIComponent(idToken)}`
-    : `&key=${encodeURIComponent(KEY)}`;
+  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
   const res  = await fetch(`${SCRIPT_URL}?action=${action}${authParam}${extra}&_=${Date.now()}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1184,7 +1179,7 @@ function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
   irrList.innerHTML  = loadingHtml;
 
   const idToken   = sessionStorage.getItem('mg_id_token') || '';
-  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
   const url = `${SCRIPT_URL}?action=historical_data${authParam}`
             + `&client=${encodeURIComponent(clientName)}`
             + `&histId=${encodeURIComponent(histId)}`
@@ -1238,7 +1233,7 @@ function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
 function prefetchClientFolder(clientName) {
   if (_folderIdCache[clientName]) return;  // already cached
   const idToken  = sessionStorage.getItem('mg_id_token') || '';
-  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+  const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
   const url = `${SCRIPT_URL}?action=prefetchClientFolder${authParam}&client=${encodeURIComponent(clientName)}`;
   fetch(url)
     .then(r => r.json())
@@ -1661,7 +1656,7 @@ function submitForm() {
         data.cachedFolderId = _folderIdCache[data.client] || null;
         showSubmitProgress('Uploading to Drive…', 50);
         const idToken   = sessionStorage.getItem('mg_id_token') || '';
-        const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+        const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
         return fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
           method:  'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2089,7 +2084,7 @@ async function loadHistory(clientName) {
     const folderId = (sc && sc['Drive Folder ID']) ? sc['Drive Folder ID'].trim() : '';
 
     const idToken   = sessionStorage.getItem('mg_id_token') || '';
-    const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : `&key=${encodeURIComponent(KEY)}`;
+    const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
     const url = `${SCRIPT_URL}?action=historical_data${authParam}`
               + `&client=${encodeURIComponent(clientName)}`
               + `&histId=${encodeURIComponent(histId)}`
