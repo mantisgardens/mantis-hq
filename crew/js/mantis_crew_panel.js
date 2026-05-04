@@ -67,7 +67,11 @@ function getUserTeamSlug() {
   return null;
 }
 
-let expanded     = {}, statuses = {}, briefOpen = { t1:true, t2:true, install:true };
+let expanded     = {}, statuses = {};
+// Restore per-team brief visibility from sessionStorage (default open).
+// Cleared automatically on logout via sessionStorage.clear().
+const _briefStored = JSON.parse(sessionStorage.getItem('mg_brief_open') || 'null');
+let briefOpen = _briefStored || { t1:true, t2:true, install:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
 let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 
@@ -86,6 +90,65 @@ const CACHE_TTL = {
   schedule:          3 * 60 * 1000,
   crew_teams:       60 * 60 * 1000,   // 60 min — team rosters change rarely
 };
+
+// ── Persistent offline cache (localStorage) ───────────────────
+// Separate from the session cache (mg_cache_*). Survives tab close
+// and browser restart so crew can open the panel on a job site
+// with no signal and still see the last known schedule.
+// TTL is 24 hours — stale enough to be safe, fresh enough to matter.
+const PERSIST_TTL  = 24 * 60 * 60 * 1000;
+const PERSIST_KEYS = {
+  active_clients: 'mg_persist_clients',
+  schedule:       'mg_persist_schedule',
+  morning_brief:  'mg_persist_brief',
+  crew_teams:     'mg_persist_crew_teams',
+};
+
+function persistSave(action, data) {
+  const key = PERSIST_KEYS[action];
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
+  } catch(e) { /* storage full — skip */ }
+}
+
+function persistLoad(action) {
+  const key = PERSIST_KEYS[action];
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > PERSIST_TTL) return null;  // too stale
+    return { data, ts };
+  } catch(e) { return null; }
+}
+
+// ── Offline banner ─────────────────────────────────────────────
+// Shown whenever any data is served from the persistent cache.
+// Injected just above the status-bar div (already in the DOM).
+function showOfflineBanner(cachedAt) {
+  let banner = document.getElementById('offline-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.className = 'offline-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  const when = cachedAt
+    ? new Date(cachedAt).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })
+    : 'unknown time';
+  banner.innerHTML =
+    `<span class="offline-icon">&#9888;</span>` +
+    `<span>No network — showing cached data from ${when}.</span>` +
+    `<span class="offline-retry" onclick="clearCrewCache(); loadAll()">Retry</span>`;
+}
+
+function clearOfflineBanner() {
+  const b = document.getElementById('offline-banner');
+  if (b) b.remove();
+}
 
 async function apiFetch(action, extra) {
   extra = extra || '';
@@ -152,9 +215,28 @@ async function loadAll() {
     delay(900).then(() => apiFetch('crew_teams')),
   ]);
 
+  // ── Track which items fell back to offline cache ──────────────
+  let offlineCacheTs = null;   // timestamp of oldest stale item used
+
+  function useOffline(action, staleResult, label) {
+    const persisted = persistLoad(action);
+    if (persisted) {
+      if (!offlineCacheTs || persisted.ts < offlineCacheTs) offlineCacheTs = persisted.ts;
+      setStatus(label, 'loading', `${label.charAt(0).toUpperCase() + label.slice(1)}: cached ↙`);
+      return persisted.data;
+    }
+    setStatus(label, 'error', `${label.charAt(0).toUpperCase() + label.slice(1)}: ${staleResult.reason && staleResult.reason.message}`);
+    return null;
+  }
+
   // ── Clients ──
-  if (results[0].status === 'fulfilled') {
-    sheetClients = results[0].value.clients || [];
+  const clientsData = results[0].status === 'fulfilled'
+    ? results[0].value
+    : useOffline('active_clients', results[0], 'clients');
+
+  if (clientsData) {
+    if (results[0].status === 'fulfilled') persistSave('active_clients', clientsData);
+    sheetClients = clientsData.clients || [];
     clientCache  = {};
     sheetClients.forEach(c => {
       const name = (c['Name(s)'] || '').toLowerCase();
@@ -173,15 +255,19 @@ async function loadAll() {
         clientCache[key].push(c);
       }
     });
-    setStatus('clients', 'live', `Clients: ${sheetClients.length} active loaded`);
-  } else {
-    setStatus('clients', 'error', `Clients: ${results[0].reason.message}`);
+    if (results[0].status === 'fulfilled') {
+      setStatus('clients', 'live', `Clients: ${sheetClients.length} active loaded`);
+    }
   }
 
   // ── Calendar / Schedule ──
-  if (results[1].status === 'fulfilled') {
-    const cal = results[1].value;
-    SCHEDULE  = cal.days || {};
+  const calData = results[1].status === 'fulfilled'
+    ? results[1].value
+    : useOffline('schedule', results[1], 'calendar');
+
+  if (calData) {
+    if (results[1].status === 'fulfilled') persistSave('schedule', calData);
+    SCHEDULE  = calData.days || {};
 
     // Build sorted day list
     DAYS      = Object.keys(SCHEDULE).sort();
@@ -214,15 +300,15 @@ async function loadAll() {
       const day = SCHEDULE[d] || {};
       return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length;
     }, 0);
-    setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
-    updateWeekLabel();
-
-    // If no days came back, show a helpful message in the status bar
-    if (!DAYS.length) {
-      setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
+    if (results[1].status === 'fulfilled') {
+      setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
+      // If no days came back, show a helpful message in the status bar
+      if (!DAYS.length) {
+        setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
+      }
     }
+    updateWeekLabel();
   } else {
-    setStatus('calendar', 'error', `Calendar: ${results[1].reason.message}`);
     SCHEDULE   = {};
     DAYS       = [];
     DAY_LABELS = [];
@@ -230,24 +316,34 @@ async function loadAll() {
   }
 
   // ── Morning brief ──
-  if (results[2].status === 'fulfilled') {
-    morningBrief = results[2].value;
-    const ac  = morningBrief.all_crew || {};
-    const dbg = morningBrief._debug || {};
-    const parts = [];
-    if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
-    if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
-    if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
-    if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
-    const detail = parts.length ? ' — ' + parts.join(', ') : '';
-    setStatus('brief', 'live', `Morning brief: loaded${detail}`);
-  } else {
-    setStatus('brief', 'error', `Morning brief: ${results[2].reason && results[2].reason.message}`);
+  const briefData = results[2].status === 'fulfilled'
+    ? results[2].value
+    : useOffline('morning_brief', results[2], 'brief');
+
+  if (briefData) {
+    if (results[2].status === 'fulfilled') persistSave('morning_brief', briefData);
+    morningBrief = briefData;
+    if (results[2].status === 'fulfilled') {
+      const ac  = morningBrief.all_crew || {};
+      const dbg = morningBrief._debug || {};
+      const parts = [];
+      if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
+      if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
+      if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
+      if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
+      const detail = parts.length ? ' — ' + parts.join(', ') : '';
+      setStatus('brief', 'live', `Morning brief: loaded${detail}`);
+    }
   }
 
   // ── Crew teams (silent — no status pill) ──
-  if (results[3] && results[3].status === 'fulfilled') {
-    crewTeams = results[3].value;
+  const teamsData = results[3] && results[3].status === 'fulfilled'
+    ? results[3].value
+    : (persistLoad('crew_teams') || {}).data || null;
+
+  if (teamsData) {
+    if (results[3] && results[3].status === 'fulfilled') persistSave('crew_teams', teamsData);
+    crewTeams = teamsData;
     // Rebuild crew datalist now that we have names
     const dl = document.getElementById('dl-crew-global');
     if (dl) {
@@ -259,6 +355,13 @@ async function loadAll() {
         dl.appendChild(opt);
       });
     }
+  }
+
+  // ── Offline banner ────────────────────────────────────────────
+  if (offlineCacheTs) {
+    showOfflineBanner(offlineCacheTs);
+  } else {
+    clearOfflineBanner();
   }
 
   document.getElementById('reload-btn').disabled = false;
@@ -568,6 +671,7 @@ function renderBrief(wrapId, team) {
 
 function toggleBrief(team) {
   briefOpen[team] = !briefOpen[team];
+  sessionStorage.setItem('mg_brief_open', JSON.stringify(briefOpen));
   renderBrief(`brief-${team}`, team);
 }
 
