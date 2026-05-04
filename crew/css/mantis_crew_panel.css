@@ -53,6 +53,11 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .reload-btn{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:4px 12px;border-radius:4px;cursor:pointer;margin-left:auto;transition:all 0.15s}
 .reload-btn:hover{background:var(--g2);color:#fff}
 .reload-btn:disabled{opacity:0.4;cursor:not-allowed}
+.offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:"DM Mono",monospace;font-size:10px;color:var(--a);letter-spacing:0.04em}
+.offline-icon{font-size:12px;flex-shrink:0}
+.offline-banner span:nth-child(2){flex:1}
+.offline-retry{cursor:pointer;text-decoration:underline;font-weight:600;white-space:nowrap}
+.offline-retry:hover{color:var(--ink)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
 .day-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:0 16px;display:flex;overflow-x:auto}
