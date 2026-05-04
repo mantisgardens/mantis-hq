@@ -1057,6 +1057,9 @@ function openWorkRecord(jobId) {
   document.getElementById('wr-internal-notes').value        = '';
   document.getElementById('photo-previews').innerHTML       = '';
   photoFiles = [];
+  // Reset submit button in case it was left in the offline state
+  const _sb = document.getElementById('wr-submit-btn');
+  if (_sb) { _sb.textContent = 'Submit'; _sb.style.background = ''; _sb.disabled = false; }
 
   // Ensure crew name datalist exists
   _ensureCrewDatalist();
@@ -1610,6 +1613,25 @@ function submitForm() {
     return;
   }
 
+  // ── Offline guard ─────────────────────────────────────────────
+  // navigator.onLine can be unreliable, so we treat any network-level
+  // fetch failure the same way (handled in the .catch below).
+  // This check catches the obvious case — no signal at all.
+  if (!navigator.onLine) {
+    showToast('No network — record saved. Submit when back in range.', 4000);
+    // Save locally so nothing is lost
+    const offlineData = Object.assign({}, data, { photos: [] });
+    savedRecords[currentJobId] = offlineData;
+    safeLocalSave();
+    // Update the submit button so crew know the state
+    const submitBtn = document.getElementById('wr-submit-btn');
+    if (submitBtn) {
+      submitBtn.textContent = '⚠ Offline — submit later';
+      submitBtn.style.background = 'var(--a)';
+    }
+    return;
+  }
+
   // Disable submit button and show progress indicator
   const submitBtn = document.getElementById('wr-submit-btn');
   if (submitBtn) { submitBtn.disabled = true; }
@@ -1924,11 +1946,11 @@ function hideSubmitProgress() {
 // of the screen. Auto-hides after 2.4 seconds.
 // =============================================================
 // ── Toast ─────────────────────────────────────────────────────
-function showToast(msg) {
+function showToast(msg, duration) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2400);
+  setTimeout(() => t.classList.remove('show'), duration || 2400);
 }
 
 // =============================================================
