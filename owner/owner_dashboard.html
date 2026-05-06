@@ -30,6 +30,7 @@
   <button class="nav-tab"        data-tab="notes"      onclick="switchTab('notes')">&#128221; Morning Notes</button>
   <button class="nav-tab"        data-tab="clients"    onclick="switchTab('clients')">&#128101; Clients</button>
   <button class="nav-tab"        data-tab="records"    onclick="switchTab('records')">&#128196; Work Documents</button>
+  <button class="nav-tab"        data-tab="logins"     onclick="switchTab('logins')">&#128274; Crew Logins</button>
 </nav>
 
 <!-- ══ STATUS BAR ══════════════════════════════════════════ -->
@@ -133,6 +134,21 @@
       <button class="notes-tab"        data-notesteam="leads"    onclick="switchNotesTeam('leads')">Leads</button>
     </div>
     <div id="notes-editor" class="notes-editor"></div>
+  </div>
+
+  <!-- ── CREW LOGINS TAB ──────────────────────────────────── -->
+  <div id="tab-logins" class="tab-panel">
+    <div class="panel-header">
+      <div class="panel-title">Crew Login History</div>
+      <div class="panel-actions">
+        <input id="logins-search" class="search-input" type="search"
+               placeholder="Filter by name or team…" oninput="filterLogins(this.value)"/>
+        <button class="action-btn" onclick="loadLoginLog()">&#8635; Refresh</button>
+      </div>
+    </div>
+    <div id="logins-list" class="logins-list">
+      <div class="logins-empty">Loading…</div>
+    </div>
   </div>
 
 </main>
