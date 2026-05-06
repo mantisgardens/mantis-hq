@@ -163,8 +163,9 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
   document.getElementById(`tab-${tab}`).classList.add('active');
-  // Lazy-load notes on first visit
-  if (tab === 'notes' && !notesData) loadNotes();
+  // Lazy-load on first visit
+  if (tab === 'notes'   && !notesData)    loadNotes();
+  if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
 }
 
 // =============================================================
@@ -784,6 +785,75 @@ async function saveNotes() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✓ Save'; }
   }
+}
+
+// =============================================================
+// SECTION 8b — CREW LOGIN LOG
+// =============================================================
+let loginsLoaded   = false;
+let allLoginRows   = [];
+
+async function loadLoginLog() {
+  const el = document.getElementById('logins-list');
+  el.innerHTML = '<div class="logins-empty">Loading…</div>';
+  loginsLoaded = false;
+
+  try {
+    const data = await ownerFetch('ownerGetLoginLog', '&limit=300');
+    if (data.error) throw new Error(data.error);
+    allLoginRows = data.logins || [];
+    loginsLoaded = true;
+    renderLogins(allLoginRows);
+  } catch(e) {
+    el.innerHTML = `<div class="logins-empty logins-error">Could not load login log: ${esc(e.message)}</div>`;
+  }
+}
+
+function filterLogins(query) {
+  if (!loginsLoaded) return;
+  const q = query.trim().toLowerCase();
+  if (!q) { renderLogins(allLoginRows); return; }
+  renderLogins(allLoginRows.filter(r =>
+    r.name.toLowerCase().includes(q)     ||
+    r.email.toLowerCase().includes(q)    ||
+    r.category.toLowerCase().includes(q) ||
+    r.role.toLowerCase().includes(q)
+  ));
+}
+
+function renderLogins(rows) {
+  const el = document.getElementById('logins-list');
+  if (!rows.length) {
+    el.innerHTML = '<div class="logins-empty">No login records found.</div>';
+    return;
+  }
+
+  // Group by date (MM/DD/YYYY extracted from the ts string)
+  const groups = {};
+  const order  = [];
+  rows.forEach(r => {
+    // ts is like "Jan 5, 2025, 7:42 AM" — extract date label
+    const dateLabel = r.ts.replace(/,\s*\d+:\d+\s*(AM|PM)$/i, '').trim();
+    if (!groups[dateLabel]) { groups[dateLabel] = []; order.push(dateLabel); }
+    groups[dateLabel].push(r);
+  });
+
+  const html = order.map(dateLabel => {
+    const dayRows = groups[dateLabel].map(r => `
+      <div class="login-row">
+        <span class="login-time">${esc(r.ts.match(/\d+:\d+\s*(AM|PM)/i)?.[0] || '')}</span>
+        <span class="login-name">${esc(r.name || r.email)}</span>
+        <span class="login-team">${esc(r.category)}${r.role ? ' · ' + esc(r.role) : ''}</span>
+        <span class="login-email">${esc(r.email)}</span>
+      </div>`).join('');
+    return `
+      <div class="login-date-group">
+        <div class="login-date-header">${esc(dateLabel)}</div>
+        ${dayRows}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = html;
 }
 
 // =============================================================
