@@ -4,15 +4,13 @@
   Mantis Gardens — Crew Assignment Panel
   
   This file is intentionally lean — just structure and markup.
-  Styles   → mantis_crew_panel.css
-  Logic    → mantis_crew_panel.js
+  Styles → mantis_crew_panel.css
+  Logic  → crew_config.js, crew_api.js, crew_render.js,
+            crew_ui.js, crew_workrecord.js, crew_history.js,
+            crew_app.js  (loaded in that order)
   
-  To deploy: place all three files in the same folder and
-  open mantis_crew_panel.html from a local web server
-  (e.g. python3 -m http.server 8000).
-  
-  Configuration: edit SCRIPT_URL and KEY at the top of
-  mantis_crew_panel.js after each Apps Script redeployment.
+  Configuration: edit SCRIPT_URL in crew_config.js after each
+  Apps Script redeployment.
 -->
 <html lang="en">
 <head>
@@ -20,7 +18,7 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=25"/>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=24"/>
 </head>
 <body>
 
@@ -282,10 +280,17 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="../config.js?v=26"></script>
-<script src="js/mantis_config.js?v=26"></script>
-<script src="js/session_timeout.js?v=26"></script>
-<script src="js/mantis_data_loader.js?v=26"></script>
-<script src="js/mantis_crew_panel.js?v=27"></script>
+<script src="../config.js?v=25"></script>
+<script src="js/mantis_config.js?v=25"></script>
+<script src="js/session_timeout.js?v=25"></script>
+<script src="js/mantis_data_loader.js?v=25"></script>
+<script src="js/crew_config.js?v=25"></script>
+<script src="js/crew_api.js?v=25"></script>
+<script src="js/crew_render.js?v=25"></script>
+<script src="js/crew_ui.js?v=25"></script>
+<script src="js/crew_workrecord.js?v=25"></script>
+<script src="js/crew_history.js?v=25"></script>
+<!-- The following must load last! -->
+<script src="js/crew_app.js?v=25"></script>
 </body>
 </html>
