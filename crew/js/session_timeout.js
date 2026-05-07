@@ -55,17 +55,50 @@
       document.addEventListener(evt, touch, { passive: true });
     });
 
-    // Check every minute whether the session has expired
-    // (handles the case where the device was locked/slept)
+    // ── Mobile-safe timeout strategy ────────────────────────────
+    // Mobile browsers throttle or kill setTimeout/setInterval when
+    // the screen locks or the tab is backgrounded for more than a
+    // few minutes. A 10-hour timer set at login will simply never
+    // fire on a phone that spends most of the day locked.
+    //
+    // Fix: store the login time in localStorage (survives page
+    // reloads and app restarts). Check elapsed time:
+    //   1. Every 60 seconds via setInterval (active use)
+    //   2. On visibilitychange (fires when screen unlocks or user
+    //      returns to the tab — the most reliable mobile trigger)
+    //   3. On pageshow (fires on back/forward navigation)
+    //
+    // The setTimeout timers are kept for the warning banner during
+    // active use, but signOut() always re-checks the wall-clock
+    // elapsed time so it can't fire prematurely.
+
+    // Seed login time if not already set (first load this session)
+    if (!localStorage.getItem('mg_session_start')) {
+      localStorage.setItem('mg_session_start', Date.now().toString());
+    }
+
+    // Check every minute while the page is active
     setInterval(checkTimeout, 60 * 1000);
 
-    // Start the initial timers
+    // Check immediately when the screen unlocks / user returns to tab
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkTimeout();
+    });
+
+    // Check on back/forward navigation
+    window.addEventListener('pageshow', checkTimeout);
+
+    // Start the warning timer for active-use case
     resetTimers();
   };
 
   // ── touch ────────────────────────────────────────────────────
   // Called on any user interaction — updates last activity time
   // and resets the countdown timers.
+  // Note: touching does NOT reset the session start time — the
+  // 10-hour clock runs from login, not from last activity.
+  // This matches the intended "crew logs in at 7am, out at 5pm"
+  // use case rather than a traditional inactivity timeout.
 
   function touch() {
     sessionStorage.setItem('mg_last_activity', Date.now().toString());
@@ -81,24 +114,35 @@
     clearTimeout(_timer);
     clearTimeout(_warningTimer);
 
-    // Warning fires (timeoutMs - warningMs) after last activity
-    const warnDelay = _options.timeoutMs - _options.warningMs;
-    if (warnDelay > 0) {
-      _warningTimer = setTimeout(showWarning, warnDelay);
+    // Calculate remaining time based on session start, not last activity
+    const sessionStart = parseInt(localStorage.getItem('mg_session_start') || Date.now().toString());
+    const elapsed      = Date.now() - sessionStart;
+    const remaining    = _options.timeoutMs - elapsed;
+
+    if (remaining <= 0) {
+      signOut();
+      return;
     }
 
-    // Timeout fires timeoutMs after last activity
-    _timer = setTimeout(signOut, _options.timeoutMs);
+    const warnRemaining = remaining - _options.warningMs;
+    if (warnRemaining > 0) {
+      _warningTimer = setTimeout(showWarning, warnRemaining);
+    } else {
+      // Already in the warning window
+      showWarning();
+    }
+
+    _timer = setTimeout(signOut, remaining);
   }
 
   // ── checkTimeout ─────────────────────────────────────────────
-  // Periodic check — catches cases where JS timers were paused
-  // (e.g. device sleep, tab backgrounded for a long time).
+  // Wall-clock check — the source of truth for mobile.
 
   function checkTimeout() {
     if (!_options) return;
-    const last    = parseInt(sessionStorage.getItem('mg_last_activity') || '0');
-    const elapsed = Date.now() - last;
+    const sessionStart = parseInt(localStorage.getItem('mg_session_start') || '0');
+    if (!sessionStart) return;
+    const elapsed = Date.now() - sessionStart;
     if (elapsed >= _options.timeoutMs) {
       signOut();
     } else if (elapsed >= _options.timeoutMs - _options.warningMs) {
@@ -107,8 +151,6 @@
   }
 
   // ── showWarning ──────────────────────────────────────────────
-  // Shows a dismissible banner warning the user they'll be
-  // signed out soon.
 
   function showWarning() {
     if (_warningEl) return;  // already showing
@@ -150,36 +192,42 @@
   }
 
   // ── signOut ──────────────────────────────────────────────────
-  // Clears the session and redirects to login.
 
   function signOut() {
     clearTimeout(_timer);
     clearTimeout(_warningTimer);
+
+    // Guard: double-check elapsed time before signing out —
+    // prevents premature signout if resetTimers() miscalculates
+    const sessionStart = parseInt(localStorage.getItem('mg_session_start') || '0');
+    if (sessionStart && (Date.now() - sessionStart) < _options.timeoutMs) {
+      // Not actually expired yet — reset timers and bail
+      resetTimers();
+      return;
+    }
 
     // Remove activity listeners
     ['click', 'touchstart', 'keydown', 'scroll'].forEach(evt => {
       document.removeEventListener(evt, touch);
     });
 
+    // Clear session start so it gets re-seeded on next login
+    localStorage.removeItem('mg_session_start');
+
     // Call the app's own sign-out function if provided
-    // (revokes Google token, clears caches etc.)
     if (_options && typeof _options.onSignOut === 'function') {
       try { _options.onSignOut(); } catch(e) {}
     }
 
-    // Clear localStorage persistence keys so the session doesn't auto-restore
+    // Clear auth persistence
     localStorage.removeItem('mg_auth');
     localStorage.removeItem('mg_user_email');
     localStorage.removeItem('mg_user_name');
     localStorage.removeItem('mg_auth_expiry');
 
-    // Clear session storage
     const loginUrl = (_options && _options.loginUrl) || 'index.html';
     sessionStorage.clear();
-
-    // Pass a flag so the login page can show a "timed out" message
     sessionStorage.setItem('mg_timeout', '1');
-
     window.location.href = loginUrl;
   }
 

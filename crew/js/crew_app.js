@@ -7,12 +7,15 @@
      - Session timeout initialisation
      - Initial loadAll() call
    
-   Load order: This js file must be last script tag on the 
-   mantis_crew_panel.html page so all other
+   Load order: must be last script tag on the page so all other
    modules are defined before startup code runs.
    ============================================================= */
 
-
+// =============================================================
+// SECTION 11 — STARTUP
+// Sets currentDay to today then fires loadAll().
+// loadAll() is also wired to the "↺ Load all sheets" button.
+// =============================================================
 // ── Sign out ─────────────────────────────────────────────────
 function doSignOut() {
   const email = sessionStorage.getItem('mg_user_email') || localStorage.getItem('mg_user_email');
@@ -25,6 +28,7 @@ function doSignOut() {
   localStorage.removeItem('mg_user_email');
   localStorage.removeItem('mg_user_name');
   localStorage.removeItem('mg_auth_expiry');
+  localStorage.removeItem('mg_session_start');
   sessionStorage.clear();
   window.location.href = 'index.html';
 }
@@ -52,11 +56,7 @@ if (sessionStorage.getItem('mg_auth') === '1') {
   });
 }
 
-// =============================================================
-// STARTUP
-// Sets currentDay to today then fires loadAll().
-// loadAll() is also wired to the "↺ Load all sheets" button.
-// =============================================================
+// ── Start: load all data ──────────────────────────────────────
 // keepWarm trigger handles cold starts during business hours.
 currentDay = todayDateKey();
 loadAll();

@@ -18,7 +18,7 @@ const SCRIPT_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT
 
 
 // =============================================================
-// SECTION 2 — APPLICATION STATE
+// SECTION 3 — APPLICATION STATE
 // All mutable state lives here. Mutate only via setSt(),
 // toggle(), or the loadAll() handlers.
 // =============================================================
@@ -26,7 +26,7 @@ const SCRIPT_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT
 let SCHEDULE     = {};          // populated from Google Calendar via Apps Script
 
 // =============================================================
-// SECTION 3 — SCHEDULE DATA
+// SECTION 2 — SCHEDULE DATA
 // DAYS, DAY_LABELS, and SCHEDULE are populated at runtime by
 // the Apps Script ?action=schedule call. They start empty and
 // are filled in loadAll() when the page first opens.
@@ -57,5 +57,21 @@ let expanded     = {}, statuses = {};
 const _briefStored = JSON.parse(sessionStorage.getItem('mg_brief_open') || 'null');
 let briefOpen = _briefStored || { t1:true, t2:true, install:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
+// ── normClientName ────────────────────────────────────────────
+// Normalises a client name for comparison across two formats:
+//   DB format:       "Last, First"   →  "first last"
+//   Calendar format: "First Last"    →  "first last"
+// Lowercases, trims, collapses whitespace, and inverts
+// "Last, First" so both sides compare consistently.
+// Used wherever a calendar-derived name is matched against sheetClients.
+function normClientName(s) {
+  s = (s || '').toLowerCase().trim();
+  if (s.includes(',')) {
+    const parts = s.split(',').map(p => p.trim());
+    s = parts.slice(1).join(' ').trim() + ' ' + parts[0].trim();
+  }
+  return s.replace(/\s+/g, ' ');
+}
+
 let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 

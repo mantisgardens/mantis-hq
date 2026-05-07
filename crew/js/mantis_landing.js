@@ -107,6 +107,7 @@ function handleCredential(response) {
         localStorage.setItem('mg_user_category', category);
         localStorage.setItem('mg_user_role',     role);
         localStorage.setItem('mg_auth_expiry',   expiry.toString());
+        localStorage.setItem('mg_session_start', Date.now().toString());
         // Also seed sessionStorage so session_timeout.js works
         sessionStorage.setItem('mg_auth',          '1');
         sessionStorage.setItem('mg_user_email',    email);
@@ -142,6 +143,7 @@ function doSignOut() {
   localStorage.removeItem('mg_user_category');
   localStorage.removeItem('mg_user_role');
   localStorage.removeItem('mg_auth_expiry');
+  localStorage.removeItem('mg_session_start');
   sessionStorage.clear();
   show('login');
   hideLoginError();

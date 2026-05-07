@@ -3,17 +3,17 @@
    Mantis Gardens — Work Record Form
 
    Contains:
-     Work record form    (openWorkRecord, closeModal)
-     Workers             (addWorker, getWorkersForTeam)
-     Materials           (addMaterial, addIrrigationRow, COMMON_MATERIALS)
-     Photos              (handlePhotos, removePhoto)
-     Form actions        (collectFormData, saveForm, submitForm,
+     12. Work record form    (openWorkRecord, closeModal)
+     13. Workers             (addWorker, getWorkersForTeam)
+     14. Materials           (addMaterial, addIrrigationRow, COMMON_MATERIALS)
+     15. Photos              (handlePhotos, removePhoto)
+     16. Form actions        (collectFormData, saveForm, submitForm,
                                clearForm, toggleChecklist)
-     Safe local save    (safeLocalSave, pruneOldRecords)
+     16b. Safe local save    (safeLocalSave, pruneOldRecords)
    ============================================================= */
 
 // =============================================================
-// WORK RECORD FORM
+// SECTION 12 — WORK RECORD FORM
 // openWorkRecord(jobId) slides up the modal for a given job.
 // The form captures workers + hours, materials used,
 // service notes (client-visible), internal notes, and photos.
@@ -216,10 +216,12 @@ function _getTeamWorkers(teamKey) {
 // sheet and pre-populates the fert rows. Falls back to one empty row.
 
 function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
-  // Look up Hist Data ID from sheetClients
+  // Look up Hist Data ID from sheetClients.
+  // Client DB stores names as "Last, First" but calendar events use
+  // "First Last" — normClientName() handles both formats.
+  const q  = normClientName(clientName);
   const sc = sheetClients.find(c => {
-    const n = (c['Name(s)'] || '').toLowerCase().trim();
-    const q = (clientName || '').toLowerCase().trim();
+    const n = normClientName(c['Name(s)']);
     return n === q || n.includes(q) || q.includes(n);
   });
   const histId   = sc && sc['Hist Data ID']    ? sc['Hist Data ID'].trim()    : '';
@@ -257,24 +259,34 @@ function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
         if (!irrList.children.length)  addOtherMaterial();
         return;
       }
-      // Most recent fertilizer entry (already sorted newest-first)
-      const lastEntry = data.fertilizers[0];
-      const products  = (lastEntry.product || '').split(' | ').filter(p => p.trim());
-      if (products.length) {
+      // Build a deduplicated union of products from the last 3 entries
+      // (already sorted newest-first). Each product appears once,
+      // with qty/unit from its most recent appearance.
+      const LOOKBACK    = 3;
+      const recentEntries = data.fertilizers.slice(0, LOOKBACK);
+      const seen        = new Map();   // product name (lc) -> { item, qty, unit }
+
+      // Walk oldest-to-newest so that the most recent entry wins on conflict
+      recentEntries.slice().reverse().forEach(entry => {
+        const products = (entry.product || '').split(' | ').filter(p => p.trim());
         products.forEach(p => {
-          // Parse "Product Name — qty unit"
           const dashIdx = p.indexOf(' — ');
+          let item, qty, unit;
           if (dashIdx > 0) {
-            const item    = p.slice(0, dashIdx).trim();
+            item = p.slice(0, dashIdx).trim();
             const qtyPart = p.slice(dashIdx + 3).trim();
             const parts   = qtyPart.split(' ');
-            const qty     = parts[0] || '';
-            const unit    = parts.slice(1).join(' ') || '';
-            addFert(item, qty, unit);
+            qty  = parts[0] || '';
+            unit = parts.slice(1).join(' ') || '';
           } else {
-            addFert(p.trim());
+            item = p.trim(); qty = ''; unit = '';
           }
+          if (item) seen.set(item.toLowerCase(), { item, qty, unit });
         });
+      });
+
+      if (seen.size) {
+        seen.forEach(({ item, qty, unit }) => addFert(item, qty, unit));
       } else {
         addFert();
       }
@@ -319,7 +331,7 @@ function closeModalOutside(e) {
 
 
 // =============================================================
-// WORKERS
+// SECTION 13 — WORKERS
 // addWorker(name?, hours?) appends a name+hours input row.
 // Called once on modal open, then by the "+ Add worker" button.
 // =============================================================
@@ -340,7 +352,7 @@ function addWorker(name, hours) {
 
 
 // =============================================================
-// MATERIALS & COMMON MATERIALS LIST
+// SECTION 14 — MATERIALS & COMMON MATERIALS LIST
 // COMMON_MATERIALS provides autocomplete suggestions drawn from
 // the install sheet and standard maintenance supplies.
 // addMaterial(item?, qty?, unit?) appends a material row.
@@ -477,7 +489,7 @@ function addMaterial(item, qty, unit) {
 
 
 // =============================================================
-// PHOTOS
+// SECTION 15 — PHOTOS
 // handlePhotos() reads selected files into FileReader and shows
 // thumbnails. photoFiles[] holds the File objects for upload.
 // =============================================================
@@ -567,7 +579,7 @@ function removePhoto(btn, fileName) {
 
 
 // =============================================================
-// FORM ACTIONS
+// SECTION 16 — FORM ACTIONS
 // collectFormData()  — gathers all form fields into one object
 // saveForm()         — persists to localStorage, shows badge
 // submitForm()       — validates, saves, marks job Done, closes
@@ -621,8 +633,8 @@ function collectFormData() {
 
   // Look up Hist Data ID and folder ID from client database for fast submit
   const _sc = sheetClients.find(c => {
-    const n = (c['Name(s)'] || '').toLowerCase().trim();
-    const q = (currentJobData ? currentJobData.client : '').toLowerCase().trim();
+    const n = normClientName(c['Name(s)'] || '');
+    const q = normClientName(currentJobData ? currentJobData.client : '');
     return n === q || n.includes(q) || q.includes(n);
   });
 
@@ -909,7 +921,7 @@ function clearForm() {
 
 
 // =============================================================
-// SAFE LOCAL SAVE
+// SECTION 16b — SAFE LOCAL SAVE
 // Saves savedRecords to localStorage, catching quota errors.
 // Automatically prunes old submitted records if storage is full.
 // =============================================================

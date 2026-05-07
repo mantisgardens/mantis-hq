@@ -3,13 +3,13 @@
    Mantis Gardens — Historical Data Panel
 
    Contains:
-     Historical data panel  (openHistory, openHistoryForClient,
+     19. Historical data panel  (openHistory, openHistoryForClient,
                                   loadHistory, switchHistoryTab,
                                   filterHistory, closeHistory,
                                   populateHistoryClientList)
    ============================================================= */
 
-// HISTORICAL DATA PANEL
+// SECTION 19 — HISTORICAL DATA PANEL
 // openHistory()               — opens modal, populates client list
 // openHistoryForClient(name)  — opens modal pre-selected to client
 // loadHistory(clientName)     — fetches from Historical Data sheet
@@ -152,8 +152,8 @@ async function loadHistory(clientName) {
   try {
     // Look up Hist Data ID and folder ID from client database
     const sc = sheetClients.find(c => {
-      const n = (c['Name(s)'] || '').toLowerCase().trim();
-      const q = clientName.toLowerCase().trim();
+      const n = normClientName(c['Name(s)'] || '');
+      const q = normClientName(clientName);
       return n === q || n.includes(q) || q.includes(n);
     });
 
@@ -515,3 +515,4 @@ function _populateHistorySelect() {
   });
 }
 
+// ── Load history from Historical Data sheet ───────────────────
