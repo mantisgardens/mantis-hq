@@ -3,17 +3,17 @@
    Mantis Gardens — Rendering Layer
 
    Contains:
-     Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
-     Client matching     (findClient, clientCache)
-     HTML escaping       (esc)
-     Morning Brief       (renderBrief, toggleBrief)
-     Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
-     Tabs & main render  (buildTabs, render, toggle, setSt,
+     5.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
+     6.  Client matching     (findClient, clientCache)
+     7.  HTML escaping       (esc)
+     8.  Morning Brief       (renderBrief, toggleBrief)
+     9.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
+     10. Tabs & main render  (buildTabs, render, toggle, setSt,
                                switchTeam, toggleJobStatus, hideJob)
    ============================================================= */
 
 // =============================================================
-// DATE HELPERS
+// SECTION 5 — DATE HELPERS
 // todayDateKey()    → "YYYY-MM-DD" for today
 // isToday(key)      → boolean
 // updateWeekLabel() → sets the header "Week of ..." text
@@ -72,7 +72,7 @@ function shiftWeek(dir) {
 
 
 // =============================================================
-// CLIENT MATCHING
+// SECTION 6 — CLIENT MATCHING
 // findClient(name) does a fuzzy word-score match between the
 // calendar event title and client names from Google Sheets.
 // clientCache is a word-indexed lookup built in loadAll().
@@ -107,7 +107,7 @@ function findClient(name) {
 
 
 // =============================================================
-// HTML ESCAPING UTILITY
+// SECTION 7 — HTML ESCAPING UTILITY
 // esc() must be called on every piece of user/sheet data
 // before inserting into innerHTML to prevent XSS.
 // =============================================================
@@ -118,7 +118,7 @@ function esc(s) {
 
 
 // =============================================================
-// MORNING BRIEF RENDERING
+// SECTION 8 — MORNING BRIEF RENDERING
 // renderBrief(wrapId, team) builds the morning brief panel for each
 // team column. Uses morningBrief data (from getMorningBrief()) for
 // team-specific notes and the shared all-crew section (time off,
@@ -290,7 +290,7 @@ function toggleBrief(team) {
 
 
 // =============================================================
-// JOB CARD RENDERING
+// SECTION 9 — JOB CARD RENDERING
 // renderJobs() builds each job card from calendar event data,
 // optionally enriched with client sheet data (findClient).
 // Expanded cards show full client detail + action buttons.
@@ -417,7 +417,7 @@ function renderJobs(cid, jobs, teamClass) {
 
 
 // =============================================================
-// TABS & MAIN RENDER LOOP
+// SECTION 10 — TABS & MAIN RENDER LOOP
 // ── switchTeam ────────────────────────────────────────────────
 // Shows the selected team panel and updates the tab highlight.
 // Works with any number of teams — just add more panels + tabs.
@@ -467,7 +467,10 @@ function buildTabs() {
   });
 }
 
-function toggle(id)   { expanded[id] = !expanded[id]; render(); }
+function toggle(id) {
+  expanded[id] = !expanded[id];
+  render();
+}
 function setSt(id, s) { statuses[id] = s; render(); }
 
 function toggleJobStatus(id) {
@@ -516,10 +519,26 @@ function render() {
     <div class="sitem"><span class="snum b">${submitted}</span>&nbsp;submitted</div>
     <div class="sitem" style="margin-left:auto"><span class="snum k">${fh}</span>&nbsp;field hrs</div>`;
 
-  // Always scroll the active day tab into view after the DOM is rebuilt
+  // Scroll the active day tab into view within the tab strip.
+  // We set scrollLeft on the #day-tabs container directly rather than
+  // calling scrollIntoView() on the tab, because scrollIntoView uses
+  // the browser's full scroll algorithm which moves the page vertically
+  // as a side effect — jumping the user back to the top when they've
+  // scrolled down to a job card.
   setTimeout(() => {
-    const active = document.querySelector('.day-tab.active');
-    if (active) active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    const strip = document.getElementById('day-tabs');
+    const active = strip && strip.querySelector('.day-tab.active');
+    if (!strip || !active) return;
+    const tabLeft   = active.offsetLeft;
+    const tabRight  = tabLeft + active.offsetWidth;
+    const stripLeft = strip.scrollLeft;
+    const stripRight = stripLeft + strip.clientWidth;
+    // Only scroll if the tab isn't already fully visible
+    if (tabLeft < stripLeft) {
+      strip.scrollTo({ left: tabLeft - 16, behavior: 'smooth' });
+    } else if (tabRight > stripRight) {
+      strip.scrollTo({ left: tabRight - strip.clientWidth + 16, behavior: 'smooth' });
+    }
   }, 50);
 }
 
