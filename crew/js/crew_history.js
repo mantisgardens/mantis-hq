@@ -151,11 +151,7 @@ async function loadHistory(clientName) {
 
   try {
     // Look up Hist Data ID and folder ID from client database
-    const sc = sheetClients.find(c => {
-      const n = normClientName(c['Name(s)'] || '');
-      const q = normClientName(clientName);
-      return n === q || n.includes(q) || q.includes(n);
-    });
+    const sc = findSheetClient(clientName);
 
     const histId   = (sc && sc['Hist Data ID'])    ? sc['Hist Data ID'].trim()    : '';
     const folderId = (sc && sc['Drive Folder ID']) ? sc['Drive Folder ID'].trim() : '';

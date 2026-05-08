@@ -91,6 +91,25 @@ function findClient(name) {
     (clientCache['last:' + w] || []).forEach(c => scores.set(c, (scores.get(c)||0) + 3));
   });
 
+  // Fuzzy fallback: if no scores, try Levenshtein distance 1 on cache keys.
+  // Handles single-character typos like "Belloti" → "Bellotti".
+  // Only runs when exact matching fully fails, so no performance impact
+  // on the normal path. Only checks 'last:' prefixed keys for safety —
+  // matching on surname reduces false positives vs matching all words.
+  if (!scores.size) {
+    words.forEach(w => {
+      if (w.length < 3) return;
+      Object.keys(clientCache).forEach(key => {
+        if (!key.startsWith('last:')) return;
+        const keyWord = key.slice(5);
+        if (Math.abs(keyWord.length - w.length) > 1) return;
+        if (levenshtein(w, keyWord) === 1) {
+          (clientCache[key] || []).forEach(c => scores.set(c, (scores.get(c)||0) + 3));
+        }
+      });
+    });
+  }
+
   if (!scores.size) {
     console.log('[findClient] no scores for:', name, '| words:', words);
     return null;
@@ -101,7 +120,6 @@ function findClient(name) {
     console.log('[findClient] no match for:', name, '| words:', words, '| top score:', top);
     return null;
   }
-  //console.log('[findClient]', name, '→', best['Name(s)'], '(score:', top, ')');
   return best;
 }
 

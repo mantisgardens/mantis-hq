@@ -219,11 +219,7 @@ function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
   // Look up Hist Data ID from sheetClients.
   // Client DB stores names as "Last, First" but calendar events use
   // "First Last" — normClientName() handles both formats.
-  const q  = normClientName(clientName);
-  const sc = sheetClients.find(c => {
-    const n = normClientName(c['Name(s)']);
-    return n === q || n.includes(q) || q.includes(n);
-  });
+  const sc = findSheetClient(clientName);
   const histId   = sc && sc['Hist Data ID']    ? sc['Hist Data ID'].trim()    : '';
   const folderId = sc && sc['Drive Folder ID'] ? sc['Drive Folder ID'].trim() : '';
 
@@ -632,11 +628,7 @@ function collectFormData() {
   const otherMaterials = collectRows('other-materials-list');
 
   // Look up Hist Data ID and folder ID from client database for fast submit
-  const _sc = sheetClients.find(c => {
-    const n = normClientName(c['Name(s)'] || '');
-    const q = normClientName(currentJobData ? currentJobData.client : '');
-    return n === q || n.includes(q) || q.includes(n);
-  });
+  const _sc = findSheetClient(currentJobData ? currentJobData.client : '');
 
   return {
     jobId:         currentJobId,

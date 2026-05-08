@@ -73,5 +73,66 @@ function normClientName(s) {
   return s.replace(/\s+/g, ' ');
 }
 
+// ── levenshtein ───────────────────────────────────────────────
+// Returns the edit distance between two strings.
+// Used by findSheetClient for typo-tolerant matching.
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// ── findSheetClient ───────────────────────────────────────────
+// Looks up a client in sheetClients by calendar name.
+// Three-tier matching:
+//   1. Exact match after normalisation (handles Last,First ↔ First Last)
+//   2. Substring containment (handles partial names)
+//   3. Fuzzy Levenshtein match on the surname only, distance ≤ 1
+//      (handles single typos like "Belloti" → "Bellotti")
+//      Matches against the text before the comma in the DB name
+//      (e.g. "Bellotti, Tim" → "bellotti") to avoid false positives
+//      from first-name collisions (jan/jon/joan etc).
+// Returns the matching sheetClients row, or null.
+function findSheetClient(calendarName) {
+  if (!calendarName || !sheetClients.length) return null;
+  const q = normClientName(calendarName);
+  if (!q) return null;
+
+  // Tier 1 & 2: exact or substring
+  const close = sheetClients.find(c => {
+    const n = normClientName(c['Name(s)'] || '');
+    return n === q || n.includes(q) || q.includes(n);
+  });
+  if (close) return close;
+
+  // Tier 3: fuzzy match on surname only.
+  // Calendar name "Sheila Belloti" → last word "belloti"
+  // DB name "Bellotti, Tim"  → text before comma "bellotti"
+  const qWords    = q.split(' ');
+  const qSurname  = qWords[qWords.length - 1];
+  if (qSurname.length < 3) return null;  // too short to fuzzy-match safely
+
+  let bestMatch = null, bestDist = Infinity;
+  sheetClients.forEach(c => {
+    const raw = (c['Name(s)'] || '').toLowerCase().trim();
+    const dbSurname = raw.includes(',')
+      ? raw.split(',')[0].trim()          // "bellotti, tim" → "bellotti"
+      : raw.split(' ').pop();             // "tim bellotti"  → "bellotti"
+    if (!dbSurname || Math.abs(dbSurname.length - qSurname.length) > 1) return;
+    const dist = levenshtein(qSurname, dbSurname);
+    if (dist < bestDist) { bestDist = dist; bestMatch = c; }
+  });
+
+  return bestDist <= 1 ? bestMatch : null;
+}
+
 let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
 
