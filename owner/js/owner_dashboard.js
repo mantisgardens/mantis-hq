@@ -73,6 +73,85 @@ function clearOwnerCache() {
     .forEach(k => sessionStorage.removeItem(k));
 }
 
+// ── Token refresh ─────────────────────────────────────────────
+// Google ID tokens expire after 1 hour. The owner portal session
+// is 2 hours, so tokens will expire mid-session. When ownerFetch/
+// ownerPost receives an "Invalid token" error, _refreshOwnerToken()
+// uses GIS to silently issue a new credential and retries the
+// request — the owner sees nothing. Only if GIS silent refresh
+// fails (rare) does it fall back to redirecting to the login page.
+// The GIS script is loaded async on this page specifically to
+// support this — it is separate from the session timeout.
+let _tokenRefreshPromise = null;
+
+function _refreshOwnerToken() {
+  if (_tokenRefreshPromise) return _tokenRefreshPromise;
+  _tokenRefreshPromise = new Promise((resolve, reject) => {
+    const tryRefresh = () => {
+      if (typeof google === 'undefined' || !google.accounts) {
+        reject(new Error('GIS not available'));
+        return;
+      }
+      google.accounts.id.initialize({
+        client_id:   (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '',
+        auto_select: true,
+        callback:    (response) => {
+          _tokenRefreshPromise = null;
+          if (response && response.credential) {
+            sessionStorage.setItem('owner_id_token', response.credential);
+            resolve(response.credential);
+          } else {
+            _tokenRefreshPromise = null;
+            _handleTokenExpiry();
+            reject(new Error('No credential returned'));
+          }
+        },
+      });
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          _tokenRefreshPromise = null;
+          _handleTokenExpiry();
+          reject(new Error('Silent refresh not possible'));
+        }
+      });
+    };
+
+    // GIS script is loaded async — wait up to 3s for it if needed
+    if (typeof google !== 'undefined' && google.accounts) {
+      tryRefresh();
+    } else {
+      let waited = 0;
+      const poll = setInterval(() => {
+        waited += 100;
+        if (typeof google !== 'undefined' && google.accounts) {
+          clearInterval(poll);
+          tryRefresh();
+        } else if (waited >= 3000) {
+          clearInterval(poll);
+          _tokenRefreshPromise = null;
+          _handleTokenExpiry();
+          reject(new Error('GIS did not load in time'));
+        }
+      }, 100);
+    }
+  });
+  return _tokenRefreshPromise;
+}
+
+function _handleTokenExpiry() {
+  sessionStorage.removeItem('owner_auth');
+  sessionStorage.removeItem('owner_id_token');
+  sessionStorage.setItem('owner_token_expired', '1');
+  window.location.href = (typeof OWNER_CONFIG !== 'undefined')
+    ? OWNER_CONFIG.LOGIN_URL : 'index.html';
+}
+
+function _isTokenError(err) {
+  const msg = (err && err.message) || '';
+  return msg.includes('Invalid token') || msg.includes('Unauthorized') ||
+         msg.includes('HTTP 400')      || msg.includes('HTTP 401');
+}
+
 async function ownerFetch(action, extra) {
   extra = extra || '';
   const cacheKey = `oc_cache_${action}${extra}`;
@@ -87,11 +166,26 @@ async function ownerFetch(action, extra) {
     } catch(e) {}
   }
 
-  const idToken = encodeURIComponent(getIdToken());
-  const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}${extra}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
+  async function _fetch() {
+    const idToken = encodeURIComponent(getIdToken());
+    const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}${extra}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  let data;
+  try {
+    data = await _fetch();
+  } catch(err) {
+    if (_isTokenError(err)) {
+      await _refreshOwnerToken();
+      data = await _fetch();
+    } else {
+      throw err;
+    }
+  }
 
   if (ttl) {
     try {
@@ -102,17 +196,30 @@ async function ownerFetch(action, extra) {
 }
 
 async function ownerPost(action, payload) {
-  const idToken = encodeURIComponent(getIdToken());
-  const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body:    JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
-  return data;
+  async function _post() {
+    const idToken = encodeURIComponent(getIdToken());
+    const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body:    JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  try {
+    return await _post();
+  } catch(err) {
+    if (_isTokenError(err)) {
+      await _refreshOwnerToken();
+      return await _post();
+    }
+    throw err;
+  }
 }
+
 
 function setStatus(id, state, msg) {
   const dot   = document.getElementById('sd-' + id);

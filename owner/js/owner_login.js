@@ -18,6 +18,15 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
   });
 }
 
+// Token expiry — redirected from dashboard after 1hr token expiry.
+// GIS auto_select:true + prompt() below will silently re-authenticate
+// and redirect straight back to the dashboard if the Google session
+// is still active (typical case — no visible login needed).
+// Just clear the flag; no user-visible message needed.
+if (sessionStorage.getItem('owner_token_expired') === '1') {
+  sessionStorage.removeItem('owner_token_expired');
+}
+
 function showError(msg) {
   const el = document.getElementById('login-error');
   el.textContent = msg || 'Access restricted to authorised owner accounts.';
