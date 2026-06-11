@@ -89,7 +89,6 @@
       <div class="panel-title">Work Documents</div>
       <div class="panel-actions">
         <select id="records-filter-client" class="filter-select" onchange="loadDocuments()">
-          <option value="">All clients</option>
         </select>
         <select id="records-filter-days" class="filter-select" onchange="loadDocuments()">
           <option value="7">Last 7 days</option>
@@ -100,13 +99,7 @@
           <option value="0">All time</option>
         </select>
         <button class="action-btn" onclick="loadDocuments()">&#8635; Load</button>
-        <button class="action-btn" id="rebuild-cache-btn" onclick="rebuildDocsCache()">&#9881; Rebuild Cache</button>
       </div>
-    </div>
-    <div class="docs-info-bar">
-      &#8505; <b>All Clients</b> loads from a nightly cache — results reflect documents as of last night.
-      Use <b>Rebuild Cache</b> to index today's documents (may take a minute or two).
-      Selecting a specific client always loads live from Drive.
     </div>
     <div id="records-list" class="records-list"></div>
   </div>
