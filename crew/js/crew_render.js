@@ -251,7 +251,8 @@ function renderBrief(wrapId, team) {
       if (hasTimeOff) {
         body += `<div class="bsec-sublabel">&#127774; Time Off</div>`;
         ac.time_off.forEach(t => {
-          body += `<div class="note-item"><strong>${esc(t.name)}</strong> &mdash; ${esc(t.dates)}</div>`;
+          const hoursStr = t.hours ? ` (${esc(t.hours)})` : '';
+          body += `<div class="note-item"><strong>${esc(t.name)}</strong> &mdash; ${esc(t.dates)}${hoursStr}</div>`;
         });
       }
 

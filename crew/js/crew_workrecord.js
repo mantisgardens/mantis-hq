@@ -3,7 +3,7 @@
    Mantis Gardens — Work Record Form
 
    Contains:
-     12. Work record form    (openWorkRecord, closeModal)
+     12. Work record form    (openWorkRecord, closeModal, isFormEmpty)
      13. Workers             (addWorker, getWorkersForTeam)
      14. Materials           (addMaterial, addIrrigationRow, COMMON_MATERIALS)
      15. Photos              (handlePhotos, removePhoto)
@@ -155,26 +155,17 @@ function openWorkRecord(jobId) {
       addWorker();  // blank row if no names available
     }
 
-    // ── Auto-populate fertilizers from most recent visit ───
-    // Fetch from Historical Data sheet in background
-    _prefillLastFertilizers(job.client, fertList, irrList, jobId);
+    // ── Fertilizer / materials pre-fill disabled by owner preference ──
+    // _prefillLastFertilizers() is retained for reference but not called.
+    // Crew start with one blank row each and fill from scratch.
+    addFert();
+    addOtherMaterial();
   };
 
   if (needsLoad && typeof loadServiceData === 'function') {
-    const loadingHtml = `<div class="sm-loading-row"><span class="sm-spinner"></span> Loading…</div>`;
-    fertList.innerHTML = loadingHtml;
-    irrList.innerHTML  = loadingHtml;
     loadServiceData()
-      .then(() => {
-        if (fertList.querySelector('.sm-loading-row')) fertList.innerHTML = '';
-        if (irrList.querySelector('.sm-loading-row'))  irrList.innerHTML  = '';
-        afterServiceDataLoaded();
-      })
-      .catch(() => {
-        if (fertList.querySelector('.sm-loading-row')) fertList.innerHTML = '';
-        if (irrList.querySelector('.sm-loading-row'))  irrList.innerHTML  = '';
-        afterServiceDataLoaded();
-      });
+      .then(() => afterServiceDataLoaded())
+      .catch(() => afterServiceDataLoaded());
   } else {
     afterServiceDataLoaded();
   }
@@ -312,7 +303,48 @@ function prefetchClientFolder(clientName) {
     .catch(() => {});  // silent fail — submit will find it the slow way
 }
 
+// ── Is the form meaningfully empty? ──────────────────────────
+// Returns true if the crew hasn't entered anything worth saving:
+// no worker names, no notes, no materials, no photos.
+function isFormEmpty() {
+  const hasWorker = Array.from(
+    document.querySelectorAll('#workers-list .dynamic-row input[type="text"]')
+  ).some(i => i.value.trim() !== '');
+  const hasNotes  = document.getElementById('wr-service-notes').value.trim() !== ''
+                 || document.getElementById('wr-internal-notes').value.trim() !== '';
+  const hasFert   = Array.from(
+    document.querySelectorAll('#fert-list .dynamic-row')
+  ).some(row => {
+    const inp = row.querySelector('.fert-item-input');
+    return inp && inp.value.trim() !== '';
+  });
+  const hasMatl   = Array.from(
+    document.querySelectorAll('#other-materials-list .dynamic-row')
+  ).some(row => {
+    const sel    = row.querySelector('.irr-select');
+    const custom = row.querySelector('.irr-custom');
+    if (sel && sel.style.display !== 'none') return sel.value.trim() !== '';
+    if (custom && custom.style.display !== 'none') return custom.value.trim() !== '';
+    return false;
+  });
+  return !hasWorker && !hasNotes && !hasFert && !hasMatl && photoFiles.length === 0;
+}
+
 function closeModal() {
+  // Auto-save draft if the form has content and hasn't been submitted
+  const alreadySubmitted = currentJobId && savedRecords[currentJobId] && savedRecords[currentJobId].submitted;
+  if (currentJobId && !alreadySubmitted && !isFormEmpty()) {
+    const data = collectFormData();
+    savedRecords[currentJobId] = Object.assign({}, data, { photos: [] });
+    safeLocalSave();
+    // Update the saved badge on the job card button
+    const btn = document.getElementById('wr-btn-' + currentJobId);
+    if (btn && !btn.querySelector('.saved-badge')) {
+      btn.innerHTML += '<span class="saved-badge">saved</span>';
+    }
+    showToast('Draft auto-saved ✓');
+  }
+
   document.getElementById('work-modal').classList.remove('open');
   // Hide checklist so it's closed fresh next time
   const panel = document.getElementById('checklist-panel');
