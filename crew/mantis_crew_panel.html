@@ -167,11 +167,16 @@
       <!-- Photo upload -->
       <div class="form-section">
         <div class="form-section-label">Photos</div>
-        <label class="photo-upload" for="photo-input">
-          <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotos(event)"/>
-          <div class="photo-upload-icon">&#128247;</div>
-          <div class="photo-upload-label">Tap to add photos</div>
-        </label>
+        <div class="photo-upload-row">
+          <label class="photo-upload-btn" for="photo-input-camera">
+            <input type="file" id="photo-input-camera" accept="image/*" capture="environment" multiple onchange="handlePhotos(event)"/>
+            <span class="photo-upload-icon">&#128247;</span> Camera
+          </label>
+          <label class="photo-upload-btn" for="photo-input-gallery">
+            <input type="file" id="photo-input-gallery" accept="image/*" multiple onchange="handlePhotos(event)"/>
+            <span class="photo-upload-icon">&#128444;</span> Gallery
+          </label>
+        </div>
         <div class="photo-previews" id="photo-previews"></div>
       </div>
 
