@@ -389,18 +389,18 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .add-row-btn:hover{border-color:var(--g4);color:var(--g);background:var(--g3)}
 
 /* Photo upload */
-.photo-upload{
+.photo-upload-row{display:flex;gap:10px}
+.photo-upload-btn{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
   border:2px dashed var(--bg3);border-radius:8px;
-  padding:20px;text-align:center;cursor:pointer;
+  padding:14px 10px;cursor:pointer;
+  font-family:"DM Mono",monospace;font-size:11px;
+  color:var(--ink2);letter-spacing:0.06em;text-transform:uppercase;
   transition:all 0.2s;background:#fff;
 }
-.photo-upload:hover{border-color:var(--g4);background:var(--g3)}
-.photo-upload input{display:none}
-.photo-upload-icon{font-size:24px;margin-bottom:6px}
-.photo-upload-label{
-  font-family:"DM Mono",monospace;font-size:10px;
-  color:var(--ink3);letter-spacing:0.08em;text-transform:uppercase;
-}
+.photo-upload-btn:hover{border-color:var(--g4);background:var(--g3)}
+.photo-upload-btn input{display:none}
+.photo-upload-icon{font-size:20px}
 .photo-previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .photo-thumb{
   width:64px;height:64px;object-fit:cover;
