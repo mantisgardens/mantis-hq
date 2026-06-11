@@ -576,7 +576,7 @@ function mimeInfo(mimeType) {
 function populateClientFilter() {
   const sel = document.getElementById('records-filter-client');
   const cur = sel.value;
-  sel.innerHTML = '<option value="">All clients</option>';
+  sel.innerHTML = '';
   const names = [...new Set(allClients.map(c => c['Name(s)']).filter(Boolean))].sort();
   names.forEach(n => {
     const opt = document.createElement('option');
@@ -592,6 +592,12 @@ async function loadDocuments() {
   const days       = parseInt(document.getElementById('records-filter-days').value) || 0;
   const list       = document.getElementById('records-list');
 
+  if (!clientName) {
+    list.innerHTML = `<div class="empty-state">Select a client to view their documents.</div>`;
+    setStatus('records', 'live', 'Documents: ready');
+    return;
+  }
+
   list.innerHTML = `<div class="empty-state">
     <span class="doc-loading-spinner"></span> Loading documents…
   </div>`;
@@ -605,28 +611,11 @@ async function loadDocuments() {
 
     if (!docs.length) {
       const period = days > 0 ? ` in the last ${days} days` : '';
-      const who    = clientName ? ` for ${clientName}` : '';
-      list.innerHTML = `<div class="empty-state">No documents found${who}${period}.</div>`;
+      list.innerHTML = `<div class="empty-state">No documents found for ${esc(clientName)}${period}.</div>`;
       return;
     }
 
-    // Group by client when showing all clients
-    if (!clientName) {
-      // Group docs by client name
-      const groups = {};
-      docs.forEach(d => {
-        if (!groups[d.client]) groups[d.client] = [];
-        groups[d.client].push(d);
-      });
-
-      list.innerHTML = Object.entries(groups).map(([name, clientDocs]) => `
-        <div class="doc-group">
-          <div class="doc-group-name">${esc(name)}</div>
-          ${clientDocs.map(d => docRow(d, false)).join('')}
-        </div>`).join('');
-    } else {
-      list.innerHTML = docs.map(d => docRow(d, true)).join('');
-    }
+    list.innerHTML = docs.map(d => docRow(d)).join('');
 
   } catch(err) {
     setStatus('records', 'error', 'Documents: error');
@@ -634,31 +623,12 @@ async function loadDocuments() {
   }
 }
 
-async function rebuildDocsCache() {
-  const btn = document.getElementById('rebuild-cache-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⚙ Rebuilding…'; }
-  setStatus('records', 'loading', 'Documents: rebuilding cache…');
-  try {
-    const data = await ownerPost('ownerRebuildDocsCache', {});
-    setStatus('records', 'live', `Cache rebuilt — ${data.count} documents indexed`);
-    showToast(`Cache rebuilt ✓ — ${data.count} documents`);
-    // Reload the current view from the fresh cache
-    loadDocuments();
-  } catch(err) {
-    setStatus('records', 'error', 'Rebuild failed');
-    showToast('Cache rebuild failed: ' + err.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '⚙ Rebuild Cache'; }
-  }
-}
-
-function docRow(d, showClient) {
+function docRow(d) {
   const { label, icon } = mimeInfo(d.mimeType);
   return `<div class="doc-row">
     <span class="doc-icon">${icon}</span>
     <div class="doc-info">
       <a class="doc-name" href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>
-      ${showClient ? `<span class="doc-client">${esc(d.client)}</span>` : ''}
     </div>
     <span class="doc-meta">
       <span class="doc-type">${esc(label)}</span>
