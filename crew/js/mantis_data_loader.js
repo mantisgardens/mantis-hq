@@ -83,7 +83,7 @@ function loadServiceData() {
 
     // v6 = fixed usda_zone date conversion in GS
     const smKey        = 'sm_data_v6_'    + SCRIPT_URL_SM.slice(-12);
-    const plantKey     = 'plant_data_v6_' + SCRIPT_URL_SM.slice(-12);
+    const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
 

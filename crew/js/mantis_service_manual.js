@@ -249,8 +249,7 @@ function plantShowProfile(p) {
 
       <div class="pp-section pp-prune">
         <div class="pp-section-title">&#9988; Pruning</div>
-        ${row('Season',  p.pruning_season)}
-        ${row('Quarter', p.pruning_qtr)}
+        ${row('Period',  p.pruning_period)}
         ${row('Notes',   p.pruning_notes)}
       </div>
 
