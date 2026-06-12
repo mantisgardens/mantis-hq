@@ -20,7 +20,7 @@
 
 // ── Global data arrays ────────────────────────────────────────
 var PLANTS           = [];
-var PRUNING_CALENDAR = [];  // seasonal pruning calendar
+var PRUNING_GUIDE    = [];  // Sacramento pruning reference guide (43 plant groups)
 var FERT_PRODUCTS    = [];
 var VEHICLES         = [];
 var POWER_TOOLS      = [];
@@ -81,8 +81,8 @@ function hideLoadingOverlay() {
 function loadServiceData() {
   return new Promise((resolve, reject) => {
 
-    // v6 = fixed usda_zone date conversion in GS
-    const smKey        = 'sm_data_v6_'    + SCRIPT_URL_SM.slice(-12);
+    // v7 = Pruning Guide replaces Pruning Calendar; pruning_period replaces pruning_season/qtr
+    const smKey        = 'sm_data_v7_'    + SCRIPT_URL_SM.slice(-12);
     const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
@@ -146,8 +146,8 @@ function applyServiceManualData(data) {
 
 // ── Apply plant data ──────────────────────────────────────────
 function applyPlantData(data) {
-  PLANTS           = (data.plants   || []).filter(p => p.botanical || p.common);
-  PRUNING_CALENDAR =  data.pruning  || [];
+  PLANTS        = (data.plants        || []).filter(p => p.botanical || p.common);
+  PRUNING_GUIDE =  data.pruningGuide  || [];
 }
 
 // ── Startup ───────────────────────────────────────────────────

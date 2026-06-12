@@ -18,7 +18,9 @@ function showSection(id) {
   if (currentSection !== 'plants') clearPlantFilters();
   const inp = document.getElementById('search-input');
   inp.value = '';
-  inp.placeholder = (id === 'plants') ? 'Search by name, botanical name, or type…' : 'Search…';
+  inp.placeholder = (id === 'plants') ? 'Search by name, botanical name, or type…'
+                  : (id === 'prune')  ? 'Search pruning groups…'
+                  : 'Search…';
   updateCount();
   // Render section content on first visit
   if (id === 'prune') renderPruning();
@@ -29,10 +31,6 @@ function showSection(id) {
 // =============================================================
 function doSearch(q) {
   q = q.toLowerCase().trim();
-
-  // Hide global search bar on pruning tab (it has no search)
-  const globalSearch = document.querySelector('.search-bar');
-  if (globalSearch) globalSearch.style.display = (currentSection === 'prune') ? 'none' : '';
 
   if (currentSection === 'plants') {
     plantDoSearch(q);
@@ -57,7 +55,14 @@ function doSearch(q) {
     });
     updateCount(visible, HAND_TOOLS.length + POWER_TOOLS.length);
   } else if (currentSection === 'prune') {
-    // Pruning tab has no search — nothing to filter
+    let visible = 0;
+    document.querySelectorAll('.pg-group-card').forEach(card => {
+      const text = card.textContent.toLowerCase();
+      const match = !q || text.includes(q);
+      card.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+    updateCount(visible, PRUNING_GUIDE.length);
   }
 }
 
@@ -442,55 +447,78 @@ function esc(s) {
 }
 
 // =============================================================
-// SECTION: PRUNING CALENDAR
-// Renders the seasonal pruning calendar from PRUNING_CALENDAR.
+// SECTION: PRUNING GUIDE — SACRAMENTO
+// Renders the 43-group Sacramento pruning reference from
+// PRUNING_GUIDE (loaded from the "Pruning Guide — Sacramento"
+// sheet in Mantis_Plant_Database).
 // =============================================================
 function renderPruning() {
   const el = document.getElementById('prune-content');
-  if (!el) return;
+  if (!el || el._rendered) return;
+  el._rendered = true;
 
-  const months = typeof PRUNING_CALENDAR !== 'undefined' ? PRUNING_CALENDAR : [];
+  const groups = typeof PRUNING_GUIDE !== 'undefined' ? PRUNING_GUIDE : [];
 
-  // Current month highlight
+  // Current-month helper — highlight groups whose period contains this month
   const monthNames = ['January','February','March','April','May','June',
                       'July','August','September','October','November','December'];
-  const currentMonth = monthNames[new Date().getMonth()];
+  const nowMonth = monthNames[new Date().getMonth()];
+
+  function periodIsNow(period) {
+    if (!period) return false;
+    return period.toLowerCase().includes(nowMonth.toLowerCase());
+  }
 
   let html = `
-    <div class="callout" style="margin-bottom:16px">
-      <div class="callout-title">&#9986; Seasonal Pruning Calendar</div>
-      When to prune affects whether plants bloom next season.
-      Always prune spring-blooming plants <b>after</b> they flower.
-      Prune summer/fall bloomers in late winter before new growth.
+    <div class="callout" style="margin-bottom:18px">
+      <div class="callout-title">&#9988; Sacramento Pruning Guide</div>
+      Timing is everything in Sacramento's climate. Groups highlighted
+      <span style="background:var(--g-light,#e8f4f0);padding:1px 6px;border-radius:4px;font-weight:600">in green</span>
+      include <b>${nowMonth}</b> in their pruning window.
+      Always prune spring-blooming plants <b>after</b> they flower —
+      never before. See each plant card for its specific period and notes.
     </div>`;
 
-  if (!months.length) {
-    html += '<div class="prr-empty">Pruning calendar not loaded.</div>';
+  if (!groups.length) {
+    html += '<div class="prr-empty">Pruning guide not loaded.</div>';
     el.innerHTML = html;
     return;
   }
 
-  html += '<table class="data-table" style="width:100%"><tbody>';
-  months.forEach(m => {
-    const isCurrent = m.month === currentMonth;
-    const rowStyle  = isCurrent
-      ? ' style="background:var(--g-light,#e8f4f0);font-weight:bold"'
+  groups.forEach(g => {
+    const active   = periodIsNow(g.period);
+    const cardCls  = active ? ' pg-now' : '';
+    const badge    = active
+      ? `<span class="pg-now-badge">&#128197; ${nowMonth}</span>`
       : '';
-    const badge = isCurrent
-      ? ' <span style="font-size:10px;background:var(--g,#2E7D52);color:#fff;padding:2px 6px;border-radius:10px;margin-left:6px">Now</span>'
-      : '';
-    html += `<tr${rowStyle}>
-      <td style="width:110px;font-weight:bold;white-space:nowrap;vertical-align:top;padding:8px 10px">
-        ${esc(m.month)}${badge}
-      </td>
-      <td style="padding:8px 10px;font-size:13px;line-height:1.5">
-        ${esc(m.plants) || '<span style="color:#aaa">No scheduled pruning</span>'}
-      </td>
-    </tr>`;
+
+    html += `
+    <div class="pg-group-card${cardCls}">
+      <div class="pg-group-header">
+        <span class="pg-group-name">${esc(g.group)}</span>
+        <span class="pg-period">${esc(g.period)}</span>
+        ${badge}
+      </div>
+      ${g.rationale ? `
+      <div class="pg-row">
+        <span class="pg-row-label">&#127807; Why</span>
+        <span class="pg-row-val">${esc(g.rationale)}</span>
+      </div>` : ''}
+      ${g.crew_notes ? `
+      <div class="pg-row">
+        <span class="pg-row-label">&#9888; Crew notes</span>
+        <span class="pg-row-val">${esc(g.crew_notes)}</span>
+      </div>` : ''}
+      ${g.examples ? `
+      <div class="pg-row pg-examples">
+        <span class="pg-row-label">e.g.</span>
+        <span class="pg-row-val pg-example-text">${esc(g.examples)}</span>
+      </div>` : ''}
+    </div>`;
   });
-  html += '</tbody></table>';
 
   el.innerHTML = html;
+  updateCount(groups.length, groups.length);
 }
 
 // Auth guard — redirect to login if not signed in.
