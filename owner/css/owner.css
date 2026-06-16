@@ -84,31 +84,75 @@ body.login-page{
 .wk-btn:hover{background:var(--bg3)}
 .wk-label{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);min-width:160px;text-align:center}
 
-.schedule-grid{overflow-x:auto;padding:16px}
-.sched-table{min-width:700px}
-.sched-header-row,.sched-row{display:grid;grid-template-columns:100px 1fr 1fr 1fr;gap:1px;margin-bottom:1px}
-.sched-header-row{margin-bottom:4px}
-.sched-col-header{padding:8px 12px;font-family:"DM Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;border-radius:4px}
-.sched-col-label{padding:8px 0}
-.t1.sched-col-header{background:#e4eef8;color:#1a3a5c}
-.t2.sched-col-header{background:var(--g3);color:var(--g)}
-.t3.sched-col-header{background:#fdf0e4;color:#6b3a1a}
+.schedule-grid { padding: 16px; }
 
-.sched-row{background:#fff;border-radius:4px;border:1px solid var(--bg3)}
-.sched-row.sched-today{border-color:var(--g);box-shadow:0 0 0 1px var(--g)}
-.sched-day-col{padding:10px 12px;border-right:1px solid var(--bg3);display:flex;flex-direction:column;gap:3px;justify-content:center}
-.sched-day-name{font-size:12px;font-weight:600;color:var(--ink2)}
-.today-badge{font-size:9px;background:var(--a2);color:#fff;padding:1px 5px;border-radius:3px;font-family:"DM Mono",monospace;display:inline-block}
-.sched-team-col{padding:8px 10px;border-right:1px solid var(--bg3)}
-.sched-team-col:last-child{border-right:none}
-.sched-empty{color:var(--ink3);font-size:12px;padding:4px 0}
-.sched-job{margin-bottom:6px;padding:5px 8px;background:var(--bg2);border-radius:4px;border-left:3px solid var(--bg3)}
-.t1 .sched-job{border-left-color:#1a3a5c;background:#f0f5fb}
-.t2 .sched-job{border-left-color:var(--g);background:var(--g3)}
-.t3 .sched-job{border-left-color:#6b3a1a;background:#fdf5ec}
-.sched-job-client{font-size:12px;font-weight:600;color:var(--ink)}
-.sched-job-meta{font-size:10px;color:var(--ink3);font-family:"DM Mono",monospace;margin-top:1px}
-.sched-dur{margin-left:6px}
+/* ── Day-card grid ─────────────────────────────────────────── */
+.day-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.day-card {
+  background: #fff;
+  border: 1px solid var(--bg3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.day-card-today {
+  border-color: var(--g);
+  box-shadow: 0 0 0 1.5px var(--g);
+}
+.day-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+}
+.day-card-name { font-size: 13px; font-weight: 600; color: var(--ink2); flex: 1; }
+.today-badge { font-size: 9px; background: var(--g); color: #fff; padding: 1px 6px; border-radius: 3px; font-family: "DM Mono", monospace; }
+
+/* ── Team sections inside each day-card ─────────────────────── */
+.dc-team { padding: 8px 12px; border-bottom: 1px solid var(--bg3); }
+.dc-team:last-child { border-bottom: none; }
+.dc-team-label {
+  font-family: "DM Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.dc-team-label.t1  { background: #e4eef8; color: #1a3a5c; }
+.dc-team-label.t2  { background: var(--g3); color: var(--g); }
+.dc-team-label.t3  { background: #fdf0e4; color: #6b3a1a; }
+.dc-team-label.mgr { background: #fdf8ec; color: #6D4C00; }
+.dc-empty { color: var(--ink3); font-size: 11px; padding: 2px 0 4px; }
+
+/* ── Manager sub-stream label ────────────────────────────────── */
+.dc-stream-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink3);
+  margin: 6px 0 3px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--bg3);
+}
+.dc-stream-label:first-child { margin-top: 0; }
+
+/* ── Job pills ───────────────────────────────────────────────── */
+.sched-job { margin-bottom: 5px; padding: 4px 7px; background: var(--bg2); border-radius: 4px; border-left: 3px solid var(--bg3); }
+.dc-t1 .sched-job  { border-left-color: #1a3a5c; background: #f0f5fb; }
+.dc-t2 .sched-job  { border-left-color: var(--g); background: var(--g3); }
+.dc-t3 .sched-job  { border-left-color: #6b3a1a; background: #fdf5ec; }
+.dc-mgr .sched-job { border-left-color: #8B6914; background: #fdfaf4; }
+.sched-job-client  { font-size: 12px; font-weight: 600; color: var(--ink); }
+.sched-job-meta    { font-size: 10px; color: var(--ink3); font-family: "DM Mono", monospace; margin-top: 1px; }
+.sched-dur         { margin-left: 6px; }
 
 /* ── CLIENT LIST ────────────────────────────────────────────── */
 .client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
@@ -251,7 +295,7 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
   .form-group.full{grid-column:1}
   .hours-header,.hours-row,.hours-footer{grid-template-columns:1fr 60px 1fr}
   .hours-clients{display:none}
-  .sched-header-row,.sched-row{grid-template-columns:70px 1fr 1fr 1fr}
+  .day-card-grid{grid-template-columns:1fr}
   .panel-header{flex-direction:column;align-items:flex-start}
 }
 
@@ -270,4 +314,18 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 @media(max-width:680px){
   .login-row{grid-template-columns:60px 1fr 1fr;gap:8px}
   .login-email{display:none}
+}
+
+
+/* ============================================================
+   Danger action button — Crew Logins Clear
+   ============================================================ */
+.action-btn-danger {
+  background: #fff;
+  color: #c0392b;
+  border-color: #e8c0bc;
+}
+.action-btn-danger:hover {
+  background: #fdf0ef;
+  border-color: #c0392b;
 }
