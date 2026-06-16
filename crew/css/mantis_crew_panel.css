@@ -647,3 +647,81 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
 .hp-date{font-family:"DM Mono",monospace;font-size:11px;color:var(--a);letter-spacing:0.06em;white-space:nowrap;flex-shrink:0;min-width:70px}
 .hp-link{font-size:12px;color:var(--ink2);text-decoration:none;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .hp-link:hover{color:var(--a);text-decoration:underline}
+
+
+/* ============================================================
+   Managers Tab — added in Managers feature update
+   ============================================================ */
+
+/* Tab dot colour */
+.ttab-dot.managers { background: #8B6914; }
+
+/* Panel header */
+.team-header.managers { background: #fdf8ec; border-bottom: 1px solid #e8d9b0; }
+.team-header.managers .team-name { color: #6D4C00; }
+.team-header.managers .team-meta { color: #9a7a30; }
+
+/* Stream accordion */
+.mgr-stream {
+  border: 1px solid var(--bg3);
+  border-radius: 8px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+.mgr-stream-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  background: var(--bg2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mgr-stream-header:active { background: var(--bg3); }
+.mgr-stream-icon  { font-size: 16px; flex-shrink: 0; }
+.mgr-stream-name  { font-weight: 700; font-size: 14px; color: var(--ink1); flex: 1; }
+.mgr-stream-meta  { font-size: 11px; color: var(--ink3); font-family: 'DM Mono', monospace; }
+.mgr-stream-arrow {
+  font-size: 18px;
+  color: var(--ink3);
+  transform: rotate(90deg);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.mgr-stream-arrow.open { transform: rotate(-90deg); }
+.mgr-stream-body.hidden { display: none; }
+
+/* Manager event cards */
+.mgr-client-card  { border-left: 4px solid var(--g); background: #fff; }
+.mgr-generic-card { border-left: 4px solid #8B6914; background: #fdfaf4; }
+
+/* ============================================================
+   Ambiguous client picker — added in client matching update
+   ============================================================ */
+.client-detail-ambiguous {
+  background: #FFFBEB;
+  border: 1px solid #F59E0B;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+}
+.cd-hdr-warn { color: #92400E; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+.amb-pick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  background: #fff;
+  border: 1px solid #D97706;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.amb-pick-btn:last-child { margin-bottom: 0; }
+.amb-pick-btn:active { background: #FEF3C7; }
+.amb-name { font-weight: 600; font-size: 13px; color: var(--ink1); }
+.amb-addr { font-size: 11px; color: var(--ink3); margin-top: 2px; }
