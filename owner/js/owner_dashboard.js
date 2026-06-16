@@ -237,9 +237,10 @@ async function loadAll() {
   // Fire a warm-up ping
   fetch(`${SCRIPT_URL}?action=ping&id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
 
-  const [clientsRes, scheduleRes] = await Promise.allSettled([
+  const [clientsRes, scheduleRes, mgrScheduleRes] = await Promise.allSettled([
     ownerFetch('ownerClients'),
     ownerFetch('ownerSchedule'),
+    ownerFetch('ownerManagerSchedule'),
   ]);
 
   if (clientsRes.status === 'fulfilled') {
@@ -253,6 +254,26 @@ async function loadAll() {
 
   if (scheduleRes.status === 'fulfilled') {
     scheduleData = scheduleRes.value.days || {};
+    // Merge manager schedule into scheduleData under a 'managers' key per day
+    if (mgrScheduleRes.status === 'fulfilled') {
+      const mgrDays = mgrScheduleRes.value.days || {};
+      Object.keys(mgrDays).forEach(dk => {
+        if (!scheduleData[dk]) scheduleData[dk] = {};
+        const d = mgrDays[dk];
+        // Flat sorted array for any code that needs all manager events
+        scheduleData[dk].managers = [
+          ...(d.ashley || []),
+          ...(d.brooke || []),
+          ...(d.mgr    || []),
+        ].sort((a, b) => a.startMs - b.startMs);
+        // Keep streams separate so the day-card can label Ashley / Brooke / General
+        scheduleData[dk]._mgrStreams = {
+          ashley: d.ashley || [],
+          brooke: d.brooke || [],
+          mgr:    d.mgr    || [],
+        };
+      });
+    }
     setStatus('schedule', 'live', `Schedule: loaded`);
     renderSchedule();
   } else {
@@ -302,7 +323,7 @@ function dateKey(d) {
 }
 
 function renderSchedule() {
-  const days = getWeekDates(schedWeekDelta);
+  const days  = getWeekDates(schedWeekDelta);
   const today = dateKey(new Date());
 
   // Week label
@@ -312,56 +333,88 @@ function renderSchedule() {
 
   const grid = document.getElementById('schedule-grid');
 
-  // Build team columns header + days
+  // ── Day-card layout ───────────────────────────────────────
+  // Each weekday gets its own card. Inside each card the four
+  // teams are stacked as labeled rows. Works on phone (single
+  // column) and desktop (2-column card grid).
   const teams = [
-    { key: 't1', label: 'Maintenance — Team 1', cls: 't1' },
-    { key: 't2', label: 'Maintenance — Team 2', cls: 't2' },
-    { key: 't3', label: 'Install Team',         cls: 't3' },
+    { key: 't1',       label: 'Maintenance — Team 1', cls: 't1' },
+    { key: 't2',       label: 'Maintenance — Team 2', cls: 't2' },
+    { key: 't3',       label: 'Install Team',         cls: 't3' },
+    { key: 'managers', label: 'Managers',             cls: 'mgr' },
   ];
 
-  let html = `<div class="sched-table">`;
+  // Only weekdays (Mon–Fri)
+  const weekdays = days.filter(d => d.getDay() !== 0 && d.getDay() !== 6);
 
-  // Header row
-  html += `<div class="sched-header-row">
-    <div class="sched-day-col sched-col-label"></div>`;
-  teams.forEach(t => {
-    html += `<div class="sched-team-col sched-col-header ${t.cls}">${t.label}</div>`;
-  });
-  html += `</div>`;
+  let html = '<div class="day-card-grid">';
 
-  // Day rows
-  days.forEach(day => {
-    const dk   = dateKey(day);
+  weekdays.forEach(day => {
+    const dk      = dateKey(day);
     const dayData = scheduleData[dk] || {};
     const isToday = dk === today;
-    const dayLabel = day.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    const dayLabel = day.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
 
-    html += `<div class="sched-row${isToday ? ' sched-today' : ''}">
-      <div class="sched-day-col">
-        <div class="sched-day-name">${dayLabel}</div>
-        ${isToday ? '<div class="today-badge">today</div>' : ''}
+    html += `<div class="day-card${isToday ? ' day-card-today' : ''}">
+      <div class="day-card-header">
+        <span class="day-card-name">${dayLabel}</span>
+        ${isToday ? '<span class="today-badge">today</span>' : ''}
       </div>`;
 
     teams.forEach(t => {
       const jobs = dayData[t.key] || [];
-      html += `<div class="sched-team-col ${t.cls}">`;
-      if (!jobs.length) {
-        html += `<div class="sched-empty">—</div>`;
+
+      // For managers, group by stream (ashley / brooke / mgr general)
+      // For other teams, flat list
+      let teamHtml = '';
+      if (t.key === 'managers') {
+        const mgrDay = (scheduleData[dk] || {})._mgrStreams;
+        const streams = [
+          { label: 'Ashley',       events: (scheduleData[dk]?._mgrStreams?.ashley || []) },
+          { label: 'Brooke',       events: (scheduleData[dk]?._mgrStreams?.brooke || []) },
+          { label: 'All Managers', events: (scheduleData[dk]?._mgrStreams?.mgr    || []) },
+        ];
+        // Only render streams with events, unless all are empty
+        const hasAny = streams.some(s => s.events.length);
+        if (!hasAny) {
+          teamHtml = '<div class="dc-empty">—</div>';
+        } else {
+          streams.forEach(s => {
+            if (!s.events.length) return;
+            teamHtml += `<div class="dc-stream-label">${s.label}</div>`;
+            s.events.forEach(j => {
+              const hrs = j.dur ? `<span class="sched-dur">${esc(j.dur)}</span>` : '';
+              teamHtml += `<div class="sched-job mgr">
+                <div class="sched-job-client">${esc(j.title || '—')}</div>
+                <div class="sched-job-meta">${j.allDay ? 'All day' : esc(j.time)} ${hrs}</div>
+              </div>`;
+            });
+          });
+        }
       } else {
-        jobs.forEach(j => {
-          const hrs = j.dur ? `<span class="sched-dur">${esc(j.dur)}</span>` : '';
-          html += `<div class="sched-job">
-            <div class="sched-job-client">${esc(j.client)}</div>
-            <div class="sched-job-meta">${j.allDay ? 'All day' : esc(j.time)} ${hrs}</div>
-          </div>`;
-        });
+        if (!jobs.length) {
+          teamHtml = '<div class="dc-empty">—</div>';
+        } else {
+          jobs.forEach(j => {
+            const hrs = j.dur ? `<span class="sched-dur">${esc(j.dur)}</span>` : '';
+            teamHtml += `<div class="sched-job">
+              <div class="sched-job-client">${esc(j.client || j.title || '—')}</div>
+              <div class="sched-job-meta">${j.allDay ? 'All day' : esc(j.time)} ${hrs}</div>
+            </div>`;
+          });
+        }
       }
-      html += `</div>`;
+
+      html += `<div class="dc-team dc-${t.cls}">
+        <div class="dc-team-label ${t.cls}">${t.label}</div>
+        <div class="dc-team-jobs">${teamHtml}</div>
+      </div>`;
     });
-    html += `</div>`;
+
+    html += `</div>`; // close day-card
   });
 
-  html += `</div>`;
+  html += '</div>'; // close day-card-grid
   grid.innerHTML = html;
 }
 
@@ -883,6 +936,24 @@ async function loadLoginLog() {
     renderLogins(allLoginRows);
   } catch(e) {
     el.innerHTML = `<div class="logins-empty logins-error">Could not load login log: ${esc(e.message)}</div>`;
+  }
+}
+
+async function clearLoginLog() {
+  if (!confirm('Clear all entries from the Login Log? This cannot be undone.')) return;
+  const btn = document.querySelector('.action-btn-danger');
+  if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
+  try {
+    const data = await ownerFetch('ownerClearLoginLog');
+    if (data.error) throw new Error(data.error);
+    allLoginRows = [];
+    loginsLoaded = true;
+    renderLogins([]);
+    showToast('Login log cleared.');
+  } catch(e) {
+    showToast('Clear failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Clear'; }
   }
 }
 
