@@ -55,7 +55,7 @@ let expanded     = {}, statuses = {};
 // Restore per-team brief visibility from sessionStorage (default open).
 // Cleared automatically on logout via sessionStorage.clear().
 const _briefStored = JSON.parse(sessionStorage.getItem('mg_brief_open') || 'null');
-let briefOpen = _briefStored || { t1:true, t2:true, install:true };
+let briefOpen = _briefStored || { t1:true, t2:true, install:true, managers:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
 // ── normClientName ────────────────────────────────────────────
 // Normalises a client name for comparison across two formats:
@@ -134,5 +134,19 @@ function findSheetClient(calendarName) {
   return bestDist <= 1 ? bestMatch : null;
 }
 
-let crewTeams    = { t1: [], t2: [], t3: [] };  // team rosters from Crew Info sheet
+let crewTeams    = { t1: [], t2: [], t3: [], managers: [] };  // team rosters from Crew Info sheet
+
+// ── isManagerUser ─────────────────────────────────────────────
+// Returns true if the logged-in crew member's category indicates
+// they are a manager. Checked at call time (not parse time) so it
+// always reads the value set after login completes.
+function isManagerUser() {
+  const cat = (sessionStorage.getItem('mg_user_category')
+            || localStorage.getItem('mg_user_category') || '').toLowerCase();
+  return cat.includes('manager');
+}
+
+// Manager schedule — fetched only for managers, stays null for others.
+let MANAGER_SCHEDULE = null;   // { days: { "YYYY-MM-DD": { ashley:[], brooke:[], mgr:[] } } }
+let mgrBriefOpen     = true;   // morning brief accordion state on manager panel
 

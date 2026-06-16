@@ -144,6 +144,7 @@ function openWorkRecord(jobId) {
 
   const afterServiceDataLoaded = () => {
     refreshFertDatalist();
+    refreshIrrDatalist();
 
     // ── Auto-populate workers from today's team brief ──────
     const brief = _historyData && _historyData._teamBrief;  // not available here
@@ -184,22 +185,92 @@ const _folderIdCache = {};
 // Gives crew members name autocomplete when filling out workers.
 
 function _ensureCrewDatalist() {
-  if (document.getElementById('dl-crew-global')) return;
-  const dl = document.createElement('datalist');
-  dl.id = 'dl-crew-global';
+  const dl = document.getElementById('dl-crew-global');
+  if (!dl) return;
+  if (dl.children.length) return;  // already populated
   const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[])];
   allNames.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     dl.appendChild(opt);
   });
-  document.body.appendChild(dl);
 }
 
 // ── Get workers for a team from crewTeams ─────────────────────
 
 function _getTeamWorkers(teamKey) {
   return crewTeams[teamKey] || [];
+}
+
+// ── openMgrWorkRecord ─────────────────────────────────────────
+// Opens the Work Record modal for a manager calendar event.
+// workerName is the calendar owner ('Ashley Manning' or 'Brooke Wolf')
+// and is pre-filled as the sole worker row.
+function openMgrWorkRecord(evId, workerName) {
+  // Find the event in MANAGER_SCHEDULE across all three streams
+  const dayData = MANAGER_SCHEDULE && currentDay
+    ? (MANAGER_SCHEDULE.days || {})[currentDay] || {}
+    : {};
+  const allMgrEvents = [
+    ...(dayData.ashley || []),
+    ...(dayData.brooke || []),
+    ...(dayData.mgr    || []),
+  ];
+  const ev = allMgrEvents.find(e => e.id === evId);
+  if (!ev) return;
+
+  currentJobId   = 'mgr_' + evId;
+  currentJobData = ev;
+
+  document.getElementById('modal-title').textContent  = 'Work Record';
+  document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + ev.description.split('\n')[0] : '');
+  document.getElementById('wr-team').value  = 'Managers';
+  document.getElementById('wr-date').value  = currentDay;
+
+  // Reset form
+  document.getElementById('workers-list').innerHTML         = '';
+  document.getElementById('fert-list').innerHTML            = '';
+  document.getElementById('other-materials-list').innerHTML = '';
+  document.getElementById('wr-service-notes').value         = '';
+  document.getElementById('wr-internal-notes').value        = '';
+  document.getElementById('photo-previews').innerHTML       = '';
+  photoFiles = [];
+  const _sb = document.getElementById('wr-submit-btn');
+  if (_sb) { _sb.textContent = 'Submit'; _sb.style.background = ''; _sb.disabled = false; }
+
+  _ensureCrewDatalist();
+  document.getElementById('work-modal').classList.add('open');
+
+  // Restore draft if one exists
+  const saved = savedRecords['mgr_' + evId];
+  if (saved && !saved.submitted) {
+    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours));
+    (saved.fertilizers    || []).forEach(f => addFert(f.item, f.qty, f.unit));
+    (saved.otherMaterials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+    document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
+    document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
+    return;
+  }
+
+  const afterServiceDataLoaded = () => {
+    refreshFertDatalist();
+    refreshIrrDatalist();
+    // Pre-fill the named worker (Ashley or Brooke) from the calendar stream
+    addWorker(workerName || '', '');
+    addFert();
+    addOtherMaterial();
+  };
+
+  const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
+  if (needsLoad && typeof loadServiceData === 'function') {
+    loadServiceData().then(afterServiceDataLoaded).catch(afterServiceDataLoaded);
+  } else {
+    afterServiceDataLoaded();
+  }
+
+  if (ev.clientCandidate && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
+    prefetchClientFolder(ev.clientCandidate);
+  }
 }
 
 // ── Auto-fill last fertilizers ────────────────────────────────
@@ -394,13 +465,17 @@ function addWorker(name, hours) {
 // FERT_PRODUCTS had loaded from the server.
 
 function refreshFertDatalist() {
-  let dl = document.getElementById('dl-fert-global');
-  if (!dl) {
-    dl = document.createElement('datalist');
-    dl.id = 'dl-fert-global';
-    document.body.appendChild(dl);
+  const dl = document.getElementById('dl-fert-global');
+  if (dl) dl.innerHTML = getFertNames().map(n => `<option value="${esc(n)}">`).join('');
+}
+
+// Populates the irrigation/materials datalist from the full items list.
+function refreshIrrDatalist() {
+  const dl = document.getElementById('dl-irr-global');
+  if (dl) {
+    const allNames = getIrrigationGroups().flatMap(g => g.items);
+    dl.innerHTML = allNames.map(n => `<option value="${esc(n)}">`).join('');
   }
-  dl.innerHTML = getFertNames().map(n => `<option value="${esc(n)}">`).join('');
 }
 
 function makeFertRow(item, qty, unit) {
@@ -459,7 +534,7 @@ function makeIrrRow(item, qty, unit) {
   const row  = document.createElement('div');
   row.className = 'dynamic-row';
 
-  // Build grouped <select> options
+  // Build grouped <select> options for the secondary "pick from list" view
   const groups  = getIrrigationGroups();
   let optHtml   = '<option value="">— select item —</option>';
   groups.forEach(g => {
@@ -471,37 +546,63 @@ function makeIrrRow(item, qty, unit) {
     optHtml += '</optgroup>';
   });
 
-  // Also allow freetext override via a text input toggled by a small link
+  // Determine if the saved item is in the list or is freetext
+  const inList = item && groups.some(g => g.items.includes(item));
+
+  // Lead with text input + datalist (matches Fertilizers UX).
+  // "pick from list" toggle switches to the grouped select for browsing.
   row.innerHTML = `
-    <select class="form-input irr-select" style="flex:3">${optHtml}</select>
-    <input  class="form-input irr-custom" type="text" placeholder="Or type item…"
-            style="flex:3;display:none" value="${esc(item||'')}"/>
+    <input  class="form-input irr-custom" type="text" placeholder="Material / irrigation item"
+            list="dl-irr-global" style="flex:3" value="${esc(item||'')}"/>
+    <select class="form-input irr-select" style="flex:3;display:none">${optHtml}</select>
     <button class="btn-link irr-toggle" type="button"
-            style="font-size:11px;padding:0 4px;white-space:nowrap">other</button>
+            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
            value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
 
-  // Toggle between select and freetext
-  const sel     = row.querySelector('.irr-select');
-  const custom  = row.querySelector('.irr-custom');
-  const toggle  = row.querySelector('.irr-toggle');
+  const custom = row.querySelector('.irr-custom');
+  const sel    = row.querySelector('.irr-select');
+  const toggle = row.querySelector('.irr-toggle');
+
+  // Toggle between text input and grouped select
   toggle.addEventListener('click', () => {
-    const showCustom = sel.style.display !== 'none';
-    sel.style.display    = showCustom ? 'none'  : '';
-    custom.style.display = showCustom ? ''      : 'none';
-    toggle.textContent   = showCustom ? 'list'  : 'other';
-    if (!showCustom) sel.focus(); else custom.focus();
+    const showingSelect = sel.style.display !== 'none';
+    if (showingSelect) {
+      // Switch back to text input — copy selected value across
+      if (sel.value) custom.value = sel.value;
+      sel.style.display    = 'none';
+      custom.style.display = '';
+      toggle.textContent   = 'list';
+      custom.focus();
+    } else {
+      // Switch to grouped select — copy typed value into selection if possible
+      const typed = custom.value.trim();
+      if (typed) {
+        const opt = Array.from(sel.options).find(o => o.value === typed);
+        if (opt) sel.value = typed;
+      }
+      custom.style.display = 'none';
+      sel.style.display    = '';
+      toggle.textContent   = 'type';
+      sel.focus();
+    }
   });
 
-  // If restoring a saved item that isn't in the dropdown, show freetext
-  if (item && !groups.some(g => g.items.includes(item))) {
-    sel.style.display    = 'none';
-    custom.style.display = '';
-    toggle.textContent   = 'list';
-  }
+  // When user picks from the select, copy back to text input and switch back
+  sel.addEventListener('change', () => {
+    if (sel.value) {
+      custom.value         = sel.value;
+      sel.style.display    = 'none';
+      custom.style.display = '';
+      toggle.textContent   = 'list';
+    }
+  });
+
+  // If restoring a saved item that was from the list, show it in the text input
+  // (it's already pre-filled via the value attribute above — nothing extra needed)
 
   list.appendChild(row);
 }

@@ -81,7 +81,7 @@ function shiftWeek(dir) {
 function findClient(name) {
   if (!sheetClients.length) return null;
   const lower = name.toLowerCase();
-  const words  = lower.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1);
+  const words  = lower.split(/[\s,&()+\-\/\:]+/).filter(w => w.length > 1);
   const scores = new Map();
 
   words.forEach(w => {
@@ -120,12 +120,86 @@ function findClient(name) {
     console.log('[findClient] no match for:', name, '| words:', words, '| top score:', top);
     return null;
   }
+
+  // Detect ties: if any other client shares the top score the match is
+  // ambiguous. Attach a flag so the card can warn the crew member.
+  const tied = [];
+  scores.forEach((s, c) => { if (s === top && c !== best) tied.push(c); });
+  if (tied.length) {
+    const names = [best, ...tied].map(c => c['Name(s)'] || '').join(', ');
+    console.log('[findClient] ambiguous match for:', name, '| tied clients:', names);
+    const _candidates = [best, ...tied];
+    best = Object.assign({}, best, {
+      _ambiguous:           true,
+      _ambiguousNames:      _candidates.map(c => c['Name(s)'] || '').filter(Boolean),
+      _ambiguousCandidates: _candidates,   // full client objects for the picker
+    });
+  }
+
   return best;
 }
 
 
 // =============================================================
-// SECTION 7 — HTML ESCAPING UTILITY
+// SECTION 6b — CLIENT OVERRIDE (ambiguous match resolution)
+// When findClient() returns an ambiguous result the card shows a
+// picker. resolveAmbiguousClient() stores the user's choice keyed by
+// date + cardId in sessionStorage so it persists for the rest of that
+// calendar day and survives page refreshes, but clears automatically
+// at midnight (different date key) or on logout (sessionStorage.clear).
+// =============================================================
+
+// ── Storage helpers ───────────────────────────────────────────
+const _OVERRIDE_SS_KEY = 'mg_client_overrides';   // sessionStorage key
+
+function _loadOverrides() {
+  try {
+    const raw = sessionStorage.getItem(_OVERRIDE_SS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+
+function _saveOverrides(map) {
+  try {
+    sessionStorage.setItem(_OVERRIDE_SS_KEY, JSON.stringify(map));
+  } catch(e) { /* storage full — skip */ }
+}
+
+// In-memory mirror — kept in sync with sessionStorage.
+// Keys are "YYYY-MM-DD|cardId" so choices auto-expire at end of day.
+const clientOverrides = _loadOverrides();
+
+function _overrideKey(cardId) {
+  return todayDateKey() + '|' + cardId;
+}
+
+function resolveAmbiguousClient(cardId, candidateIdx, candidates) {
+  try {
+    const list = JSON.parse(decodeURIComponent(candidates));
+    if (list && list[candidateIdx]) {
+      clientOverrides[_overrideKey(cardId)] = list[candidateIdx];
+      _saveOverrides(clientOverrides);
+    }
+  } catch(e) {
+    console.warn('[resolveAmbiguousClient] parse error:', e);
+    return;
+  }
+  if (cardId.startsWith('mgr_')) {
+    renderManagerPanel();
+  } else {
+    render();
+  }
+}
+
+function clearClientOverride(cardId) {
+  delete clientOverrides[_overrideKey(cardId)];
+  _saveOverrides(clientOverrides);
+  if (cardId.startsWith('mgr_')) {
+    renderManagerPanel();
+  } else {
+    render();
+  }
+}
 // esc() must be called on every piece of user/sheet data
 // before inserting into innerHTML to prevent XSS.
 // =============================================================
@@ -163,10 +237,10 @@ function renderBrief(wrapId, team) {
     // ── Team-specific notes ───────────────────────────────────
     let teamNotes  = [];
     let teamLabel  = '';
-    if      (team === 't1')      { teamNotes = mb.team1_notes   || []; teamLabel = 'Team 1'; }
-    else if (team === 't2')      { teamNotes = mb.team2_notes   || []; teamLabel = 'Team 2'; }
-    else if (team === 'install') { teamNotes = mb.install_notes  || []; teamLabel = 'Install'; }
-    else if (team === 'install') { teamNotes = mb.install_notes || []; teamLabel = 'Install'; }
+    if      (team === 't1')       { teamNotes = mb.team1_notes   || []; teamLabel = 'Team 1'; }
+    else if (team === 't2')       { teamNotes = mb.team2_notes   || []; teamLabel = 'Team 2'; }
+    else if (team === 'install')  { teamNotes = mb.install_notes  || []; teamLabel = 'Install'; }
+    else if (team === 'managers') { teamNotes = mb.manager_notes  || []; teamLabel = 'Managers'; }
 
     if (teamNotes.length) {
       body += `<div class="bsec bsec-team"><div class="bsec-label">${esc(teamLabel)}</div>`;
@@ -179,30 +253,18 @@ function renderBrief(wrapId, team) {
       body += `</div>`;
     }
 
-    // ── Role-based notes (Managers or Leads only) ────────────
-    // Read the logged-in user's category and role from sessionStorage,
-    // set during login. Managers see manager_notes. Leads see their
-    // column of lead_notes (one column per team in the sheet).
+    // ── Role-based notes (Leads only) ────────────────────────
+    // Manager notes are shown only on the Managers tab (handled above
+    // via the teamNotes branch). They are intentionally excluded from
+    // the Team 1, Team 2, and Install briefs now that managers have
+    // their own dedicated tab.
     const _userCategory = (sessionStorage.getItem('mg_user_category')
                         || localStorage.getItem('mg_user_category') || '').toLowerCase();
     const _userRole     = (sessionStorage.getItem('mg_user_role')
                         || localStorage.getItem('mg_user_role')     || '').toLowerCase();
-    const _isManager    = _userCategory.includes('manager');
     const _isLead       = _userRole === 'lead';
 
-    if (_isManager) {
-      const mgNotes = mb.manager_notes || [];
-      if (mgNotes.length) {
-        body += `<div class="bsec bsec-manager"><div class="bsec-label">&#128203; Managers</div>`;
-        mgNotes.forEach(sec => {
-          if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
-          (sec.items || []).forEach(item => {
-            body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
-          });
-        });
-        body += `</div>`;
-      }
-    } else if (_isLead) {
+    if (_isLead) {
       // Lead notes: only show on the lead's own team brief, not on other panels.
       // Derive the lead's own team slug from their category (same logic as getUserTeamSlug).
       const _leadTeam = _userCategory.includes('team 1') ? 't1'
@@ -360,30 +422,7 @@ function renderJobs(cid, jobs, teamClass) {
     const card   = document.createElement('div');
     card.className = `job-card ${isLoad ? 'load-in' : teamClass}${isExp ? ' expanded' : ''}`;
 
-    let clientBlock = '';
-    if (isExp && !isLoad) {
-      if (sc) {
-        clientBlock = `
-          <div class="client-detail">
-            <div class="cd-hdr"><div class="live-dot"></div>Live from Google Sheets</div>
-            ${sc['Name(s)']               ? `<div class="drow"><span class="dlabel">Client</span><span class="dval">${esc(sc['Name(s)'])}</span></div>` : ''}
-            ${sc['Address']               ? `<div class="drow"><span class="dlabel">Address</span><span class="dval">${esc(sc['Address'])}</span></div>` : ''}
-            ${(sc['Phone']||sc['Phone number(s)']) ? `<div class="drow"><span class="dlabel">Phone</span><span class="dval"><a class="phone-a" href="tel:${esc(sc['Phone']||sc['Phone number(s)'])}">${esc(sc['Phone']||sc['Phone number(s)'])}</a></span></div>` : ''}
-            ${(sc['Visit Interval']||sc['Visit interval']) ? `<div class="drow"><span class="dlabel">Interval</span><span class="dval">${esc(sc['Visit Interval']||sc['Visit interval'])}</span></div>` : ''}
-            ${sc['Labor Hours']           ? `<div class="drow"><span class="dlabel">Est. hours</span><span class="dval">${esc(sc['Labor Hours'])}</span></div>` : ''}
-            ${(sc['Scheduling Notes']||sc['Scheduling notes']) ? `<div class="drow"><span class="dlabel">Scheduling</span><span class="dval">${esc(sc['Scheduling Notes']||sc['Scheduling notes'])}</span></div>` : ''}
-            ${sc['General Service Notes'] ? `<div class="drow"><span class="dlabel">Notes</span><span class="dval note">${esc(sc['General Service Notes'])}</span></div>` : ''}
-            ${(sc['Gate / Access']||sc['Gate/Access']) ? `<div class="drow"><span class="dlabel">Gate</span><span class="dval">${esc(sc['Gate / Access']||sc['Gate/Access'])}</span></div>` : ''}
-            ${sc['Dogs / Animals']        ? `<div class="drow"><span class="dlabel">Dogs</span><span class="dval">${esc(sc['Dogs / Animals'])}</span></div>` : ''}
-          </div>`;
-      } else {
-        clientBlock = `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">${sheetClients.length ? 'No exact match found' : 'Load sheets above to see client detail'}</span></div>`;
-      }
-      // Also show calendar description if present
-      if (j.description && j.description.trim()) {
-        clientBlock += `<div class="drow"><span class="dlabel">Cal notes</span><span class="dval note">${esc(j.description)}</span></div>`;
-      }
-    }
+    const clientBlock = (isExp && !isLoad) ? buildClientBlock(j.id, sc, j.description) : '';
 
     card.innerHTML = `
       <div class="job-top" onclick="toggle('${j.id}')">
@@ -397,7 +436,7 @@ function renderJobs(cid, jobs, teamClass) {
           ${j.addr ? `<div class="jaddr">${esc(j.addr)}</div>` : ''}
           <div class="jtags">
             ${typeTag(j)}
-            ${sc     ? '<span class="tag tag-live">&#9679; live</span>' : ''}
+            ${(clientOverrides[_overrideKey(j.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : sc && sc._ambiguous ? '<span class="tag tag-warn">&#9888; ambiguous</span>' : ''}
             ${j.warn ? '<span class="tag tag-warn">&#9888;</span>' : ''}
           </div>
         </div>
@@ -436,7 +475,154 @@ function renderJobs(cid, jobs, teamClass) {
 
 
 // =============================================================
-// SECTION 10 — TABS & MAIN RENDER LOOP
+// SECTION 11 — MANAGER PANEL RENDERING
+// renderManagerPanel() builds the Managers tab content for the
+// selected day. Shows three stacked accordions (Ashley, Brooke,
+// Manager General) — stacked layout works well on phones, avoids
+// cramped three-column layout on small screens.
+//
+// Client events → attempt findClient() lookup, render full card.
+// Generic events → compact card showing time + title only.
+// =============================================================
+
+function renderManagerPanel() {
+  const el = document.getElementById('managers-jobs');
+  if (!el) return;
+
+  // Morning brief for managers
+  renderBrief('brief-managers', 'managers');
+
+  // Update the header meta line with live names from the Crew Info sheet.
+  // The sheet lists: Brooke Wolf, Ashley Manning, David Hvidsten, Mike Hvidsten
+  // under a "Managers" section header — all four are returned in crewTeams.managers.
+  const metaEl = document.getElementById('managers-meta');
+  if (metaEl) {
+    const names = crewTeams.managers || [];
+    metaEl.textContent = names.length ? names.join(' · ') : 'Managers';
+  }
+
+  const dayData = currentDay && MANAGER_SCHEDULE
+    ? (MANAGER_SCHEDULE.days || {})[currentDay] || { ashley: [], brooke: [], mgr: [] }
+    : { ashley: [], brooke: [], mgr: [] };
+
+  if (!MANAGER_SCHEDULE) {
+    el.innerHTML = '<div class="empty">Manager schedule loading…</div>';
+    return;
+  }
+
+  const streams = [
+    { key: 'ashley', label: 'Ashley',       icon: '&#128100;', events: dayData.ashley || [], workerName: (crewTeams.managers || []).find(n => n.toLowerCase().includes('ashley')) || 'Ashley' },
+    { key: 'brooke', label: 'Brooke',       icon: '&#128100;', events: dayData.brooke || [], workerName: (crewTeams.managers || []).find(n => n.toLowerCase().includes('brooke')) || 'Brooke' },
+    { key: 'mgr',    label: 'All Managers', icon: '&#128203;', events: dayData.mgr    || [], workerName: '' },
+  ];
+
+  let html = '';
+
+  streams.forEach(stream => {
+    const storeKey  = 'mgr_acc_' + stream.key;
+    const isOpen    = sessionStorage.getItem(storeKey) !== 'closed';
+    const totalHrs  = calcHrs(stream.events);
+    const evtCount  = stream.events.length;
+
+    html += `
+    <div class="mgr-stream">
+      <div class="mgr-stream-header" onclick="toggleMgrStream('${stream.key}')">
+        <span class="mgr-stream-icon">${stream.icon}</span>
+        <span class="mgr-stream-name">${stream.label}</span>
+        <span class="mgr-stream-meta">${evtCount ? evtCount + ' event' + (evtCount !== 1 ? 's' : '') + ' &middot; ' + totalHrs : 'No events'}</span>
+        <span class="mgr-stream-arrow${isOpen ? ' open' : ''}">&#8250;</span>
+      </div>
+      <div class="mgr-stream-body${isOpen ? '' : ' hidden'}">`;
+
+    if (!stream.events.length) {
+      html += '<div class="empty" style="padding:12px 16px">No events scheduled</div>';
+    } else {
+      stream.events.forEach(ev => {
+        const isClientEv = ev.type === 'client';
+        const sc         = isClientEv ? findClient(ev.clientCandidate || ev.title) : null;
+        const isExp      = expanded['mgr_' + ev.id];
+
+        // Render each event — client events use the full Team 1/2 card format;
+        // generic events get a compact card.
+        const cardCls = isClientEv ? 'mgr-client-card' : 'mgr-generic-card';
+
+        const clientBlock = (isExp && isClientEv) ? buildClientBlock('mgr_' + ev.id, sc, ev.description) : '';
+
+        // Action buttons — identical to Team 1/2 cards.
+        // WR button passes the worker name so the form pre-fills it.
+        const workerNameEsc = esc(stream.workerName || '');
+        const actionRow = isClientEv ? `
+          <div class="action-row">
+            <button class="abtn ${statuses['mgr_'+ev.id]==='done'?'abtn-done':'abtn-prog abtn-status'}"
+                    onclick="toggleMgrJobStatus('${ev.id}');event.stopPropagation()">
+              ${statuses['mgr_'+ev.id]==='done' ? '&#10003; Done' : statuses['mgr_'+ev.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
+            </button>
+            <button class="abtn abtn-history"
+                    onclick="openHistoryForClient('${esc(ev.clientCandidate||ev.title)}');event.stopPropagation()">
+              &#128196; Historical Data
+            </button>
+            ${stream.workerName ? `<button class="abtn" id="wr-btn-mgr_${ev.id}"
+                    style="background:var(--b3);color:var(--b);border-color:var(--b4)"
+                    onclick="openMgrWorkRecord('${ev.id}','${workerNameEsc}');event.stopPropagation()">
+              &#128203; Create Work Record
+            </button>` : ''}
+            <button class="abtn abtn-hide" onclick="toggleMgrCard('${ev.id}');event.stopPropagation()">&#8722; Minimize</button>
+          </div>` : `
+          <div class="action-row">
+            <button class="abtn abtn-hide" onclick="toggleMgrCard('${ev.id}');event.stopPropagation()">&#8722; Minimize</button>
+          </div>`;
+
+        html += `
+        <div class="job-card ${cardCls}${isExp ? ' expanded' : ''}">
+          <div class="job-top" onclick="toggleMgrCard('${ev.id}')">
+            <div class="jtc">
+              <div class="jtime">${ev.allDay ? 'All day' : esc(ev.time)}</div>
+              <div class="jdur">${esc(ev.dur)}</div>
+            </div>
+            <div class="vline"></div>
+            <div class="jinfo">
+              <div class="jclient">${esc(ev.title)}${statuses['mgr_'+ev.id]==='done' ? ' ✅' : statuses['mgr_'+ev.id]==='inprogress' ? ' ὐ4' : ''}</div>
+              <div class="jtags">
+                ${isClientEv ? '<span class="tag tag-mo">Client</span>' : '<span class="tag" style="background:var(--bg2);color:var(--ink2)">General</span>'}
+                ${(clientOverrides[_overrideKey('mgr_'+ev.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : sc && sc._ambiguous ? '<span class="tag tag-warn">&#9888; ambiguous</span>' : ''}
+                ${ev.warn ? '<span class="tag tag-warn">&#9888;</span>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="job-body">
+            ${ev.warn ? `<div class="drow"><span class="dlabel">Alert</span><span class="dval warn">${esc(ev.warn)}</span></div>` : ''}
+            ${!ev.allDay && isExp ? `<div class="drow"><span class="dlabel">Time</span><span class="dval">${esc(ev.time)} &ndash; ${esc(ev.end)} (${esc(ev.dur)})</span></div>` : ''}
+            ${clientBlock}
+            ${isExp ? actionRow : ''}
+          </div>
+        </div>`;
+      });
+    }
+
+    html += `</div></div>`; // close mgr-stream-body and mgr-stream
+  });
+
+  el.innerHTML = html;
+}
+
+function toggleMgrStream(key) {
+  const storeKey = 'mgr_acc_' + key;
+  const isOpen   = sessionStorage.getItem(storeKey) !== 'closed';
+  sessionStorage.setItem(storeKey, isOpen ? 'closed' : 'open');
+  renderManagerPanel();
+}
+
+function toggleMgrCard(evId) {
+  expanded['mgr_' + evId] = !expanded['mgr_' + evId];
+  renderManagerPanel();
+}
+
+function toggleMgrJobStatus(evId) {
+  const key     = 'mgr_' + evId;
+  const current = statuses[key] || 'pending';
+  statuses[key] = current === 'inprogress' ? 'pending' : 'inprogress';
+  renderManagerPanel();
+}
 // ── switchTeam ────────────────────────────────────────────────
 // Shows the selected team panel and updates the tab highlight.
 // Works with any number of teams — just add more panels + tabs.
@@ -516,7 +702,12 @@ function render() {
   renderBrief('brief-t1', 't1');
   renderBrief('brief-t2', 't2');
   renderBrief('brief-install', 'install');
-  renderBrief('brief-install', 'install');
+
+  // Manager panel — only rendered if the panel exists in the DOM
+  if (document.getElementById('managers-jobs')) {
+    renderManagerPanel();
+  }
+
   document.getElementById('t1-hrs').textContent = calcHrs(d.t1);
   document.getElementById('t2-hrs').textContent = calcHrs(d.t2);
   document.getElementById('install-hrs').textContent = calcHrs(d.t3);
@@ -560,4 +751,72 @@ function render() {
     }
   }, 50);
 }
+
+// ── buildClientBlock ──────────────────────────────────────────
+// Shared by renderJobs and renderManagerPanel. Builds the expanded
+// client detail HTML for a single card, handling three states:
+//   1. Override chosen — show full live data + "× change" link
+//   2. Ambiguous       — show picker buttons, one per candidate
+//   3. Normal match    — show full live data
+//   4. No match        — show "no match" fallback
+// cardId   = stable key used in clientOverrides (job id or mgr event id)
+// sc       = result from findClient() — may have _ambiguous flag
+// description = calendar event description (for Cal notes row)
+function buildClientBlock(cardId, sc, description) {
+  // Use an override if the user already picked one
+  const resolved = clientOverrides[_overrideKey(cardId)] || (sc && !sc._ambiguous ? sc : null);
+
+  let html = '';
+
+  if (resolved) {
+    // ── Confirmed client ───────────────────────────────────
+    const changeLink = clientOverrides[_overrideKey(cardId)]
+      ? ` <a href="#" style="font-size:10px;color:var(--ink3);text-decoration:underline;margin-left:8px"
+             onclick="clearClientOverride('${cardId}');event.preventDefault()">&#215; change</a>`
+      : '';
+    html += `
+      <div class="client-detail">
+        <div class="cd-hdr"><div class="live-dot"></div>Live from Google Sheets${changeLink}</div>
+        ${resolved['Name(s)']               ? `<div class="drow"><span class="dlabel">Client</span><span class="dval">${esc(resolved['Name(s)'])}</span></div>` : ''}
+        ${resolved['Address']               ? `<div class="drow"><span class="dlabel">Address</span><span class="dval">${esc(resolved['Address'])}</span></div>` : ''}
+        ${(resolved['Phone']||resolved['Phone number(s)']) ? `<div class="drow"><span class="dlabel">Phone</span><span class="dval"><a class="phone-a" href="tel:${esc(resolved['Phone']||resolved['Phone number(s)'])}">${esc(resolved['Phone']||resolved['Phone number(s)'])}</a></span></div>` : ''}
+        ${(resolved['Visit Interval']||resolved['Visit interval']) ? `<div class="drow"><span class="dlabel">Interval</span><span class="dval">${esc(resolved['Visit Interval']||resolved['Visit interval'])}</span></div>` : ''}
+        ${resolved['Labor Hours']           ? `<div class="drow"><span class="dlabel">Est. hours</span><span class="dval">${esc(resolved['Labor Hours'])}</span></div>` : ''}
+        ${(resolved['Scheduling Notes']||resolved['Scheduling notes']) ? `<div class="drow"><span class="dlabel">Scheduling</span><span class="dval">${esc(resolved['Scheduling Notes']||resolved['Scheduling notes'])}</span></div>` : ''}
+        ${resolved['General Service Notes'] ? `<div class="drow"><span class="dlabel">Notes</span><span class="dval note">${esc(resolved['General Service Notes'])}</span></div>` : ''}
+        ${(resolved['Gate / Access']||resolved['Gate/Access']) ? `<div class="drow"><span class="dlabel">Gate</span><span class="dval">${esc(resolved['Gate / Access']||resolved['Gate/Access'])}</span></div>` : ''}
+        ${resolved['Dogs / Animals']        ? `<div class="drow"><span class="dlabel">Dogs</span><span class="dval">${esc(resolved['Dogs / Animals'])}</span></div>` : ''}
+      </div>`;
+
+  } else if (sc && sc._ambiguous) {
+    // ── Ambiguous — show picker ────────────────────────────
+    const encoded = encodeURIComponent(JSON.stringify(sc._ambiguousCandidates));
+    html += `<div class="client-detail client-detail-ambiguous">
+      <div class="cd-hdr cd-hdr-warn">&#9888; Multiple possible matches — tap to confirm</div>`;
+    sc._ambiguousCandidates.forEach((c, i) => {
+      const addr = c['Address'] ? `<span class="amb-addr">${esc(c['Address'])}</span>` : '';
+      html += `
+      <button class="amb-pick-btn" onclick="resolveAmbiguousClient('${cardId}',${i},'${encoded}');event.stopPropagation()">
+        <span class="amb-name">${esc(c['Name(s)'] || 'Unknown')}</span>${addr}
+      </button>`;
+    });
+    html += `</div>`;
+
+  } else if (sc) {
+    // ── Single unambiguous match ───────────────────────────
+    // (Shouldn't reach here via buildClientBlock but kept as safety)
+    html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">Matched</span></div>`;
+
+  } else {
+    // ── No match ──────────────────────────────────────────
+    html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">${sheetClients.length ? 'No exact match found' : 'Load sheets above to see client detail'}</span></div>`;
+  }
+
+  if (description && description.trim()) {
+    html += `<div class="drow"><span class="dlabel">Cal notes</span><span class="dval note">${esc(description)}</span></div>`;
+  }
+
+  return html;
+}
+
 

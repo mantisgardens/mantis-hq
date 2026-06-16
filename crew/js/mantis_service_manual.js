@@ -485,7 +485,15 @@ function renderPruning() {
     return;
   }
 
-  groups.forEach(g => {
+  // Sort: active (current month) groups first, both sections alphabetically
+  const sorted = groups.slice().sort((a, b) => {
+    const aNow = periodIsNow(a.period);
+    const bNow = periodIsNow(b.period);
+    if (aNow !== bNow) return aNow ? -1 : 1;
+    return a.group.localeCompare(b.group);
+  });
+
+  sorted.forEach(g => {
     const active   = periodIsNow(g.period);
     const cardCls  = active ? ' pg-now' : '';
     const badge    = active
@@ -518,7 +526,7 @@ function renderPruning() {
   });
 
   el.innerHTML = html;
-  updateCount(groups.length, groups.length);
+  updateCount(sorted.length, sorted.length);
 }
 
 // Auth guard — redirect to login if not signed in.

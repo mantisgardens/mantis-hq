@@ -12,10 +12,11 @@
 
 // Cache TTLs (milliseconds)
 const CACHE_TTL = {
-  active_clients:   10 * 60 * 1000,
-  morning_brief:     5 * 60 * 1000,
-  schedule:          3 * 60 * 1000,
-  crew_teams:       60 * 60 * 1000,   // 60 min — team rosters change rarely
+  active_clients:    10 * 60 * 1000,
+  morning_brief:      5 * 60 * 1000,
+  schedule:           3 * 60 * 1000,
+  manager_schedule:   3 * 60 * 1000,
+  crew_teams:        60 * 60 * 1000,   // 60 min — team rosters change rarely
 };
 
 // ── Persistent offline cache (localStorage) ───────────────────
@@ -25,10 +26,11 @@ const CACHE_TTL = {
 // TTL is 24 hours — stale enough to be safe, fresh enough to matter.
 const PERSIST_TTL  = 24 * 60 * 60 * 1000;
 const PERSIST_KEYS = {
-  active_clients: 'mg_persist_clients',
-  schedule:       'mg_persist_schedule',
-  morning_brief:  'mg_persist_brief',
-  crew_teams:     'mg_persist_crew_teams',
+  active_clients:   'mg_persist_clients',
+  schedule:         'mg_persist_schedule',
+  morning_brief:    'mg_persist_brief',
+  crew_teams:       'mg_persist_crew_teams',
+  manager_schedule: 'mg_persist_mgr_schedule',
 };
 
 function persistSave(action, data) {
@@ -134,13 +136,24 @@ async function loadAll() {
   setStatus('brief',    'loading', 'Morning brief: loading...');
   setStatus('calendar', 'loading', 'Calendar: loading...');
 
+  // ── Show/hide Managers tab based on role ─────────────────
+  // Done early so the tab appears/disappears before data loads.
+  const _isManager = isManagerUser();
+  const _mgrTab    = document.getElementById('ttab-managers');
+  if (_mgrTab) _mgrTab.style.display = _isManager ? '' : 'none';
+
   const delay = ms => new Promise(res => setTimeout(res, ms));
-  const results = await Promise.allSettled([
+
+  // Build parallel fetch list — manager schedule only for managers
+  const fetches = [
     apiFetch('active_clients'),
     delay(300).then(() => apiFetch('schedule', '&weeks=2')),
     delay(600).then(() => apiFetch('morning_brief')),
     delay(900).then(() => apiFetch('crew_teams')),
-  ]);
+    _isManager ? delay(1200).then(() => apiFetch('manager_schedule', '&weeks=2')) : Promise.resolve(null),
+  ];
+
+  const results = await Promise.allSettled(fetches);
 
   // ── Track which items fell back to offline cache ──────────────
   let offlineCacheTs = null;   // timestamp of oldest stale item used
@@ -281,6 +294,19 @@ async function loadAll() {
         opt.value = name;
         dl.appendChild(opt);
       });
+    }
+  }
+
+  // ── Manager schedule (managers only) ─────────────────────
+  const mgrResult = results[4];
+  if (_isManager && mgrResult) {
+    const mgrData = mgrResult.status === 'fulfilled'
+      ? mgrResult.value
+      : (persistLoad('manager_schedule') || {}).data || null;
+
+    if (mgrData) {
+      if (mgrResult.status === 'fulfilled') persistSave('manager_schedule', mgrData);
+      MANAGER_SCHEDULE = mgrData;
     }
   }
 
