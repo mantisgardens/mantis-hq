@@ -120,6 +120,13 @@ function openWorkRecord(jobId) {
   document.getElementById('wr-team').value  = teamName;
   document.getElementById('wr-date').value  = currentDay;
 
+  // Write client identity into hidden fields — these are the authoritative source
+  // for collectFormData, independent of JS state at submit time.
+  const _scNow = job._sc || findSheetClient(job.client);
+  document.getElementById('wr-client-name').value = job.client || '';
+  document.getElementById('wr-hist-id').value      = (_scNow && _scNow['Hist Data ID'])    ? _scNow['Hist Data ID'].trim()    : '';
+  document.getElementById('wr-folder-id').value    = (_scNow && _scNow['Drive Folder ID']) ? _scNow['Drive Folder ID'].trim() : '';
+
   // Reset form
   document.getElementById('workers-list').innerHTML         = '';
   document.getElementById('fert-list').innerHTML            = '';
@@ -244,6 +251,12 @@ function openMgrWorkRecord(evId, workerName) {
   document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + ev.description.split('\n')[0] : '');
   document.getElementById('wr-team').value  = 'Managers';
   document.getElementById('wr-date').value  = currentDay;
+
+  // Manager events use clientCandidate for folder lookup
+  const _mgrSc = findSheetClient(ev.clientCandidate || ev.title || '');
+  document.getElementById('wr-client-name').value = ev.clientCandidate || ev.title || '';
+  document.getElementById('wr-hist-id').value      = (_mgrSc && _mgrSc['Hist Data ID'])    ? _mgrSc['Hist Data ID'].trim()    : '';
+  document.getElementById('wr-folder-id').value    = (_mgrSc && _mgrSc['Drive Folder ID']) ? _mgrSc['Drive Folder ID'].trim() : '';
 
   // Reset form
   document.getElementById('workers-list').innerHTML         = '';
@@ -778,16 +791,18 @@ function collectFormData() {
   const fertilizers    = collectRows('fert-list');
   const otherMaterials = collectRows('other-materials-list');
 
-  // Use the sheet client resolved at card-render time (stored as job._sc).
-  // This is always correct because the card only shows live data when _sc was found.
-  // Fall back to findSheetClient only if _sc wasn't set (e.g. ambiguous match).
-  const _sc = (currentJobData && currentJobData._sc)
-    || findSheetClient(currentJobData ? currentJobData.client : '');
+  // Read client identity from hidden DOM fields — written by openWorkRecord when
+  // the modal opened. These are the authoritative source: they survive day-tab
+  // changes, re-renders, and any other JS state drift between open and submit.
+  // Fall back to currentJobData only as a last resort.
+  const _domClient   = document.getElementById('wr-client-name').value  || (currentJobData ? currentJobData.client : '');
+  const _domHistId   = document.getElementById('wr-hist-id').value;
+  const _domFolderId = document.getElementById('wr-folder-id').value;
 
   return {
     jobId:         currentJobId,
-    client:        currentJobData ? currentJobData.client : '',
-    addr:          currentJobData ? currentJobData.addr   : '',
+    client:        _domClient,
+    addr:          currentJobData ? currentJobData.addr : '',
     team:          document.getElementById('wr-team').value,
     date:          document.getElementById('wr-date').value,
     workers,
@@ -797,8 +812,8 @@ function collectFormData() {
     internalNotes: document.getElementById('wr-internal-notes').value.trim(),
     photoCount:    photoFiles.length,
     savedAt:       new Date().toISOString(),
-    histId:        (_sc && _sc['Hist Data ID'])    ? _sc['Hist Data ID'].trim()    : '',
-    cachedFolderId:(_sc && _sc['Drive Folder ID']) ? _sc['Drive Folder ID'].trim() : '',
+    histId:        _domHistId,
+    cachedFolderId: _domFolderId,
   };
 }
 
