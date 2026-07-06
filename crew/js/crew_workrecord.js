@@ -117,8 +117,9 @@ function openWorkRecord(jobId) {
 
   document.getElementById('modal-title').textContent  = 'Work Record';
   document.getElementById('modal-client').textContent = job.client + (job.addr ? '  ·  ' + job.addr : '');
-  document.getElementById('wr-team').value  = teamName;
-  document.getElementById('wr-date').value  = currentDay;
+  document.getElementById('wr-team').value        = teamName;
+  document.getElementById('wr-date-start').value  = currentDay;
+  document.getElementById('wr-date-end').value    = '';
 
   // Write client identity into hidden fields — these are the authoritative source
   // for collectFormData, independent of JS state at submit time.
@@ -249,8 +250,9 @@ function openMgrWorkRecord(evId, workerName) {
 
   document.getElementById('modal-title').textContent  = 'Work Record';
   document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + ev.description.split('\n')[0] : '');
-  document.getElementById('wr-team').value  = 'Managers';
-  document.getElementById('wr-date').value  = currentDay;
+  document.getElementById('wr-team').value        = 'Managers';
+  document.getElementById('wr-date-start').value  = currentDay;
+  document.getElementById('wr-date-end').value    = '';
 
   // Manager events use clientCandidate for folder lookup
   const _mgrSc = findSheetClient(ev.clientCandidate || ev.title || '');
@@ -804,7 +806,8 @@ function collectFormData() {
     client:        _domClient,
     addr:          currentJobData ? currentJobData.addr : '',
     team:          document.getElementById('wr-team').value,
-    date:          document.getElementById('wr-date').value,
+    date:          document.getElementById('wr-date-start').value,
+    dateEnd:       document.getElementById('wr-date-end').value || '',
     workers,
     fertilizers,
     otherMaterials,
