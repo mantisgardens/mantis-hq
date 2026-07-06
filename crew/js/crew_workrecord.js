@@ -189,7 +189,27 @@ function openWorkRecord(jobId) {
   if (needsLoad && typeof loadServiceData === 'function') {
     loadServiceData()
       .then(() => afterServiceDataLoaded())
-      .catch(() => afterServiceDataLoaded());
+      .catch(() => {
+        // First attempt failed — wait 2 seconds and retry once before giving up.
+        // This handles Apps Script cold-start timeouts which are common on first load.
+        setTimeout(() => {
+          loadServiceData()
+            .then(() => afterServiceDataLoaded())
+            .catch(() => {
+              // Both attempts failed — show a reload prompt in the fert/materials area
+              // so the crew member knows the lists didn't load rather than silently
+              // rendering empty text inputs that look like the dropdowns are just missing.
+              const msg = `<div style="padding:8px;color:var(--warn,#b45309);font-size:13px">
+                ⚠ Product lists didn't load.
+                <a href="javascript:void(0)" onclick="location.reload()"
+                   style="color:inherit;font-weight:bold;text-decoration:underline">Reload page</a>
+                to get the dropdowns, then re-open the work record.
+              </div>`;
+              if (fertList) fertList.innerHTML = msg;
+              afterServiceDataLoaded();
+            });
+        }, 2000);
+      });
   } else {
     afterServiceDataLoaded();
   }
@@ -296,7 +316,11 @@ function openMgrWorkRecord(evId, workerName) {
 
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
   if (needsLoad && typeof loadServiceData === 'function') {
-    loadServiceData().then(afterServiceDataLoaded).catch(afterServiceDataLoaded);
+    loadServiceData().then(afterServiceDataLoaded).catch(() => {
+      setTimeout(() => {
+        loadServiceData().then(afterServiceDataLoaded).catch(afterServiceDataLoaded);
+      }, 2000);
+    });
   } else {
     afterServiceDataLoaded();
   }
