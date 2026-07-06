@@ -884,6 +884,17 @@ function submitForm() {
       })
       .then(json => {
         if (json.error) throw new Error(json.error);
+        // Warn crew if the server saved the record but couldn't find the Drive folder
+        if (json.warning) {
+          hideSubmitProgress();
+          if (currentJobId) setSt(currentJobId, 'done');
+          showToast('⚠ ' + json.warning, 8000);
+          savedRecords[currentJobId] = { submitted: true, savedAt: new Date().toISOString(), client: data.client || '', date: data.date || '' };
+          safeLocalSave();
+          setTimeout(() => closeModal(), 8000);
+          if (submitBtn) { submitBtn.disabled = false; }
+          return;
+        }
         // Clear checklist state for this job
         if (currentJobId) delete _checklistStates[currentJobId];
         const panel = document.getElementById('checklist-panel');

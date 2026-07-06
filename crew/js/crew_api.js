@@ -147,10 +147,10 @@ async function loadAll() {
   // Build parallel fetch list — manager schedule only for managers
   const fetches = [
     apiFetch('active_clients'),
-    delay(300).then(() => apiFetch('schedule', '&weeks=2')),
+    delay(300).then(() => apiFetch('schedule', '&weeks=3&offset=-1')),
     delay(600).then(() => apiFetch('morning_brief')),
     delay(900).then(() => apiFetch('crew_teams')),
-    _isManager ? delay(1200).then(() => apiFetch('manager_schedule', '&weeks=2')) : Promise.resolve(null),
+    _isManager ? delay(1200).then(() => apiFetch('manager_schedule', '&weeks=3&offset=-1')) : Promise.resolve(null),
   ];
 
   const results = await Promise.allSettled(fetches);
