@@ -85,15 +85,30 @@ function getIrrigationGroups() {
 }
 
 function openWorkRecord(jobId) {
-  const d   = SCHEDULE[currentDay] || {};
-  const all = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])];
-  const job = all.find(j => j.id === jobId);
+  // Search currentDay first (fast path), then fall back to all days in SCHEDULE.
+  // This handles the case where currentDay changes between the card rendering
+  // and the Work Record button being tapped (e.g. a day tab tap in between).
+  let job = null;
+  let jobDay = currentDay;
+  const dCurrent = SCHEDULE[currentDay] || {};
+  job = [...(dCurrent.t1||[]),...(dCurrent.t2||[]),...(dCurrent.t3||[])].find(j => j.id === jobId);
+  if (!job) {
+    for (const day of Object.keys(SCHEDULE)) {
+      const d = SCHEDULE[day] || {};
+      const found = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].find(j => j.id === jobId);
+      if (found) { job = found; jobDay = day; break; }
+    }
+  }
   if (!job) return;
+
+  // Snap currentDay to wherever this job actually lives
+  currentDay = jobDay;
 
   currentJobId   = jobId;
   currentJobData = job;
 
-  // Determine team
+  // Determine team — re-read from the resolved day
+  const d   = SCHEDULE[currentDay] || {};
   const teamKey  = d.t1 && d.t1.find(j=>j.id===jobId) ? 't1'
                  : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2' : 'install';
   const teamName = teamKey === 't1' ? 'Maintenance — Team 1'
@@ -171,8 +186,11 @@ function openWorkRecord(jobId) {
     afterServiceDataLoaded();
   }
 
-  // Prefetch folder ID in background for faster submit
-  if (job.client && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
+  // Seed the folder ID cache from the already-resolved _sc if available —
+  // no network round-trip needed. Fall back to prefetch only if _sc is missing.
+  if (job._sc && job._sc['Drive Folder ID']) {
+    _folderIdCache[job.client] = job._sc['Drive Folder ID'].trim();
+  } else if (job.client && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
     prefetchClientFolder(job.client);
   }
 }
@@ -760,8 +778,11 @@ function collectFormData() {
   const fertilizers    = collectRows('fert-list');
   const otherMaterials = collectRows('other-materials-list');
 
-  // Look up Hist Data ID and folder ID from client database for fast submit
-  const _sc = findSheetClient(currentJobData ? currentJobData.client : '');
+  // Use the sheet client resolved at card-render time (stored as job._sc).
+  // This is always correct because the card only shows live data when _sc was found.
+  // Fall back to findSheetClient only if _sc wasn't set (e.g. ambiguous match).
+  const _sc = (currentJobData && currentJobData._sc)
+    || findSheetClient(currentJobData ? currentJobData.client : '');
 
   return {
     jobId:         currentJobId,

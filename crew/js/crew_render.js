@@ -418,6 +418,11 @@ function renderJobs(cid, jobs, teamClass) {
   jobs.forEach(j => {
     const isLoad = j.type === 'load-in';
     const sc     = !isLoad ? findClient(j.client) : null;
+    // Store the resolved sheet client back on the job object so openWorkRecord
+    // and collectFormData can use Drive Folder ID / Hist Data ID directly
+    // without re-running the lookup — and without depending on currentDay being
+    // correct at the moment the Work Record button is tapped.
+    if (sc && !sc._ambiguous) j._sc = sc;
     const isExp  = expanded[j.id];
     const card   = document.createElement('div');
     card.className = `job-card ${isLoad ? 'load-in' : teamClass}${isExp ? ' expanded' : ''}`;
