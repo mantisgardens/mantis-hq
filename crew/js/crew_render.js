@@ -96,9 +96,22 @@ function findClient(name) {
   // Only runs when exact matching fully fails, so no performance impact
   // on the normal path. Only checks 'last:' prefixed keys for safety —
   // matching on surname reduces false positives vs matching all words.
+  //
+  // STOPLIST: common words that appear in calendar event titles but are
+  // never surnames — prevents e.g. "lawn care" fuzzy-matching "Hare"
+  // (care → hare, distance 1).
+  const _fuzzyStoplist = new Set([
+    'care', 'lawn', 'mow', 'mowing', 'trim', 'trimming', 'clean', 'cleanup',
+    'install', 'initial', 'monthly', 'quarterly', 'annual', 'biannual',
+    'maintenance', 'maint', 'service', 'visit', 'work', 'job', 'crew',
+    'planting', 'mulch', 'irrigation', 'sprinkler', 'check', 'repair',
+    'tree', 'shrub', 'hedge', 'leaf', 'leaves', 'debris', 'blow', 'edge',
+    'weed', 'spray', 'fertilize', 'aerate', 'overseed', 'prune', 'pruning',
+  ]);
   if (!scores.size) {
     words.forEach(w => {
       if (w.length < 3) return;
+      if (_fuzzyStoplist.has(w)) return;   // skip common service words
       Object.keys(clientCache).forEach(key => {
         if (!key.startsWith('last:')) return;
         const keyWord = key.slice(5);
@@ -141,9 +154,6 @@ function findClient(name) {
 
 
 // =============================================================
-// SECTION 6b — CLIENT OVERRIDE (ambiguous match resolution)
-// When findClient() returns an ambiguous result the card shows a
-// picker. resolveAmbiguousClient() stores the user's choice keyed by
 // date + cardId in sessionStorage so it persists for the rest of that
 // calendar day and survives page refreshes, but clears automatically
 // at midnight (different date key) or on logout (sessionStorage.clear).
@@ -173,15 +183,53 @@ function _overrideKey(cardId) {
   return todayDateKey() + '|' + cardId;
 }
 
-function resolveAmbiguousClient(cardId, candidateIdx, candidates) {
+
+// ── No-match client locator ───────────────────────────────────
+// In-memory store so we don't encode the full client list into every button onclick.
+const _locatorLists = {};   // cardId → sorted client array
+
+
+function _renderLocatorList(cardId, query) {
+  const list = _locatorLists[cardId] || [];
+  const q    = query.trim().toLowerCase();
+  const hits = q
+    ? list.filter(c => (c['Name(s)'] || '').toLowerCase().includes(q)
+                    || (c['Address']  || '').toLowerCase().includes(q))
+    : list;
+
+  const container = document.getElementById(`amb-list-${cardId}`);
+  if (!container) return;
+
+  if (!hits.length) {
+    container.innerHTML = `<div class="amb-empty">No clients match "${esc(query)}"</div>`;
+    return;
+  }
+  container.innerHTML = hits.map(c => {
+    const addr = c['Address'] ? `<span class="amb-addr">${esc(c['Address'])}</span>` : '';
+    const idx  = list.indexOf(c);
+    return `<button class="amb-pick-btn"
+      onclick="resolveNoMatchClient('${cardId}',${idx});event.stopPropagation()">
+      <span class="amb-name">${esc(c['Name(s)'] || 'Unknown')}</span>${addr}
+    </button>`;
+  }).join('');
+}
+
+function _filterLocatorList(cardId, query) {
+  _renderLocatorList(cardId, query);
+}
+
+
+function resolveNoMatchClient(cardId, candidateIdx, candidates) {
   try {
-    const list = JSON.parse(decodeURIComponent(candidates));
+    const list = candidates
+      ? JSON.parse(decodeURIComponent(candidates))
+      : (_locatorLists[cardId] || []);
     if (list && list[candidateIdx]) {
       clientOverrides[_overrideKey(cardId)] = list[candidateIdx];
       _saveOverrides(clientOverrides);
     }
   } catch(e) {
-    console.warn('[resolveAmbiguousClient] parse error:', e);
+    console.warn('[resolveNoMatchClient] parse error:', e);
     return;
   }
   if (cardId.startsWith('mgr_')) {
@@ -441,7 +489,7 @@ function renderJobs(cid, jobs, teamClass) {
           ${j.addr ? `<div class="jaddr">${esc(j.addr)}</div>` : ''}
           <div class="jtags">
             ${typeTag(j)}
-            ${(clientOverrides[_overrideKey(j.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : sc && sc._ambiguous ? '<span class="tag tag-warn">&#9888; ambiguous</span>' : ''}
+            ${(clientOverrides[_overrideKey(j.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : ''}
             ${j.warn ? '<span class="tag tag-warn">&#9888;</span>' : ''}
           </div>
         </div>
@@ -457,7 +505,7 @@ function renderJobs(cid, jobs, teamClass) {
               ${statuses[j.id]==='done' ? '&#10003; Done' : statuses[j.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
             </button>
             <button class="abtn abtn-history"
-                    onclick="openHistoryForClient('${esc(j.client)}');event.stopPropagation()">
+                    onclick="openHistoryForClient('${esc(j.client)}','${j.id}');event.stopPropagation()">
               &#128196; Historical Data
             </button>
             <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
@@ -475,6 +523,12 @@ function renderJobs(cid, jobs, teamClass) {
       </div>`;
 
     el.appendChild(card);
+
+    // If this card has a pending client picker list (ambiguous or no-match),
+    // render it now — the container div is in the DOM so getElementById works.
+    if (_locatorLists[j.id]) {
+      _renderLocatorList(j.id, '');
+    }
   });
 }
 
@@ -563,7 +617,7 @@ function renderManagerPanel() {
               ${statuses['mgr_'+ev.id]==='done' ? '&#10003; Done' : statuses['mgr_'+ev.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
             </button>
             <button class="abtn abtn-history"
-                    onclick="openHistoryForClient('${esc(ev.clientCandidate||ev.title)}');event.stopPropagation()">
+                    onclick="openHistoryForClient('${esc(ev.clientCandidate||ev.title)}','mgr_${ev.id}');event.stopPropagation()">
               &#128196; Historical Data
             </button>
             ${stream.workerName ? `<button class="abtn" id="wr-btn-mgr_${ev.id}"
@@ -578,7 +632,7 @@ function renderManagerPanel() {
           </div>`;
 
         html += `
-        <div class="job-card ${cardCls}${isExp ? ' expanded' : ''}">
+        <div class="job-card ${cardCls}${isExp ? ' expanded' : ''}" data-card-id="mgr_${ev.id}">
           <div class="job-top" onclick="toggleMgrCard('${ev.id}')">
             <div class="jtc">
               <div class="jtime">${ev.allDay ? 'All day' : esc(ev.time)}</div>
@@ -589,7 +643,7 @@ function renderManagerPanel() {
               <div class="jclient">${esc(ev.title)}${statuses['mgr_'+ev.id]==='done' ? ' ✅' : statuses['mgr_'+ev.id]==='inprogress' ? ' ὐ4' : ''}</div>
               <div class="jtags">
                 ${isClientEv ? '<span class="tag tag-mo">Client</span>' : '<span class="tag" style="background:var(--bg2);color:var(--ink2)">General</span>'}
-                ${(clientOverrides[_overrideKey('mgr_'+ev.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : sc && sc._ambiguous ? '<span class="tag tag-warn">&#9888; ambiguous</span>' : ''}
+                ${(clientOverrides[_overrideKey('mgr_'+ev.id)] || (sc && !sc._ambiguous)) ? '<span class="tag tag-live">&#9679; live</span>' : ''}
                 ${ev.warn ? '<span class="tag tag-warn">&#9888;</span>' : ''}
               </div>
             </div>
@@ -608,6 +662,12 @@ function renderManagerPanel() {
   });
 
   el.innerHTML = html;
+
+  // Render any pending client picker lists — manager cards use innerHTML so
+  // the container divs only exist in the DOM after the assignment above.
+  Object.keys(_locatorLists).forEach(cardId => {
+    if (cardId.startsWith('mgr_')) _renderLocatorList(cardId, '');
+  });
 }
 
 function toggleMgrStream(key) {
@@ -793,28 +853,27 @@ function buildClientBlock(cardId, sc, description) {
         ${resolved['Dogs / Animals']        ? `<div class="drow"><span class="dlabel">Dogs</span><span class="dval">${esc(resolved['Dogs / Animals'])}</span></div>` : ''}
       </div>`;
 
-  } else if (sc && sc._ambiguous) {
-    // ── Ambiguous — show picker ────────────────────────────
-    const encoded = encodeURIComponent(JSON.stringify(sc._ambiguousCandidates));
-    html += `<div class="client-detail client-detail-ambiguous">
-      <div class="cd-hdr cd-hdr-warn">&#9888; Multiple possible matches — tap to confirm</div>`;
-    sc._ambiguousCandidates.forEach((c, i) => {
-      const addr = c['Address'] ? `<span class="amb-addr">${esc(c['Address'])}</span>` : '';
-      html += `
-      <button class="amb-pick-btn" onclick="resolveAmbiguousClient('${cardId}',${i},'${encoded}');event.stopPropagation()">
-        <span class="amb-name">${esc(c['Name(s)'] || 'Unknown')}</span>${addr}
-      </button>`;
-    });
-    html += `</div>`;
-
-  } else if (sc) {
+  } else if (sc && !sc._ambiguous) {
     // ── Single unambiguous match ───────────────────────────
     // (Shouldn't reach here via buildClientBlock but kept as safety)
     html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">Matched</span></div>`;
 
   } else {
-    // ── No match ──────────────────────────────────────────
-    html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">${sheetClients.length ? 'No exact match found' : 'Load sheets above to see client detail'}</span></div>`;
+    // ── Ambiguous or no match — same search picker ────────
+    const hdr = sheetClients.length ? '&#10067; Client not matched' : 'Load sheets to see client detail';
+    html += `<div class="client-detail client-detail-ambiguous">
+      <div class="cd-hdr cd-hdr-warn">${hdr}</div>
+      ${sheetClients.length ? `
+      <input class="amb-search" type="text"
+             placeholder="Type client name to search…"
+             oninput="_filterLocatorList('${cardId}', this.value)"
+             onclick="event.stopPropagation()"/>
+      <div class="amb-list" id="amb-list-${cardId}"></div>` : ''}
+    </div>`;
+    if (sheetClients.length) {
+      _locatorLists[cardId] = [...sheetClients]
+        .sort((a, b) => (a['Name(s)'] || '').localeCompare(b['Name(s)'] || ''));
+    }
   }
 
   if (description && description.trim()) {

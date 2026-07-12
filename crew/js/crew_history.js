@@ -31,16 +31,22 @@ function openHistory() {
   document.body.style.overflow = 'hidden';
 }
 
-function openHistoryForClient(clientName) {
+function openHistoryForClient(clientName, cardId) {
   _populateHistorySelect();
   document.getElementById('history-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
   if (clientName) {
-    const matched = _matchClientName(clientName);
-    const selName = matched || clientName;
+    // If the crew manually located this client via the picker, use that
+    // override directly — skip _matchClientName entirely.
+    const override = (cardId && typeof clientOverrides !== 'undefined')
+      ? clientOverrides[_overrideKey(cardId)]
+      : null;
+    const resolvedName = override
+      ? (override['Name(s)'] || clientName)
+      : (_matchClientName(clientName) || clientName);
     const sel = document.getElementById('history-client-select');
-    if (sel) sel.value = selName;
-    loadHistory(selName);
+    if (sel) sel.value = resolvedName;
+    loadHistory(resolvedName, cardId);
   }
 }
 
@@ -123,7 +129,7 @@ function _populateHistorySelect() {
 
 // ── Load history ───────────────────────────────────────────────
 
-async function loadHistory(clientName) {
+async function loadHistory(clientName, cardId) {
   if (!clientName) {
     _historyShowEmpty('Select a client above to view their historical data.');
     return;
@@ -150,8 +156,19 @@ async function loadHistory(clientName) {
     `<div class="history-loading"><div class="history-spinner"></div>Loading history for ${esc(clientName)}…</div>`;
 
   try {
-    // Look up Hist Data ID and folder ID from client database
-    const sc = findSheetClient(clientName);
+    // Use a manually-resolved override if the crew picked this client via the
+    // locator — avoids sending a useless fetch when no auto-match was found.
+    const _override = (cardId && typeof clientOverrides !== 'undefined')
+      ? clientOverrides[_overrideKey(cardId)]
+      : null;
+    const sc = _override || findSheetClient(clientName);
+
+    // If nothing resolves — no override and no DB match — show instant message
+    // rather than firing a fetch that will return empty anyway.
+    if (!sc && sheetClients.length) {
+      _historyShowEmpty(`No client record found for "${clientName}". Use the Locate client button on the job card to identify this client.`);
+      return;
+    }
 
     const histId   = (sc && sc['Hist Data ID'])    ? sc['Hist Data ID'].trim()    : '';
     const folderId = (sc && sc['Drive Folder ID']) ? sc['Drive Folder ID'].trim() : '';
@@ -415,15 +432,19 @@ function openHistory() {
   document.body.style.overflow = 'hidden';
 }
 
-function openHistoryForClient(clientName) {
+function openHistoryForClient(clientName, cardId) {
   _populateHistorySelect();
   document.getElementById('history-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
   if (clientName) {
-    const matched = _matchClientName(clientName);
-    const selName = matched || clientName;
-    document.getElementById('history-client-select').value = selName;
-    loadHistory(selName);
+    const override = (cardId && typeof clientOverrides !== 'undefined')
+      ? clientOverrides[_overrideKey(cardId)]
+      : null;
+    const resolvedName = override
+      ? (override['Name(s)'] || clientName)
+      : (_matchClientName(clientName) || clientName);
+    document.getElementById('history-client-select').value = resolvedName;
+    loadHistory(resolvedName, cardId);
   }
 }
 

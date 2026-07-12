@@ -116,9 +116,28 @@ function findSheetClient(calendarName) {
   // Tier 3: fuzzy match on surname only.
   // Calendar name "Sheila Belloti" → last word "belloti"
   // DB name "Bellotti, Tim"  → text before comma "bellotti"
-  const qWords    = q.split(' ');
-  const qSurname  = qWords[qWords.length - 1];
+  //
+  // Strip event-title suffix from the RAW calendar name before normalising,
+  // so "Dugal, Barbara - Monthly" becomes "Dugal, Barbara" (surname intact),
+  // and "2305 Laredo - lawn care" becomes "2305 Laredo" (no name to match).
+  const rawStripped = (calendarName || '').replace(/\s*[-–—].*$/, '').trim();
+  const qStripped   = normClientName(rawStripped);
+  const qWords      = qStripped.split(' ');
+  const qSurname    = qWords[qWords.length - 1];
   if (qSurname.length < 3) return null;  // too short to fuzzy-match safely
+
+  // Stoplist: common words that appear in event titles but are never surnames.
+  // Prevents e.g. "lawn care" → surname "care" fuzzy-matching "Hare".
+  const _t3Stoplist = new Set([
+    'care', 'lawn', 'mow', 'mowing', 'trim', 'trimming', 'clean', 'cleanup',
+    'install', 'initial', 'monthly', 'quarterly', 'annual', 'biannual',
+    'maintenance', 'maint', 'service', 'visit', 'work', 'job', 'crew',
+    'planting', 'mulch', 'irrigation', 'sprinkler', 'check', 'repair',
+    'tree', 'shrub', 'hedge', 'leaf', 'leaves', 'debris', 'blow', 'edge',
+    'weed', 'spray', 'fertilize', 'aerate', 'overseed', 'prune', 'pruning',
+    'road', 'street', 'drive', 'lane', 'avenue', 'boulevard', 'court', 'way',
+  ]);
+  if (_t3Stoplist.has(qSurname)) return null;
 
   let bestMatch = null, bestDist = Infinity;
   sheetClients.forEach(c => {
