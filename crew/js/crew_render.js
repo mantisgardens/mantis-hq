@@ -91,6 +91,40 @@ function findClient(name) {
     (clientCache['last:' + w] || []).forEach(c => scores.set(c, (scores.get(c)||0) + 3));
   });
 
+  // Address fallback: if the event title looks like "2305 Laredo - lawn care",
+  // try matching the street number + name against the Address column.
+  // Requires exact number match; street name comparison is lenient about
+  // suffixes (St/Street/Rd/Road etc) and allows up to 2 Levenshtein edits.
+  if (!scores.size) {
+    const _addrM = name.match(/^(\d+)\s+(.+?)(?:\s*[-–—]|$)/);
+    if (_addrM) {
+      const _evNum = _addrM[1];
+      const _evStreetRaw = _addrM[2].replace(/,.*$/, '').trim();
+      const _sfx = new Set(['st','street','str','ave','avenue','av','dr','drive',
+        'rd','road','blvd','boulevard','way','ct','court','ln','lane',
+        'cir','circle','pl','place']);
+      const _normSt = s => {
+        const w = s.toLowerCase().replace(/[^\w\s]/g,'').trim().split(/\s+/);
+        const bare = (w.length > 1 && _sfx.has(w[w.length-1])) ? w.slice(0,-1) : w;
+        return { full: w.join(' '), bare: bare.join(' ') };
+      };
+      const ev = _normSt(_evStreetRaw);
+      sheetClients.forEach(c => {
+        const dbAddr = (c['Address'] || '').trim();
+        const dbNumM = dbAddr.match(/^(\d+)\s+(.+?)(?:,|$)/);
+        if (!dbNumM || dbNumM[1] !== _evNum) return;
+        const db = _normSt(dbNumM[2]);
+        const dist = Math.min(
+          levenshtein(ev.bare, db.bare),
+          levenshtein(ev.bare, db.full),
+          levenshtein(ev.full, db.bare),
+          levenshtein(ev.full, db.full),
+        );
+        if (dist <= 2) scores.set(c, (scores.get(c) || 0) + 5);
+      });
+    }
+  }
+
   // Fuzzy fallback: if no scores, try Levenshtein distance 1 on the surname only.
   // Handles single-character typos like "Belloti" → "Bellotti".
   // Only runs when exact matching fully fails, so no performance impact
@@ -165,28 +199,38 @@ function findClient(name) {
 
 
 // =============================================================
-// date + cardId in sessionStorage so it persists for the rest of that
-// calendar day and survives page refreshes, but clears automatically
-// at midnight (different date key) or on logout (sessionStorage.clear).
+// Client overrides: stored in localStorage keyed by "YYYY-MM-DD|cardId"
+// so picks persist across tab closes and page refreshes for the rest of
+// that calendar day, then auto-expire the next day (different date key).
+// On load, stale keys from previous days are pruned automatically.
 // =============================================================
 
 // ── Storage helpers ───────────────────────────────────────────
-const _OVERRIDE_SS_KEY = 'mg_client_overrides';   // sessionStorage key
+const _OVERRIDE_LS_KEY = 'mg_client_overrides';   // localStorage key
 
 function _loadOverrides() {
   try {
-    const raw = sessionStorage.getItem(_OVERRIDE_SS_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(_OVERRIDE_LS_KEY);
+    if (!raw) return {};
+    const map = JSON.parse(raw);
+    // Prune any entries from previous days to keep storage clean
+    const today = todayDateKey();
+    let pruned = false;
+    Object.keys(map).forEach(k => {
+      if (!k.startsWith(today + '|')) { delete map[k]; pruned = true; }
+    });
+    if (pruned) localStorage.setItem(_OVERRIDE_LS_KEY, JSON.stringify(map));
+    return map;
   } catch(e) { return {}; }
 }
 
 function _saveOverrides(map) {
   try {
-    sessionStorage.setItem(_OVERRIDE_SS_KEY, JSON.stringify(map));
+    localStorage.setItem(_OVERRIDE_LS_KEY, JSON.stringify(map));
   } catch(e) { /* storage full — skip */ }
 }
 
-// In-memory mirror — kept in sync with sessionStorage.
+// In-memory mirror — kept in sync with localStorage.
 // Keys are "YYYY-MM-DD|cardId" so choices auto-expire at end of day.
 const clientOverrides = _loadOverrides();
 
@@ -215,6 +259,20 @@ function _renderLocatorList(cardId, query) {
     container.innerHTML = `<div class="amb-empty">No clients match "${esc(query)}"</div>`;
     return;
   }
+  // Find the "Client, Unknown" DB row — the owner adds this once as a standing
+  // placeholder for jobs where the client hasn't been added yet.
+  const unknownClient = sheetClients.find(c =>
+    (c['Name(s)'] || '').replace(/[\s,]/g, '').toLowerCase() === 'clientunknown');
+  // Ensure unknownClient is in list even if it was filtered out by search
+  let unknownIdx = -1;
+  if (unknownClient) {
+    unknownIdx = list.indexOf(unknownClient);
+    if (unknownIdx === -1) {
+      list.push(unknownClient);
+      unknownIdx = list.length - 1;
+    }
+  }
+
   container.innerHTML = hits.map(c => {
     const addr = c['Address'] ? `<span class="amb-addr">${esc(c['Address'])}</span>` : '';
     const idx  = list.indexOf(c);
@@ -222,7 +280,13 @@ function _renderLocatorList(cardId, query) {
       onclick="resolveNoMatchClient('${cardId}',${idx});event.stopPropagation()">
       <span class="amb-name">${esc(c['Name(s)'] || 'Unknown')}</span>${addr}
     </button>`;
-  }).join('');
+  }).join('') + (unknownClient ? `
+  <div class="amb-divider">── Not in database ──</div>
+  <button class="amb-pick-btn amb-pick-btn-unknown"
+    onclick="resolveNoMatchClient('${cardId}',${unknownIdx});event.stopPropagation()">
+    <span class="amb-name">&#10067; Unknown Client</span>
+    <span class="amb-addr">Use if client is not yet in the database</span>
+  </button>` : '');
 }
 
 function _filterLocatorList(cardId, query) {

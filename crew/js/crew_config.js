@@ -113,6 +113,39 @@ function findSheetClient(calendarName) {
   });
   if (close) return close;
 
+  // Tier 2b: address match — event title looks like "2305 Laredo - lawn care".
+  // Requires exact street number; street name allows up to 2 edits and is
+  // suffix-tolerant (Rd/Road, St/Street, etc).
+  const _addrM = (calendarName || '').match(/^(\d+)\s+(.+?)(?:\s*[-–—]|$)/);
+  if (_addrM) {
+    const _evNum = _addrM[1];
+    const _evStreetRaw = _addrM[2].replace(/,.*$/, '').trim();
+    const _sfx = new Set(['st','street','str','ave','avenue','av','dr','drive',
+      'rd','road','blvd','boulevard','way','ct','court','ln','lane',
+      'cir','circle','pl','place']);
+    const _normSt = s => {
+      const w = s.toLowerCase().replace(/[^\w\s]/g,'').trim().split(/\s+/);
+      const bare = (w.length > 1 && _sfx.has(w[w.length-1])) ? w.slice(0,-1) : w;
+      return { full: w.join(' '), bare: bare.join(' ') };
+    };
+    const ev = _normSt(_evStreetRaw);
+    let bestMatch = null, bestDist = 3;
+    sheetClients.forEach(c => {
+      const dbAddr = (c['Address'] || '').trim();
+      const dbNumM = dbAddr.match(/^(\d+)\s+(.+?)(?:,|$)/);
+      if (!dbNumM || dbNumM[1] !== _evNum) return;
+      const db = _normSt(dbNumM[2]);
+      const dist = Math.min(
+        levenshtein(ev.bare, db.bare),
+        levenshtein(ev.bare, db.full),
+        levenshtein(ev.full, db.bare),
+        levenshtein(ev.full, db.full),
+      );
+      if (dist < bestDist) { bestDist = dist; bestMatch = c; }
+    });
+    if (bestMatch) return bestMatch;
+  }
+
   // Tier 3: fuzzy match on surname only.
   // Calendar name "Sheila Belloti" → last word "belloti"
   // DB name "Bellotti, Tim"  → text before comma "bellotti"
