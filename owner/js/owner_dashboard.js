@@ -319,7 +319,9 @@ function getWeekDates(delta) {
 }
 
 function dateKey(d) {
-  return d.toISOString().slice(0, 10);
+  // Use local date components — toISOString() returns UTC which is off-by-one
+  // for US timezones, causing Monday to appear as Sunday in the schedule.
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 function renderSchedule() {
