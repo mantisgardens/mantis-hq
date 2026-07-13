@@ -91,15 +91,18 @@ function findClient(name) {
     (clientCache['last:' + w] || []).forEach(c => scores.set(c, (scores.get(c)||0) + 3));
   });
 
-  // Fuzzy fallback: if no scores, try Levenshtein distance 1 on cache keys.
+  // Fuzzy fallback: if no scores, try Levenshtein distance 1 on the surname only.
   // Handles single-character typos like "Belloti" → "Bellotti".
   // Only runs when exact matching fully fails, so no performance impact
-  // on the normal path. Only checks 'last:' prefixed keys for safety —
-  // matching on surname reduces false positives vs matching all words.
+  // on the normal path.
   //
-  // STOPLIST: common words that appear in calendar event titles but are
-  // never surnames — prevents e.g. "lawn care" fuzzy-matching "Hare"
-  // (care → hare, distance 1).
+  // We restrict to the LAST WORD of the stripped title (i.e. the surname)
+  // rather than testing every token. This prevents first names and service
+  // words from fuzzy-matching surnames:
+  //   "Pat Mahony - aesthetic pruning" → surname "mahony" (not "pat")
+  //   "2305 Laredo - lawn care" → surname "laredo" (not "care")
+  //
+  // STOPLIST: words that are never surnames.
   const _fuzzyStoplist = new Set([
     'care', 'lawn', 'mow', 'mowing', 'trim', 'trimming', 'clean', 'cleanup',
     'install', 'initial', 'monthly', 'quarterly', 'annual', 'biannual',
@@ -107,20 +110,28 @@ function findClient(name) {
     'planting', 'mulch', 'irrigation', 'sprinkler', 'check', 'repair',
     'tree', 'shrub', 'hedge', 'leaf', 'leaves', 'debris', 'blow', 'edge',
     'weed', 'spray', 'fertilize', 'aerate', 'overseed', 'prune', 'pruning',
+    'road', 'street', 'drive', 'lane', 'avenue', 'boulevard', 'court', 'way',
+    'aesthetic', 'general', 'special', 'full', 'deep', 'light', 'heavy',
   ]);
   if (!scores.size) {
-    words.forEach(w => {
-      if (w.length < 3) return;
-      if (_fuzzyStoplist.has(w)) return;   // skip common service words
+    // Strip event-title suffix ("- aesthetic pruning", "- monthly", etc.)
+    // then extract the surname:
+    //   "Last, First - suffix"  → text before comma → "last"
+    //   "First Last - suffix"   → last word → "last"
+    const stripped    = name.replace(/\s*[-\u2013\u2014].*$/, '').trim();
+    const surnameCand = (stripped.indexOf(',') !== -1)
+      ? stripped.split(',')[0].trim().toLowerCase()
+      : (stripped.split(/\s+/).filter(w => w.length > 1).pop() || '').toLowerCase();
+    if (surnameCand.length >= 3 && !_fuzzyStoplist.has(surnameCand)) {
       Object.keys(clientCache).forEach(key => {
         if (!key.startsWith('last:')) return;
         const keyWord = key.slice(5);
-        if (Math.abs(keyWord.length - w.length) > 1) return;
-        if (levenshtein(w, keyWord) === 1) {
+        if (Math.abs(keyWord.length - surnameCand.length) > 1) return;
+        if (levenshtein(surnameCand, keyWord) === 1) {
           (clientCache[key] || []).forEach(c => scores.set(c, (scores.get(c)||0) + 3));
         }
       });
-    });
+    }
   }
 
   if (!scores.size) {
