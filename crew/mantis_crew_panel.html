@@ -18,7 +18,7 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=29"/>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=32"/>
 </head>
 <body>
 
@@ -146,25 +146,39 @@
         </div>
       </div>
 
-      <!-- Workers + hours -->
+      <!-- Workers + hours + labor type -->
       <div class="form-section">
         <div class="form-section-label">Workers &amp; Hours</div>
         <div class="dynamic-list" id="workers-list"></div>
         <button class="add-row-btn" onclick="addWorker()">+ Add worker</button>
       </div>
 
-      <!-- Materials / supplies — split into two sub-sections -->
+      <!-- Materials / supplies — five sub-sections -->
       <div class="form-section">
         <div class="form-section-label">Materials &amp; Supplies Used</div>
 
-        <!-- Sub-section 1: Fertilizers & Sprays -->
+        <!-- Sub-section 1: Fertilizer, Soil, & Sprays -->
         <div class="mat-subsection">
-          <div class="mat-subsection-label">&#127807; Fertilizers &amp; Sprays</div>
+          <div class="mat-subsection-label">&#127807; Fertilizer, Soil, &amp; Sprays</div>
           <div class="dynamic-list" id="fert-list"></div>
           <button class="add-row-btn" onclick="addFert()">+ Add fertilizer / spray</button>
         </div>
 
-        <!-- Sub-section 2: Other Materials (irrigation + supplies) -->
+        <!-- Sub-section 2: Irrigation & Spray Heads -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#128166; Irrigation &amp; Spray Heads</div>
+          <div class="dynamic-list" id="irrigation-list"></div>
+          <button class="add-row-btn" onclick="addIrrigationItem()">+ Add irrigation item</button>
+        </div>
+
+        <!-- Sub-section 3: Plants -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#127801; Plants</div>
+          <div class="dynamic-list" id="plants-list"></div>
+          <button class="add-row-btn" onclick="addPlant()">+ Add plant</button>
+        </div>
+
+        <!-- Sub-section 4: Other Materials (staking, installation, dump fees etc.) -->
         <div class="mat-subsection">
           <div class="mat-subsection-label">&#128295; Other Materials</div>
           <div class="dynamic-list" id="other-materials-list"></div>
@@ -285,16 +299,19 @@
 
     <!-- Tab bar: Notes → Fertilizer → Labor → Photos -->
     <div class="history-tabs" id="history-tabs" style="display:none">
-      <button class="htab active" id="htab-notes"   onclick="switchHistoryTab('notes')">
+      <button class="htab active" id="htab-notes"    onclick="switchHistoryTab('notes')">
         &#128196; Notes <span class="htab-ct" id="htab-ct-notes"></span>
       </button>
-      <button class="htab" id="htab-fert"    onclick="switchHistoryTab('fert')">
+      <button class="htab" id="htab-internal"  onclick="switchHistoryTab('internal')">
+        &#128274; Internal <span class="htab-ct" id="htab-ct-internal"></span>
+      </button>
+      <button class="htab" id="htab-fert"      onclick="switchHistoryTab('fert')">
         &#127807; Fertilizer <span class="htab-ct" id="htab-ct-fert"></span>
       </button>
-      <button class="htab" id="htab-records" onclick="switchHistoryTab('records')">
+      <button class="htab" id="htab-records"   onclick="switchHistoryTab('records')">
         &#128203; Labor <span class="htab-ct" id="htab-ct-records"></span>
       </button>
-      <button class="htab" id="htab-photos"  onclick="switchHistoryTab('photos')">
+      <button class="htab" id="htab-photos"    onclick="switchHistoryTab('photos')">
         &#128247; Photos <span class="htab-ct" id="htab-ct-photos"></span>
       </button>
     </div>
@@ -313,17 +330,31 @@
 <datalist id="dl-crew-global"></datalist>
 <datalist id="dl-fert-global"></datalist>
 <datalist id="dl-irr-global"></datalist>
+<datalist id="dl-plants-global"></datalist>
+<datalist id="dl-other-global"></datalist>
 
-<script src="../config.js?v=31"></script>
-<script src="js/mantis_config.js?v=40"></script>
-<script src="js/session_timeout.js?v=31"></script>
-<script src="js/mantis_data_loader.js?v=35"></script>
-<script src="js/crew_config.js?v=40"></script>
-<script src="js/crew_api.js?v=31"></script>
-<script src="js/crew_render.js?v=50"></script>
-<script src="js/crew_ui.js?v=31"></script>
-<script src="js/crew_workrecord.js?v=37"></script>
-<script src="js/crew_history.js?v=41"></script>
-<script src="js/crew_app.js?v=31"></script>
+<script src="../config.js?v=35"></script>
+<script src="js/mantis_config.js?v=45"></script>
+<script src="js/session_timeout.js?v=35"></script>
+<script src="js/mantis_data_loader.js?v=45"></script>
+<script src="js/crew_config.js?v=45"></script>
+<script src="js/crew_api.js?v=40"></script>
+<script src="js/crew_render.js?v=55"></script>
+<script src="js/crew_ui.js?v=40"></script>
+<script src="js/crew_workrecord.js?v=52"></script>
+<script src="js/crew_history.js?v=50"></script>
+<script src="js/crew_app.js?v=33"></script>
+<script>
+// Diagnostic: detect if crew_history.js failed to load
+window.addEventListener('load', () => {
+  if (typeof openHistoryForClient === 'undefined') {
+    console.error('[Mantis] crew_history.js failed to load or execute. History buttons will not work.');
+    // Provide a fallback so the error is visible rather than silent
+    window.openHistoryForClient = function(name, cardId) {
+      alert('History panel failed to load. Check browser console for errors, then hard-refresh (Ctrl+Shift+R).');
+    };
+  }
+});
+</script>
 </body>
 </html>
