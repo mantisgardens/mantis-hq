@@ -84,6 +84,24 @@ function getIrrigationGroups() {
   return groups;
 }
 
+// ── Unit lookup for irrigation and other materials ─────────────
+// Returns the unit string for a given item name, searching
+// IRRIGATION_ITEMS, SPRAY_HEADS, and OTHER_MATERIALS.
+function getItemUnit(name) {
+  if (!name) return '';
+  const n = name.trim().toLowerCase();
+  const sources = [
+    ...(typeof IRRIGATION_ITEMS !== 'undefined' ? IRRIGATION_ITEMS : []),
+    ...(typeof SPRAY_HEADS      !== 'undefined' ? SPRAY_HEADS      : []),
+    ...(typeof OTHER_MATERIALS  !== 'undefined' ? OTHER_MATERIALS  : []),
+  ];
+  const match = sources.find(item =>
+    item.name && item.name.trim().toLowerCase() === n
+  );
+  return (match && match.unit && match.unit.toLowerCase() !== 'each' &&
+          match.unit.toLowerCase() !== 'n/a') ? match.unit : '';
+}
+
 function openWorkRecord(jobId) {
   // Search currentDay first (fast path), then fall back to all days in SCHEDULE.
   // This handles the case where currentDay changes between the card rendering
@@ -581,14 +599,28 @@ function addPlant(name, qty, size) {
   const row = document.createElement('div');
   row.className = 'dynamic-row';
   row.innerHTML = `
-    <input class="form-input" type="text" placeholder="Plant name"
+    <input class="form-input plant-name-input" type="text" placeholder="Plant name"
            list="dl-plants-global" autocomplete="off"
            value="${esc(name||'')}" style="flex:3"/>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
-    <input class="form-input" type="text" placeholder="Size (5 gal…)"
+    <input class="form-input plant-size-input" type="text" placeholder="Size (5 gal…)"
            value="${esc(size||'')}" style="flex:1;max-width:90px"/>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+
+  const nameInput = row.querySelector('.plant-name-input');
+  const sizeInput = row.querySelector('.plant-size-input');
+  function tryFillPlantSize() {
+    if (sizeInput && !sizeInput.value) {
+      const n = nameInput.value.trim().toLowerCase();
+      const plants = (typeof WORK_RECORD_PLANTS !== 'undefined') ? WORK_RECORD_PLANTS : [];
+      const match = plants.find(p => p.name.trim().toLowerCase() === n);
+      if (match && match.unit) sizeInput.value = match.unit;
+    }
+  }
+  nameInput.addEventListener('change', tryFillPlantSize);
+  nameInput.addEventListener('blur',   tryFillPlantSize);
+
   list.appendChild(row);
 }
 
@@ -644,8 +676,25 @@ function makeOtherMatRow(item, qty, unit) {
     }
   });
   sel.addEventListener('change', () => {
-    if (sel.value) { custom.value = sel.value; sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list'; }
+    if (sel.value) {
+      custom.value = sel.value;
+      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list';
+      tryFillOtherUnit();
+    }
   });
+
+  // Auto-fill unit when item is selected
+  const unitInput = row.querySelector('input[placeholder="Unit"]');
+  function tryFillOtherUnit() {
+    if (unitInput && !unitInput.value) {
+      const name = custom.value.trim() || sel.value.trim();
+      const u = getItemUnit(name);
+      if (u) unitInput.value = u;
+    }
+  }
+  custom.addEventListener('change', tryFillOtherUnit);
+  custom.addEventListener('blur',   tryFillOtherUnit);
+
   list.appendChild(row);
 }
 
@@ -772,8 +821,21 @@ function makeIrrRow(item, qty, unit) {
       sel.style.display    = 'none';
       custom.style.display = '';
       toggle.textContent   = 'list';
+      tryFillIrrUnit();
     }
   });
+
+  // Auto-fill unit when an item is picked from either the text input or select
+  const unitInput = row.querySelector('input[placeholder="Unit"]');
+  function tryFillIrrUnit() {
+    if (unitInput && !unitInput.value) {
+      const name = custom.value.trim() || sel.value.trim();
+      const u = getItemUnit(name);
+      if (u) unitInput.value = u;
+    }
+  }
+  custom.addEventListener('change', tryFillIrrUnit);
+  custom.addEventListener('blur',   tryFillIrrUnit);
 
   // If restoring a saved item that was from the list, show it in the text input
   // (it's already pre-filled via the value attribute above — nothing extra needed)
