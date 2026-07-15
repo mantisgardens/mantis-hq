@@ -41,6 +41,11 @@ function persistSave(action, data) {
   } catch(e) { /* storage full — skip */ }
 }
 
+function persistClear(action) {
+  const key = PERSIST_KEYS[action];
+  if (key) try { localStorage.removeItem(key); } catch(e) {}
+}
+
 function persistLoad(action) {
   const key = PERSIST_KEYS[action];
   if (!key) return null;
@@ -206,7 +211,12 @@ async function loadAll() {
     : useOffline('schedule', results[1], 'calendar');
 
   if (calData) {
-    if (results[1].status === 'fulfilled') persistSave('schedule', calData);
+    if (results[1].status === 'fulfilled') {
+      // Clear any old persist entry before saving the new window
+      // (old entries may cover a different date range)
+      persistClear('schedule');
+      persistSave('schedule', calData);
+    }
     SCHEDULE  = calData.days || {};
 
     // Build sorted day list

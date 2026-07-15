@@ -131,6 +131,8 @@ function openWorkRecord(jobId) {
   // Reset form
   document.getElementById('workers-list').innerHTML         = '';
   document.getElementById('fert-list').innerHTML            = '';
+  document.getElementById('irrigation-list').innerHTML      = '';
+  document.getElementById('plants-list').innerHTML          = '';
   document.getElementById('other-materials-list').innerHTML = '';
   document.getElementById('wr-service-notes').value         = '';
   document.getElementById('wr-internal-notes').value        = '';
@@ -149,9 +151,11 @@ function openWorkRecord(jobId) {
   // Restore saved draft if exists
   const saved = savedRecords[jobId];
   if (saved && !saved.submitted) {
-    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours));
-    (saved.fertilizers    || []).forEach(f => addFert(f.item, f.qty, f.unit));
-    (saved.otherMaterials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
+    (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
+    (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
+    (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
+    (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
     if (!saved.fertilizers && !saved.otherMaterials) {
       (saved.materials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
     }
@@ -162,12 +166,14 @@ function openWorkRecord(jobId) {
 
   // Load service data (fert/materials lists) then auto-populate
   const fertList = document.getElementById('fert-list');
-  const irrList  = document.getElementById('other-materials-list');
+  const irrList  = document.getElementById('irrigation-list');
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
 
   const afterServiceDataLoaded = () => {
     refreshFertDatalist();
     refreshIrrDatalist();
+    refreshPlantsDatalist();
+    refreshOtherDatalist();
 
     // ── Auto-populate workers from today's team brief ──────
     const brief = _historyData && _historyData._teamBrief;  // not available here
@@ -283,6 +289,8 @@ function openMgrWorkRecord(evId, workerName) {
   // Reset form
   document.getElementById('workers-list').innerHTML         = '';
   document.getElementById('fert-list').innerHTML            = '';
+  document.getElementById('irrigation-list').innerHTML      = '';
+  document.getElementById('plants-list').innerHTML          = '';
   document.getElementById('other-materials-list').innerHTML = '';
   document.getElementById('wr-service-notes').value         = '';
   document.getElementById('wr-internal-notes').value        = '';
@@ -297,9 +305,11 @@ function openMgrWorkRecord(evId, workerName) {
   // Restore draft if one exists
   const saved = savedRecords['mgr_' + evId];
   if (saved && !saved.submitted) {
-    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours));
-    (saved.fertilizers    || []).forEach(f => addFert(f.item, f.qty, f.unit));
-    (saved.otherMaterials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
+    (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
+    (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
+    (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
+    (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
     document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
     document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
     return;
@@ -308,6 +318,8 @@ function openMgrWorkRecord(evId, workerName) {
   const afterServiceDataLoaded = () => {
     refreshFertDatalist();
     refreshIrrDatalist();
+    refreshPlantsDatalist();
+    refreshOtherDatalist();
     // Pre-fill the named worker (Ashley or Brooke) from the calendar stream
     addWorker(workerName || '', '');
     addFert();
@@ -492,16 +504,27 @@ function closeModalOutside(e) {
 // Called once on modal open, then by the "+ Add worker" button.
 // =============================================================
 // ── Workers ───────────────────────────────────────────────────
-function addWorker(name, hours) {
+function addWorker(name, hours, laborType) {
   const list = document.getElementById('workers-list');
   const row  = document.createElement('div');
   row.className = 'dynamic-row';
+
+  // Build labor type options from LABOR_RATES if loaded
+  const rates = (typeof LABOR_RATES !== 'undefined' && LABOR_RATES.length)
+    ? LABOR_RATES : [];
+  let rateOpts = '<option value="">— labor type —</option>';
+  rates.forEach(r => {
+    const sel = (r.label === (laborType||'') || r.qbName === (laborType||'')) ? ' selected' : '';
+    rateOpts += `<option value="${esc(r.qbName)}"${sel}>${esc(r.label)} ($${r.rate}/hr)</option>`;
+  });
+
   row.innerHTML = `
     <input class="form-input" type="text" placeholder="Worker name"
            list="dl-crew-global" autocomplete="off"
            value="${esc(name||'')}" style="flex:2"/>
     <input class="form-input" type="number" placeholder="Hours" min="0" step="0.25"
-           value="${hours||''}" style="flex:1;max-width:90px"/>
+           value="${hours||''}" style="flex:1;max-width:80px"/>
+    <select class="form-input worker-labor-type" style="flex:2">${rateOpts}</select>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
   list.appendChild(row);
 }
@@ -534,6 +557,100 @@ function refreshIrrDatalist() {
     dl.innerHTML = allNames.map(n => `<option value="${esc(n)}">`).join('');
   }
 }
+
+// Populates the plants datalist
+function refreshPlantsDatalist() {
+  const dl = document.getElementById('dl-plants-global');
+  if (!dl) return;
+  const plants = (typeof WORK_RECORD_PLANTS !== 'undefined') ? WORK_RECORD_PLANTS : [];
+  dl.innerHTML = plants.map(p => `<option value="${esc(p.name)}">`).join('');
+}
+
+// Populates the other materials datalist
+function refreshOtherDatalist() {
+  const dl = document.getElementById('dl-other-global');
+  if (!dl) return;
+  const items = (typeof OTHER_MATERIALS !== 'undefined') ? OTHER_MATERIALS : [];
+  dl.innerHTML = items.map(m => `<option value="${esc(m.name)}">`).join('');
+}
+
+// ── Plant row ─────────────────────────────────────────────────
+function addPlant(name, qty, size) {
+  const list = document.getElementById('plants-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.innerHTML = `
+    <input class="form-input" type="text" placeholder="Plant name"
+           list="dl-plants-global" autocomplete="off"
+           value="${esc(name||'')}" style="flex:3"/>
+    <input class="form-input" type="text" placeholder="Qty"
+           value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
+    <input class="form-input" type="text" placeholder="Size (5 gal…)"
+           value="${esc(size||'')}" style="flex:1;max-width:90px"/>
+    <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+  list.appendChild(row);
+}
+
+// ── Irrigation item row (was addOtherMaterial) ────────────────
+function addIrrigationItem(item, qty, unit) {
+  makeIrrRow(item, qty, unit);
+}
+
+// ── Other Materials row (staking, dump fees, installation etc.) ─
+function makeOtherMatRow(item, qty, unit) {
+  const list = document.getElementById('other-materials-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
+
+  // Build grouped select from OTHER_MATERIALS sections
+  const mats = (typeof OTHER_MATERIALS !== 'undefined') ? OTHER_MATERIALS : [];
+  const sections = [...new Set(mats.map(m => m.section))];
+  let optHtml = '<option value="">— select item —</option>';
+  sections.forEach(sec => {
+    optHtml += `<optgroup label="${esc(sec)}">`;
+    mats.filter(m => m.section === sec).forEach(m => {
+      const sel = (m.name === (item||'') || m.qbName === (item||'')) ? ' selected' : '';
+      optHtml += `<option value="${esc(m.qbName)}"${sel}>${esc(m.name)}</option>`;
+    });
+    optHtml += '</optgroup>';
+  });
+
+  row.innerHTML = `
+    <input  class="form-input other-custom" type="text" placeholder="Material"
+            list="dl-other-global" style="flex:3" value="${esc(item||'')}"/>
+    <select class="form-input other-select" style="flex:3;display:none">${optHtml}</select>
+    <button class="btn-link other-toggle" type="button"
+            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
+    <input class="form-input" type="text" placeholder="Qty"
+           value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
+    <input class="form-input" type="text" placeholder="Unit"
+           value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
+    <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+
+  const custom = row.querySelector('.other-custom');
+  const sel    = row.querySelector('.other-select');
+  const toggle = row.querySelector('.other-toggle');
+  toggle.addEventListener('click', () => {
+    const showingSel = sel.style.display !== 'none';
+    if (showingSel) {
+      if (sel.value) custom.value = sel.value;
+      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list'; custom.focus();
+    } else {
+      const typed = custom.value.trim();
+      if (typed) { const opt = Array.from(sel.options).find(o => o.value === typed); if (opt) sel.value = typed; }
+      custom.style.display = 'none'; sel.style.display = ''; toggle.textContent = 'type'; sel.focus();
+    }
+  });
+  sel.addEventListener('change', () => {
+    if (sel.value) { custom.value = sel.value; sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list'; }
+  });
+  list.appendChild(row);
+}
+
+function addOtherMaterial(item, qty, unit) { makeOtherMatRow(item, qty, unit); }
+function addMaterial(item, qty, unit) { addOtherMaterial(item, qty, unit); }
 
 function makeFertRow(item, qty, unit) {
   const list = document.getElementById('fert-list');
@@ -586,7 +703,7 @@ function addFert(item, qty, unit) {
 // is much easier to use than a freetext datalist.
 
 function makeIrrRow(item, qty, unit) {
-  const list = document.getElementById('other-materials-list');
+  const list = document.getElementById('irrigation-list');
   if (!list) return;
   const row  = document.createElement('div');
   row.className = 'dynamic-row';
@@ -662,10 +779,6 @@ function makeIrrRow(item, qty, unit) {
   // (it's already pre-filled via the value attribute above — nothing extra needed)
 
   list.appendChild(row);
-}
-
-function addOtherMaterial(item, qty, unit) {
-  makeIrrRow(item, qty, unit);
 }
 
 // Legacy alias — keep in case anything else references addMaterial
@@ -775,36 +888,29 @@ function removePhoto(btn, fileName) {
 function collectFormData() {
   const workers = [];
   document.querySelectorAll('#workers-list .dynamic-row').forEach(row => {
-    const inputs = row.querySelectorAll('input');
-    const name   = inputs[0].value.trim();
-    const hours  = inputs[1].value.trim();
-    if (name) workers.push({ name, hours });
+    const inputs    = row.querySelectorAll('input');
+    const name      = inputs[0].value.trim();
+    const hours     = inputs[1].value.trim();
+    const laborSel  = row.querySelector('.worker-labor-type');
+    const laborType = laborSel ? laborSel.value.trim() : '';
+    if (name) workers.push({ name, hours, laborType });
   });
 
   function collectRows(listId) {
     const rows = [];
     document.querySelectorAll(`#${listId} .dynamic-row`).forEach(row => {
-      // Irrigation rows use a <select> or custom text input for the item.
-      // Fert rows use a text input. Handle both cases.
-      const sel    = row.querySelector('.irr-select');
-      const custom = row.querySelector('.irr-custom');
+      const sel    = row.querySelector('.irr-select, .other-select');
+      const custom = row.querySelector('.irr-custom, .other-custom');
       let item;
       if (sel && sel.style.display !== 'none') {
         item = sel.value.trim();
       } else if (custom && custom.style.display !== 'none') {
         item = custom.value.trim();
       } else {
-        // Fert row — first input is the item
         const firstInput = row.querySelector('input.fert-item-input') ||
                            row.querySelectorAll('input')[0];
         item = firstInput ? firstInput.value.trim() : '';
       }
-      // Qty and unit are always the last two text inputs
-      const allInputs = Array.from(row.querySelectorAll('input[type="text"]'))
-        .filter(i => !i.classList.contains('fert-item-input') &&
-                     !i.classList.contains('irr-custom') &&
-                     !i.classList.contains('fert-unit-input'));
-      // Actually just grab qty/unit by placeholder
       const qtyEl  = row.querySelector('input[placeholder="Qty"]');
       const unitEl = row.querySelector('input[placeholder="Unit"]');
       const qty    = qtyEl  ? qtyEl.value.trim()  : '';
@@ -814,8 +920,19 @@ function collectFormData() {
     return rows;
   }
 
-  const fertilizers    = collectRows('fert-list');
-  const otherMaterials = collectRows('other-materials-list');
+  // Plants list (item=name, qty, size)
+  const plants = [];
+  document.querySelectorAll('#plants-list .dynamic-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const name   = inputs[0] ? inputs[0].value.trim() : '';
+    const qty    = inputs[1] ? inputs[1].value.trim() : '';
+    const size   = inputs[2] ? inputs[2].value.trim() : '';
+    if (name) plants.push({ name, qty, size });
+  });
+
+  const fertilizers     = collectRows('fert-list');
+  const irrigationItems = collectRows('irrigation-list');
+  const otherMaterials  = collectRows('other-materials-list');
 
   // Read client identity from hidden DOM fields — written by openWorkRecord when
   // the modal opened. These are the authoritative source: they survive day-tab
@@ -826,20 +943,22 @@ function collectFormData() {
   const _domFolderId = document.getElementById('wr-folder-id').value;
 
   return {
-    jobId:         currentJobId,
-    client:        _domClient,
-    addr:          currentJobData ? currentJobData.addr : '',
-    team:          document.getElementById('wr-team').value,
-    date:          document.getElementById('wr-date-start').value,
-    dateEnd:       document.getElementById('wr-date-end').value || '',
+    jobId:          currentJobId,
+    client:         _domClient,
+    addr:           currentJobData ? currentJobData.addr : '',
+    team:           document.getElementById('wr-team').value,
+    date:           document.getElementById('wr-date-start').value,
+    dateEnd:        document.getElementById('wr-date-end').value || '',
     workers,
     fertilizers,
+    irrigationItems,
+    plants,
     otherMaterials,
-    serviceNotes:  document.getElementById('wr-service-notes').value.trim(),
-    internalNotes: document.getElementById('wr-internal-notes').value.trim(),
-    photoCount:    photoFiles.length,
-    savedAt:       new Date().toISOString(),
-    histId:        _domHistId,
+    serviceNotes:   document.getElementById('wr-service-notes').value.trim(),
+    internalNotes:  document.getElementById('wr-internal-notes').value.trim(),
+    photoCount:     photoFiles.length,
+    savedAt:        new Date().toISOString(),
+    histId:         _domHistId,
     cachedFolderId: _domFolderId,
   };
 }
@@ -1108,6 +1227,8 @@ function buildChecklistHtml(sections) {
 function clearForm() {
   document.getElementById('workers-list').innerHTML         = '';
   document.getElementById('fert-list').innerHTML            = '';
+  document.getElementById('irrigation-list').innerHTML      = '';
+  document.getElementById('plants-list').innerHTML          = '';
   document.getElementById('other-materials-list').innerHTML = '';
   document.getElementById('wr-service-notes').value         = '';
   document.getElementById('wr-internal-notes').value        = '';

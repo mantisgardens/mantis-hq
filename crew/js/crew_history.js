@@ -148,7 +148,7 @@ async function loadHistory(clientName, cardId) {
 
   document.getElementById('history-tabs').style.display        = 'none';
   document.getElementById('history-search-wrap').style.display = 'none';
-  ['htab-ct-notes','htab-ct-records','htab-ct-fert','htab-ct-photos'].forEach(id => {
+  ['htab-ct-notes','htab-ct-internal','htab-ct-records','htab-ct-fert','htab-ct-photos'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = '';
   });
 
@@ -205,6 +205,8 @@ async function loadHistory(clientName, cardId) {
     // Activate Notes tab
     document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
     const notesTab = document.getElementById('htab-notes');
+    const internalEl = document.getElementById('htab-ct-internal');
+    if (internalEl) internalEl.textContent = (data.internalNotes || []).length || '';
     if (notesTab) notesTab.classList.add('active');
 
     _renderHistoryTab();
@@ -255,10 +257,11 @@ function _renderHistoryTab() {
   if (!_historyData) return;
   const body = document.getElementById('history-body');
   const q    = _historyQuery;
-  if      (_historyTab === 'notes')   _renderNotes(body, q);
-  else if (_historyTab === 'fert')    _renderFertilizers(body, q);
-  else if (_historyTab === 'records') _renderLabor(body, q);
-  else if (_historyTab === 'photos')  _renderPhotos(body, q);
+  if      (_historyTab === 'notes')    _renderNotes(body, q);
+  else if (_historyTab === 'internal') _renderInternalNotes(body, q);
+  else if (_historyTab === 'fert')     _renderFertilizers(body, q);
+  else if (_historyTab === 'records')  _renderLabor(body, q);
+  else if (_historyTab === 'photos')   _renderPhotos(body, q);
 }
 
 // Highlight matching text
@@ -298,6 +301,40 @@ function _renderNotes(body, q) {
 
   // Auto-expand all when searching
   if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function _renderInternalNotes(body, q) {
+  let notes = (_historyData.internalNotes || []).filter(n => n.text || n.date);
+  if (q) notes = notes.filter(n =>
+    (n.date || '').toLowerCase().includes(q) ||
+    (n.text || '').toLowerCase().includes(q)
+  );
+
+  if (!notes.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No internal notes match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No internal notes for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="hn-internal-banner">&#128274; Internal use only — not shown to clients</div>` +
+    notes.map((n, i) => `
+    <div class="hn-card hn-card-internal" id="hni-${i}" onclick="toggleInternalNote(${i})">
+      <div class="hn-header">
+        <span class="hn-date">${esc(n.date)}</span>
+        <span class="hn-arrow">&#8250;</span>
+      </div>
+      <div class="hn-body">
+        ${n.text ? `<p class="hn-text">${_hl(n.text, q)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  if (q) body.querySelectorAll('.hn-card-internal').forEach(c => c.classList.add('open'));
+}
+
+function toggleInternalNote(i) {
+  const card = document.getElementById('hni-' + i);
+  if (card) card.classList.toggle('open');
 }
 
 function toggleNote(i) {
@@ -430,22 +467,6 @@ function openHistory() {
   _populateHistorySelect();
   document.getElementById('history-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-}
-
-function openHistoryForClient(clientName, cardId) {
-  _populateHistorySelect();
-  document.getElementById('history-modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  if (clientName) {
-    const override = (cardId && typeof clientOverrides !== 'undefined')
-      ? clientOverrides[_overrideKey(cardId)]
-      : null;
-    const resolvedName = override
-      ? (override['Name(s)'] || clientName)
-      : (_matchClientName(clientName) || clientName);
-    document.getElementById('history-client-select').value = resolvedName;
-    loadHistory(resolvedName, cardId);
-  }
 }
 
 // Try to find the closest sheetClient name to a calendar event title

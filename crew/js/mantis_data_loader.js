@@ -28,6 +28,9 @@ var HAND_TOOLS       = [];
 var EVERYDAY_ITEMS   = [];
 var IRRIGATION_ITEMS = [];
 var SPRAY_HEADS      = [];
+var LABOR_RATES      = [];   // { qbName, rate, unit, label, notes }
+var WORK_RECORD_PLANTS = []; // { name, qbName, unit, category, price, source }
+var OTHER_MATERIALS  = [];   // { name, qbName, section, price, unit, desc, sku }
 
 // ── Config ────────────────────────────────────────────────────
 const SCRIPT_URL_SM = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : '';
@@ -131,11 +134,14 @@ function loadServiceData() {
 
 // ── Apply service manual data ─────────────────────────────────
 function applyServiceManualData(data) {
-  FERT_PRODUCTS    = data.fertilizers   || [];
-  VEHICLES         = data.vehicles      || [];
-  EVERYDAY_ITEMS   = data.everydayItems || [];
-  IRRIGATION_ITEMS = data.irrigation    || [];
-  SPRAY_HEADS      = data.sprayHeads    || [];
+  FERT_PRODUCTS      = data.fertilizers      || [];
+  VEHICLES           = data.vehicles         || [];
+  EVERYDAY_ITEMS     = data.everydayItems    || [];
+  IRRIGATION_ITEMS   = data.irrigation       || [];
+  SPRAY_HEADS        = data.sprayHeads       || [];
+  LABOR_RATES        = data.laborRates       || [];
+  WORK_RECORD_PLANTS = data.workRecordPlants || [];
+  OTHER_MATERIALS    = data.otherMaterials   || [];
 
   const allTools = data.tools || [];
   // Exclude section header rows (name is just the category title like "⚡  Power Tools")
