@@ -83,7 +83,7 @@ function loadServiceData() {
   return new Promise((resolve, reject) => {
 
     // v8 = Irrigation & Drainage and Other Materials & Fees tabs added
-    const smKey        = 'sm_data_v8_'    + SCRIPT_URL_SM.slice(-12);
+    const smKey        = 'sm_data_v9_'    + SCRIPT_URL_SM.slice(-12);
     const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);

@@ -1001,7 +1001,26 @@ function collectFormData() {
       }
       // Strip abbreviation suffix added by getFertNames() — e.g. "MaxiCrop Kelp (MC)"
       if (isFertList && item) {
-        item = item.replace(/\s*\([^)]+\)\s*$/, '').trim();
+        item = item.replace(/\s*\([A-Z]{1,4}\)\s*$/, '').trim();  // strip short abbrevs only e.g. (MC)
+        // Resolve to QB Name from FERT_PRODUCTS so invoice line items match QB exactly
+        const prods = (typeof FERT_PRODUCTS !== 'undefined') ? FERT_PRODUCTS : [];
+        const match = prods.find(p =>
+          p.name.toLowerCase() === item.toLowerCase() ||
+          (p.abbrev && item.toLowerCase() === p.abbrev.toLowerCase())
+        );
+        if (match && match.qbName) item = match.qbName;
+      }
+      // For irrigation and other materials, resolve to QB name if available
+      if (!isFertList && item) {
+        const allItems = [
+          ...(typeof IRRIGATION_ITEMS !== 'undefined' ? IRRIGATION_ITEMS : []),
+          ...(typeof OTHER_MATERIALS  !== 'undefined' ? OTHER_MATERIALS  : []),
+        ];
+        const match = allItems.find(m =>
+          (m.name   && m.name.toLowerCase()   === item.toLowerCase()) ||
+          (m.qbName && m.qbName.toLowerCase() === item.toLowerCase())
+        );
+        if (match && match.qbName) item = match.qbName;
       }
       const qtyEl  = row.querySelector('input[placeholder="Qty"]');
       const unitEl = row.querySelector('input[placeholder="Unit"]');
