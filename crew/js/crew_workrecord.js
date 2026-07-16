@@ -30,7 +30,7 @@ let photoFiles     = [];
 // Saved records: { jobId: { workers, materials, serviceNotes, internalNotes, savedAt } }
 let savedRecords   = JSON.parse(localStorage.getItem('mg_work_records') || '{}');
 
-// Fertilizer/spray names — populated from FERT_PRODUCTS once loaded.
+// Fertilizer, Soil, and Sprays names — populated from FERT_PRODUCTS once loaded.
 // Falls back to a hardcoded list if the spreadsheet hasn't loaded yet.
 function getFertNames() {
   if (typeof FERT_PRODUCTS !== 'undefined' && FERT_PRODUCTS.length) {
@@ -700,7 +700,7 @@ function openItemPicker(kind, callback) {
 
   document.getElementById('picker-search').value = '';
   document.getElementById('picker-title').textContent =
-    kind === 'irr' ? 'Irrigation & Spray Heads' : 'Other Materials';
+    kind === 'irr' ? 'Irrigation & Drainage' : 'Other Materials & Fees';
 
   _pickerShowSections();
   document.getElementById('item-picker-modal').classList.add('open');
@@ -826,7 +826,7 @@ function makeFertRow(item, qty, unit) {
   row.className = 'dynamic-row';
 
   row.innerHTML = `
-    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer / Spray"
+    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer, Soil, Spray"
            list="dl-fert-global" value="${esc(item||'')}" style="flex:3"/>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
