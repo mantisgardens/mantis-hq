@@ -47,13 +47,12 @@ function getFertNames() {
 }
 
 // Returns grouped irrigation items for the dropdown.
-// Uses IRRIGATION_ITEMS and SPRAY_HEADS from mantis_data_loader.js
-// (populated from the Micro & Drip Irrigation and Spray Heads & Valves tabs).
+// Uses IRRIGATION_ITEMS from mantis_data_loader.js
+// (populated from the Irrigation and Drainage tab).
 // Groups items by detecting section header rows (name contains '──').
 function getIrrigationGroups() {
   const allItems = [
     ...(typeof IRRIGATION_ITEMS !== 'undefined' ? IRRIGATION_ITEMS : []),
-    ...(typeof SPRAY_HEADS      !== 'undefined' ? SPRAY_HEADS      : []),
   ];
 
   if (!allItems.length) {
@@ -86,13 +85,12 @@ function getIrrigationGroups() {
 
 // ── Unit lookup for irrigation and other materials ─────────────
 // Returns the unit string for a given item name, searching
-// IRRIGATION_ITEMS, SPRAY_HEADS, and OTHER_MATERIALS.
+// IRRIGATION_ITEMS and OTHER_MATERIALS.
 function getItemUnit(name) {
   if (!name) return '';
   const n = name.trim().toLowerCase();
   const sources = [
     ...(typeof IRRIGATION_ITEMS !== 'undefined' ? IRRIGATION_ITEMS : []),
-    ...(typeof SPRAY_HEADS      !== 'undefined' ? SPRAY_HEADS      : []),
     ...(typeof OTHER_MATERIALS  !== 'undefined' ? OTHER_MATERIALS  : []),
   ];
   const match = sources.find(item =>
@@ -747,9 +745,7 @@ function addFert(item, qty, unit) {
 }
 
 // ── Irrigation/materials row — grouped select dropdown ────────
-// 130+ irrigation items are grouped into subsections (Micro Sprayers,
-// 1/4" Fittings, Netafim, PVC, etc.) so a searchable grouped select
-// is much easier to use than a freetext datalist.
+
 
 function makeIrrRow(item, qty, unit) {
   const list = document.getElementById('irrigation-list');
@@ -959,6 +955,7 @@ function collectFormData() {
   });
 
   function collectRows(listId) {
+    const isFertList = listId === 'fert-list';
     const rows = [];
     document.querySelectorAll(`#${listId} .dynamic-row`).forEach(row => {
       const sel    = row.querySelector('.irr-select, .other-select');
@@ -972,6 +969,10 @@ function collectFormData() {
         const firstInput = row.querySelector('input.fert-item-input') ||
                            row.querySelectorAll('input')[0];
         item = firstInput ? firstInput.value.trim() : '';
+      }
+      // Strip abbreviation suffix added by getFertNames() — e.g. "MaxiCrop Kelp (MC)"
+      if (isFertList && item) {
+        item = item.replace(/\s*\([^)]+\)\s*$/, '').trim();
       }
       const qtyEl  = row.querySelector('input[placeholder="Qty"]');
       const unitEl = row.querySelector('input[placeholder="Unit"]');

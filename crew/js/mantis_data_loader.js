@@ -15,7 +15,6 @@
      HAND_TOOLS       — hand tools & irrigation items
      EVERYDAY_ITEMS   — daily checklist items
      IRRIGATION_ITEMS — micro & drip irrigation items
-     SPRAY_HEADS      — spray heads & valves
    ============================================================= */
 
 // ── Global data arrays ────────────────────────────────────────
@@ -27,7 +26,6 @@ var POWER_TOOLS      = [];
 var HAND_TOOLS       = [];
 var EVERYDAY_ITEMS   = [];
 var IRRIGATION_ITEMS = [];
-var SPRAY_HEADS      = [];
 var LABOR_RATES      = [];   // { qbName, rate, unit, label, notes }
 var WORK_RECORD_PLANTS = []; // { name, qbName, unit, category, price, source }
 var OTHER_MATERIALS  = [];   // { name, qbName, section, price, unit, desc, sku }
@@ -84,8 +82,8 @@ function hideLoadingOverlay() {
 function loadServiceData() {
   return new Promise((resolve, reject) => {
 
-    // v7 = Pruning Guide replaces Pruning Calendar; pruning_period replaces pruning_season/qtr
-    const smKey        = 'sm_data_v7_'    + SCRIPT_URL_SM.slice(-12);
+    // v8 = Irrigation & Drainage and Other Materials & Fees tabs added
+    const smKey        = 'sm_data_v8_'    + SCRIPT_URL_SM.slice(-12);
     const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
@@ -138,7 +136,6 @@ function applyServiceManualData(data) {
   VEHICLES           = data.vehicles         || [];
   EVERYDAY_ITEMS     = data.everydayItems    || [];
   IRRIGATION_ITEMS   = data.irrigation       || [];
-  SPRAY_HEADS        = data.sprayHeads       || [];
   LABOR_RATES        = data.laborRates       || [];
   WORK_RECORD_PLANTS = data.workRecordPlants || [];
   OTHER_MATERIALS    = data.otherMaterials   || [];
