@@ -18,7 +18,7 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=32"/>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=34"/>
 </head>
 <body>
 
@@ -164,9 +164,9 @@
           <button class="add-row-btn" onclick="addFert()">+ Add fertilizer / spray</button>
         </div>
 
-        <!-- Sub-section 2: Irrigation & Drainage -->
+        <!-- Sub-section 2: Irrigation & Spray Heads -->
         <div class="mat-subsection">
-          <div class="mat-subsection-label">&#128166; Irrigation &amp; Drainage</div>
+          <div class="mat-subsection-label">&#128166; Irrigation &amp; Spray Heads</div>
           <div class="dynamic-list" id="irrigation-list"></div>
           <button class="add-row-btn" onclick="addIrrigationItem()">+ Add irrigation item</button>
         </div>
@@ -178,9 +178,9 @@
           <button class="add-row-btn" onclick="addPlant()">+ Add plant</button>
         </div>
 
-        <!-- Sub-section 4: Other Materials & Fees (staking, installation, fees etc.) -->
+        <!-- Sub-section 4: Other Materials (staking, installation, dump fees etc.) -->
         <div class="mat-subsection">
-          <div class="mat-subsection-label">&#128295; Other Materials & Fees</div>
+          <div class="mat-subsection-label">&#128295; Other Materials</div>
           <div class="dynamic-list" id="other-materials-list"></div>
           <button class="add-row-btn" onclick="addOtherMaterial()">+ Add material</button>
         </div>
@@ -336,13 +336,13 @@
 <script src="../config.js?v=35"></script>
 <script src="js/mantis_config.js?v=45"></script>
 <script src="js/session_timeout.js?v=35"></script>
-<script src="js/mantis_data_loader.js?v=46"></script>
+<script src="js/mantis_data_loader.js?v=47"></script>
 <script src="js/crew_config.js?v=45"></script>
 <script src="js/crew_api.js?v=40"></script>
 <script src="js/crew_render.js?v=55"></script>
 <script src="js/crew_ui.js?v=40"></script>
-<script src="js/crew_workrecord.js?v=56"></script>
-<script src="js/crew_history.js?v=50"></script>
+<script src="js/crew_workrecord.js?v=58"></script>
+<script src="js/crew_history.js?v=51"></script>
 <script src="js/crew_app.js?v=33"></script>
 <script>
 // Diagnostic: detect if crew_history.js failed to load
@@ -356,5 +356,35 @@ window.addEventListener('load', () => {
   }
 });
 </script>
+<!-- ── Item Picker Modal (irrigation + other materials) ──────── -->
+<div class="modal-overlay" id="item-picker-modal" onclick="closeItemPicker(event)">
+  <div class="modal" style="max-width:480px;max-height:88vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div class="modal-title" id="picker-title">Select Item</div>
+        <div style="font-size:11px;color:var(--ink3)" id="picker-breadcrumb"></div>
+      </div>
+      <button class="modal-close" onclick="closeItemPicker()">&#10005;</button>
+    </div>
+    <!-- Search box -->
+    <div style="padding:8px 16px;border-bottom:1px solid var(--bg3)">
+      <input id="picker-search" class="form-input" type="text"
+             placeholder="Search…" autocomplete="off"
+             style="width:100%;box-sizing:border-box"
+             oninput="pickerSearch(this.value)"/>
+    </div>
+    <!-- Section list (step 1) -->
+    <div id="picker-sections" class="modal-body" style="flex:1;overflow-y:auto;padding:8px 0"></div>
+    <!-- Item list (step 2) -->
+    <div id="picker-items" class="modal-body" style="flex:1;overflow-y:auto;padding:8px 0;display:none"></div>
+    <!-- Back button (step 2 only) -->
+    <div id="picker-back-bar" style="display:none;padding:8px 16px;border-top:1px solid var(--bg3)">
+      <button class="btn-secondary" onclick="pickerBack()" style="width:100%">
+        &#8592; Back to sections
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
