@@ -627,77 +627,197 @@ function addIrrigationItem(item, qty, unit) {
   makeIrrRow(item, qty, unit);
 }
 
-// ── Other Materials row (staking, dump fees, installation etc.) ─
+// ── Other Materials row ────────────────────────────────────────
 function makeOtherMatRow(item, qty, unit) {
-  const list = document.getElementById('other-materials-list');
+  _makePickerRow('other-materials-list', 'other', item, qty, unit);
+}
+
+function addOtherMaterial(item, qty, unit) { makeOtherMatRow(item, qty, unit); }
+function addMaterial(item, qty, unit) { addOtherMaterial(item, qty, unit); }
+
+// ── Shared picker-based row builder ───────────────────────────
+// Used by both irrigation and other materials rows.
+// Shows a text input + "Browse…" button. Tap Browse to open
+// the two-step section → item picker modal.
+function _makePickerRow(listId, kind, item, qty, unit) {
+  const list = document.getElementById(listId);
   if (!list) return;
   const row = document.createElement('div');
   row.className = 'dynamic-row';
-
-  // Build grouped select from OTHER_MATERIALS sections
-  const mats = (typeof OTHER_MATERIALS !== 'undefined') ? OTHER_MATERIALS : [];
-  const sections = [...new Set(mats.map(m => m.section))];
-  let optHtml = '<option value="">— select item —</option>';
-  sections.forEach(sec => {
-    optHtml += `<optgroup label="${esc(sec)}">`;
-    mats.filter(m => m.section === sec).forEach(m => {
-      const sel = (m.name === (item||'') || m.qbName === (item||'')) ? ' selected' : '';
-      optHtml += `<option value="${esc(m.qbName)}"${sel}>${esc(m.name)}</option>`;
-    });
-    optHtml += '</optgroup>';
-  });
-
   row.innerHTML = `
-    <input  class="form-input other-custom" type="text" placeholder="Material"
-            list="dl-other-global" style="flex:3" value="${esc(item||'')}"/>
-    <select class="form-input other-select" style="flex:3;display:none">${optHtml}</select>
-    <button class="btn-link other-toggle" type="button"
-            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
+    <input class="form-input picker-item-input" type="text"
+           placeholder="${kind === 'irr' ? 'Irrigation item' : 'Material'}"
+           list="dl-${kind === 'irr' ? 'irr' : 'other'}-global"
+           autocomplete="off" style="flex:3" value="${esc(item||'')}"/>
+    <button class="btn-link picker-browse-btn" type="button"
+            style="font-size:11px;padding:0 6px;white-space:nowrap;color:var(--g)">Browse</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
            value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
 
-  const custom = row.querySelector('.other-custom');
-  const sel    = row.querySelector('.other-select');
-  const toggle = row.querySelector('.other-toggle');
-  toggle.addEventListener('click', () => {
-    const showingSel = sel.style.display !== 'none';
-    if (showingSel) {
-      if (sel.value) custom.value = sel.value;
-      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list'; custom.focus();
-    } else {
-      const typed = custom.value.trim();
-      if (typed) { const opt = Array.from(sel.options).find(o => o.value === typed); if (opt) sel.value = typed; }
-      custom.style.display = 'none'; sel.style.display = ''; toggle.textContent = 'type'; sel.focus();
-    }
-  });
-  sel.addEventListener('change', () => {
-    if (sel.value) {
-      custom.value = sel.value;
-      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list';
-      tryFillOtherUnit();
-    }
-  });
-
-  // Auto-fill unit when item is selected
+  const nameInput = row.querySelector('.picker-item-input');
   const unitInput = row.querySelector('input[placeholder="Unit"]');
-  function tryFillOtherUnit() {
+  const browseBtn = row.querySelector('.picker-browse-btn');
+
+  function tryFillUnit() {
     if (unitInput && !unitInput.value) {
-      const name = custom.value.trim() || sel.value.trim();
-      const u = getItemUnit(name);
+      const u = getItemUnit(nameInput.value.trim());
       if (u) unitInput.value = u;
     }
   }
-  custom.addEventListener('change', tryFillOtherUnit);
-  custom.addEventListener('blur',   tryFillOtherUnit);
+  nameInput.addEventListener('change', tryFillUnit);
+  nameInput.addEventListener('blur',   tryFillUnit);
+
+  browseBtn.addEventListener('click', () => {
+    openItemPicker(kind, (selectedName) => {
+      nameInput.value = selectedName;
+      unitInput.value = '';
+      tryFillUnit();
+    });
+  });
 
   list.appendChild(row);
 }
 
-function addOtherMaterial(item, qty, unit) { makeOtherMatRow(item, qty, unit); }
-function addMaterial(item, qty, unit) { addOtherMaterial(item, qty, unit); }
+function makeIrrRow(item, qty, unit) {
+  _makePickerRow('irrigation-list', 'irr', item, qty, unit);
+}
+
+// ── Item Picker Modal engine ───────────────────────────────────
+// _pickerCallback: function called with selected item name
+// _pickerKind:     'irr' | 'other'
+// _pickerSection:  null (step 1) | section name (step 2)
+let _pickerCallback = null;
+let _pickerKind     = null;
+let _pickerSection  = null;
+
+function openItemPicker(kind, callback) {
+  _pickerCallback = callback;
+  _pickerKind     = kind;
+  _pickerSection  = null;
+
+  document.getElementById('picker-search').value = '';
+  document.getElementById('picker-title').textContent =
+    kind === 'irr' ? 'Irrigation & Spray Heads' : 'Other Materials';
+
+  _pickerShowSections();
+  document.getElementById('item-picker-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('picker-search').focus(), 150);
+}
+
+function closeItemPicker(e) {
+  if (e && e.target !== document.getElementById('item-picker-modal')) return;
+  document.getElementById('item-picker-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _pickerCallback = null;
+}
+
+function _pickerGetGroups() {
+  if (_pickerKind === 'irr') {
+    return getIrrigationGroups();   // [{label, items:[name,...]}]
+  }
+  // Other materials — build groups from OTHER_MATERIALS sections
+  const mats = (typeof OTHER_MATERIALS !== 'undefined') ? OTHER_MATERIALS : [];
+  const sectionNames = [...new Set(mats.map(m => m.section).filter(Boolean))];
+  return sectionNames.map(sec => ({
+    label: sec,
+    items: mats.filter(m => m.section === sec).map(m => m.name),
+  }));
+}
+
+function _pickerShowSections() {
+  _pickerSection = null;
+  const groups = _pickerGetGroups();
+  const sectEl = document.getElementById('picker-sections');
+  const itemEl = document.getElementById('picker-items');
+  const backEl = document.getElementById('picker-back-bar');
+  const crumb  = document.getElementById('picker-breadcrumb');
+
+  itemEl.style.display   = 'none';
+  backEl.style.display   = 'none';
+  sectEl.style.display   = '';
+  crumb.textContent      = '';
+
+  sectEl.innerHTML = groups.map(g => `
+    <button class="picker-section-btn" onclick="_pickerSelectSection('${esc(g.label)}')">
+      ${esc(g.label)}
+      <span class="picker-section-count">${g.items.length}</span>
+    </button>`).join('');
+}
+
+function _pickerSelectSection(sectionLabel) {
+  _pickerSection = sectionLabel;
+  const groups   = _pickerGetGroups();
+  const group    = groups.find(g => g.label === sectionLabel);
+  if (!group) return;
+
+  document.getElementById('picker-breadcrumb').textContent = sectionLabel;
+  document.getElementById('picker-sections').style.display = 'none';
+  document.getElementById('picker-back-bar').style.display = '';
+
+  const itemEl = document.getElementById('picker-items');
+  itemEl.style.display = '';
+  itemEl.innerHTML = group.items.map(name => `
+    <button class="picker-item-btn" onclick="_pickerSelectItem('${esc(name)}')">
+      ${esc(name)}
+    </button>`).join('');
+}
+
+function pickerBack() {
+  document.getElementById('picker-search').value = '';
+  _pickerShowSections();
+}
+
+function _pickerSelectItem(name) {
+  document.getElementById('item-picker-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  if (_pickerCallback) _pickerCallback(name);
+  _pickerCallback = null;
+}
+
+function pickerSearch(query) {
+  const q = query.trim().toLowerCase();
+  const groups = _pickerGetGroups();
+  const sectEl = document.getElementById('picker-sections');
+  const itemEl = document.getElementById('picker-items');
+  const backEl = document.getElementById('picker-back-bar');
+
+  if (!q) {
+    // Return to section list
+    if (_pickerSection) {
+      _pickerSelectSection(_pickerSection);
+    } else {
+      _pickerShowSections();
+    }
+    return;
+  }
+
+  // Search all items across all sections
+  sectEl.style.display = 'none';
+  backEl.style.display = 'none';
+  itemEl.style.display = '';
+  document.getElementById('picker-breadcrumb').textContent = 'Search results';
+
+  let html = '';
+  groups.forEach(g => {
+    const matches = g.items.filter(name => name.toLowerCase().includes(q));
+    if (!matches.length) return;
+    html += `<div class="picker-search-section">${esc(g.label)}</div>`;
+    html += matches.map(name => `
+      <button class="picker-item-btn picker-highlight"
+              onclick="_pickerSelectItem('${esc(name)}')">${esc(name)}</button>`
+    ).join('');
+  });
+
+  if (!html) {
+    html = `<div style="padding:16px;color:var(--ink3);text-align:center;font-size:13px">
+      No items match "<strong>${esc(query)}</strong>"</div>`;
+  }
+  itemEl.innerHTML = html;
+}
 
 function makeFertRow(item, qty, unit) {
   const list = document.getElementById('fert-list');
@@ -746,98 +866,6 @@ function addFert(item, qty, unit) {
 
 // ── Irrigation/materials row — grouped select dropdown ────────
 
-
-function makeIrrRow(item, qty, unit) {
-  const list = document.getElementById('irrigation-list');
-  if (!list) return;
-  const row  = document.createElement('div');
-  row.className = 'dynamic-row';
-
-  // Build grouped <select> options for the secondary "pick from list" view
-  const groups  = getIrrigationGroups();
-  let optHtml   = '<option value="">— select item —</option>';
-  groups.forEach(g => {
-    optHtml += `<optgroup label="${esc(g.label)}">`;
-    g.items.forEach(name => {
-      const sel = (name === (item||'')) ? ' selected' : '';
-      optHtml  += `<option value="${esc(name)}"${sel}>${esc(name)}</option>`;
-    });
-    optHtml += '</optgroup>';
-  });
-
-  // Determine if the saved item is in the list or is freetext
-  const inList = item && groups.some(g => g.items.includes(item));
-
-  // Lead with text input + datalist (matches Fertilizers UX).
-  // "pick from list" toggle switches to the grouped select for browsing.
-  row.innerHTML = `
-    <input  class="form-input irr-custom" type="text" placeholder="Material / irrigation item"
-            list="dl-irr-global" style="flex:3" value="${esc(item||'')}"/>
-    <select class="form-input irr-select" style="flex:3;display:none">${optHtml}</select>
-    <button class="btn-link irr-toggle" type="button"
-            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
-    <input class="form-input" type="text" placeholder="Qty"
-           value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
-    <input class="form-input" type="text" placeholder="Unit"
-           value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
-    <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
-
-  const custom = row.querySelector('.irr-custom');
-  const sel    = row.querySelector('.irr-select');
-  const toggle = row.querySelector('.irr-toggle');
-
-  // Toggle between text input and grouped select
-  toggle.addEventListener('click', () => {
-    const showingSelect = sel.style.display !== 'none';
-    if (showingSelect) {
-      // Switch back to text input — copy selected value across
-      if (sel.value) custom.value = sel.value;
-      sel.style.display    = 'none';
-      custom.style.display = '';
-      toggle.textContent   = 'list';
-      custom.focus();
-    } else {
-      // Switch to grouped select — copy typed value into selection if possible
-      const typed = custom.value.trim();
-      if (typed) {
-        const opt = Array.from(sel.options).find(o => o.value === typed);
-        if (opt) sel.value = typed;
-      }
-      custom.style.display = 'none';
-      sel.style.display    = '';
-      toggle.textContent   = 'type';
-      sel.focus();
-    }
-  });
-
-  // When user picks from the select, copy back to text input and switch back
-  sel.addEventListener('change', () => {
-    if (sel.value) {
-      custom.value         = sel.value;
-      sel.style.display    = 'none';
-      custom.style.display = '';
-      toggle.textContent   = 'list';
-      tryFillIrrUnit();
-    }
-  });
-
-  // Auto-fill unit when an item is picked from either the text input or select
-  const unitInput = row.querySelector('input[placeholder="Unit"]');
-  function tryFillIrrUnit() {
-    if (unitInput && !unitInput.value) {
-      const name = custom.value.trim() || sel.value.trim();
-      const u = getItemUnit(name);
-      if (u) unitInput.value = u;
-    }
-  }
-  custom.addEventListener('change', tryFillIrrUnit);
-  custom.addEventListener('blur',   tryFillIrrUnit);
-
-  // If restoring a saved item that was from the list, show it in the text input
-  // (it's already pre-filled via the value attribute above — nothing extra needed)
-
-  list.appendChild(row);
-}
 
 // Legacy alias — keep in case anything else references addMaterial
 function addMaterial(item, qty, unit) {
@@ -959,7 +987,7 @@ function collectFormData() {
     const rows = [];
     document.querySelectorAll(`#${listId} .dynamic-row`).forEach(row => {
       const sel    = row.querySelector('.irr-select, .other-select');
-      const custom = row.querySelector('.irr-custom, .other-custom');
+      const custom = row.querySelector('.irr-custom, .other-custom, .picker-item-input');
       let item;
       if (sel && sel.style.display !== 'none') {
         item = sel.value.trim();
@@ -967,6 +995,7 @@ function collectFormData() {
         item = custom.value.trim();
       } else {
         const firstInput = row.querySelector('input.fert-item-input') ||
+                           row.querySelector('input.picker-item-input') ||
                            row.querySelectorAll('input')[0];
         item = firstInput ? firstInput.value.trim() : '';
       }
