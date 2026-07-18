@@ -30,7 +30,7 @@ let photoFiles     = [];
 // Saved records: { jobId: { workers, materials, serviceNotes, internalNotes, savedAt } }
 let savedRecords   = JSON.parse(localStorage.getItem('mg_work_records') || '{}');
 
-// Fertilizer, Soil, and Sprays names — populated from FERT_PRODUCTS once loaded.
+// Fertilizer/spray names — populated from FERT_PRODUCTS once loaded.
 // Falls back to a hardcoded list if the spreadsheet hasn't loaded yet.
 function getFertNames() {
   if (typeof FERT_PRODUCTS !== 'undefined' && FERT_PRODUCTS.length) {
@@ -190,6 +190,7 @@ function openWorkRecord(jobId) {
     refreshIrrDatalist();
     refreshPlantsDatalist();
     refreshOtherDatalist();
+    refreshLaborDropdowns();  // rebuild labor type selects now that LABOR_RATES is loaded
 
     // ── Auto-populate workers from today's team brief ──────
     const brief = _historyData && _historyData._teamBrief;  // not available here
@@ -336,6 +337,7 @@ function openMgrWorkRecord(evId, workerName) {
     refreshIrrDatalist();
     refreshPlantsDatalist();
     refreshOtherDatalist();
+    refreshLaborDropdowns();  // rebuild labor type selects now that LABOR_RATES is loaded
     // Pre-fill the named worker (Ashley or Brooke) from the calendar stream
     addWorker(workerName || '', '');
     addFert();
@@ -531,7 +533,7 @@ function addWorker(name, hours, laborType) {
   let rateOpts = '<option value="">— labor type —</option>';
   rates.forEach(r => {
     const sel = (r.label === (laborType||'') || r.qbName === (laborType||'')) ? ' selected' : '';
-    rateOpts += `<option value="${esc(r.qbName)}"${sel}>${esc(r.label)} ($${r.rate}/hr)</option>`;
+    rateOpts += `<option value="${esc(r.qbName)}"${sel}>${esc(r.label)}</option>`;
   });
 
   row.innerHTML = `
@@ -572,6 +574,23 @@ function refreshIrrDatalist() {
     const allNames = getIrrigationGroups().flatMap(g => g.items);
     dl.innerHTML = allNames.map(n => `<option value="${esc(n)}">`).join('');
   }
+}
+
+// Rebuilds labor type dropdowns in all existing worker rows.
+// Called after LABOR_RATES loads so pre-filled rows get their options.
+function refreshLaborDropdowns() {
+  const rates = (typeof LABOR_RATES !== 'undefined') ? LABOR_RATES : [];
+  if (!rates.length) return;
+  document.querySelectorAll('#workers-list .worker-labor-type').forEach(sel => {
+    const current = sel.value;  // preserve any already-selected value
+    let opts = '<option value="">— labor type —</option>';
+    rates.forEach(r => {
+      const selected = (r.qbName === current || r.label === current) ? ' selected' : '';
+      opts += `<option value="${esc(r.qbName)}"${selected}>${esc(r.label)}</option>`;
+    });
+    sel.innerHTML = opts;
+    if (current) sel.value = current;  // restore selection
+  });
 }
 
 // Populates the plants datalist
@@ -700,7 +719,7 @@ function openItemPicker(kind, callback) {
 
   document.getElementById('picker-search').value = '';
   document.getElementById('picker-title').textContent =
-    kind === 'irr' ? 'Irrigation & Drainage' : 'Other Materials & Fees';
+    kind === 'irr' ? 'Irrigation & Spray Heads' : 'Other Materials';
 
   _pickerShowSections();
   document.getElementById('item-picker-modal').classList.add('open');
@@ -826,7 +845,7 @@ function makeFertRow(item, qty, unit) {
   row.className = 'dynamic-row';
 
   row.innerHTML = `
-    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer, Soil, Spray"
+    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer / Spray"
            list="dl-fert-global" value="${esc(item||'')}" style="flex:3"/>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>

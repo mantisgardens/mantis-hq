@@ -82,8 +82,8 @@ function hideLoadingOverlay() {
 function loadServiceData() {
   return new Promise((resolve, reject) => {
 
-    // v8 = Irrigation & Drainage and Other Materials & Fees tabs added
-    const smKey        = 'sm_data_v9_'    + SCRIPT_URL_SM.slice(-12);
+    // v10 = Labor Rates hint rows filtered out
+    const smKey        = 'sm_data_v11_'   + SCRIPT_URL_SM.slice(-12);
     const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
     const smCached    = getCached(smKey);
     const plantCached = getCached(plantKey);
