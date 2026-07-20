@@ -53,6 +53,10 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;font
 .reload-btn{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:4px 12px;border-radius:4px;cursor:pointer;margin-left:auto;transition:all 0.15s}
 .reload-btn:hover{background:var(--g2);color:#fff}
 .reload-btn:disabled{opacity:0.4;cursor:not-allowed}
+.reload-btn.is-loading{opacity:0.85;cursor:progress;background:var(--g2);color:#fff}
+.reload-btn .reload-icon{display:inline-block}
+.reload-btn.is-loading .reload-icon{animation:reload-spin 0.7s linear infinite}
+@keyframes reload-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:"DM Mono",monospace;font-size:10px;color:var(--a);letter-spacing:0.04em}
 .offline-icon{font-size:12px;flex-shrink:0}
 .offline-banner span:nth-child(2){flex:1}
