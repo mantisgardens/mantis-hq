@@ -76,7 +76,7 @@ function showOfflineBanner(cachedAt) {
   banner.innerHTML =
     `<span class="offline-icon">&#9888;</span>` +
     `<span>No network — showing cached data from ${when}.</span>` +
-    `<span class="offline-retry" onclick="clearCrewCache(); loadAll()">Retry</span>`;
+    `<span class="offline-retry" onclick="reloadAll()">Retry</span>`;
 }
 
 function clearOfflineBanner() {

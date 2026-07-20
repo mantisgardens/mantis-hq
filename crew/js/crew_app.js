@@ -33,14 +33,47 @@ function doSignOut() {
   window.location.href = 'index.html';
 }
 
-// ── Cache clear (called by the reload button) ────────────────
-function clearCrewCache() {
+// ── Cache clear (called by the reload button) ─────────────────
+// Async and awaited by the button handler so loadAll() doesn't fire
+// its schedule/manager_schedule fetches until the server-side cache
+// has actually been cleared — otherwise those requests can race ahead
+// of the clear and still return stale cached data.
+async function clearCrewCache() {
   // Clear client-side sessionStorage cache
   Object.keys(sessionStorage)
     .filter(k => k.startsWith('mg_cache_'))
     .forEach(k => sessionStorage.removeItem(k));
   // Also bust server-side CacheService so force-reload gets truly fresh data
-  apiFetch('clear_server_cache').catch(() => {});
+  try { await apiFetch('clear_server_cache'); } catch(e) {}
+}
+
+// ── Full reload (wired to the "↺ Load all sheets" button) ─────
+// Waits for the server-side cache to be cleared before reloading,
+// so the fetches inside loadAll() are guaranteed to see fresh data.
+// Disables the button, spins its icon, and swaps its label to
+// "Refreshing..." immediately on click — the cache-clear + fetch
+// round-trip takes a few seconds, and without a clear in-progress
+// state it looks like the click did nothing.
+async function reloadAll() {
+  const btn   = document.getElementById('reload-btn');
+  const label = document.getElementById('reload-btn-label');
+  if (btn) {
+    if (btn.disabled) return;   // a reload is already in flight — ignore
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+  }
+  if (label) label.textContent = 'Refreshing…';
+
+  document.querySelectorAll('.status-pill').forEach(p => p.style.display = '');
+  setStatus('clients',  'loading', 'Clients: loading...');
+  setStatus('brief',    'loading', 'Morning brief: loading...');
+  setStatus('calendar', 'loading', 'Calendar: loading...');
+
+  await clearCrewCache();
+  await loadAll();
+
+  if (btn) btn.classList.remove('is-loading');
+  if (label) label.textContent = 'Load all sheets';
 }
 
 // ── Session timeout — 10 hours inactivity for crew ───────────

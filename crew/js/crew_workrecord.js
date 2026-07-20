@@ -139,8 +139,11 @@ function openWorkRecord(jobId) {
 
   // Write client identity into hidden fields — these are the authoritative source
   // for collectFormData, independent of JS state at submit time.
-  const _scNow = job._sc || findSheetClient(job.client);
-  document.getElementById('wr-client-name').value = job.client || '';
+  // Prefer the worker's picked override (set via the ambiguous-name picker) over
+  // the raw calendar client string, since that's the actual matched client.
+  const _override = clientOverrides[_overrideKey(jobId)];
+  const _scNow = _override || job._sc || findSheetClient(job.client);
+  document.getElementById('wr-client-name').value = (_override && (_override['QB Customer Name'] || _override['Name(s)'])) || job.client || '';
   document.getElementById('wr-hist-id').value      = (_scNow && _scNow['Hist Data ID'])    ? _scNow['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_scNow && _scNow['Drive Folder ID']) ? _scNow['Drive Folder ID'].trim() : '';
 
@@ -297,9 +300,12 @@ function openMgrWorkRecord(evId, workerName) {
   document.getElementById('wr-date-start').value  = currentDay;
   document.getElementById('wr-date-end').value    = '';
 
-  // Manager events use clientCandidate for folder lookup
-  const _mgrSc = findSheetClient(ev.clientCandidate || ev.title || '');
-  document.getElementById('wr-client-name').value = ev.clientCandidate || ev.title || '';
+  // Manager events use clientCandidate for folder lookup — but prefer the
+  // worker's picked override (set via the ambiguous-name picker) if present,
+  // since that's the actual matched client rather than the raw calendar title.
+  const _mgrOverride = clientOverrides[_overrideKey('mgr_' + evId)];
+  const _mgrSc = _mgrOverride || findSheetClient(ev.clientCandidate || ev.title || '');
+  document.getElementById('wr-client-name').value = (_mgrOverride && (_mgrOverride['QB Customer Name'] || _mgrOverride['Name(s)'])) || ev.clientCandidate || ev.title || '';
   document.getElementById('wr-hist-id').value      = (_mgrSc && _mgrSc['Hist Data ID'])    ? _mgrSc['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_mgrSc && _mgrSc['Drive Folder ID']) ? _mgrSc['Drive Folder ID'].trim() : '';
 
