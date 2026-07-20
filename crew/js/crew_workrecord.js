@@ -725,7 +725,7 @@ function openItemPicker(kind, callback) {
 
   document.getElementById('picker-search').value = '';
   document.getElementById('picker-title').textContent =
-    kind === 'irr' ? 'Irrigation & Spray Heads' : 'Other Materials';
+    kind === 'irr' ? 'Irrigation & Drainage' : 'Other Materials & Fees';
 
   _pickerShowSections();
   document.getElementById('item-picker-modal').classList.add('open');
@@ -766,11 +766,18 @@ function _pickerShowSections() {
   sectEl.style.display   = '';
   crumb.textContent      = '';
 
-  sectEl.innerHTML = groups.map(g => `
-    <button class="picker-section-btn" onclick="_pickerSelectSection('${esc(g.label)}')">
-      ${esc(g.label)}
-      <span class="picker-section-count">${g.items.length}</span>
-    </button>`).join('');
+  sectEl.innerHTML = '';
+  groups.forEach(g => {
+    const btn = document.createElement('button');
+    btn.className = 'picker-section-btn';
+    btn.textContent = g.label + ' ';
+    const count = document.createElement('span');
+    count.className = 'picker-section-count';
+    count.textContent = g.items.length;
+    btn.appendChild(count);
+    btn.addEventListener('click', () => _pickerSelectSection(g.label));
+    sectEl.appendChild(btn);
+  });
 }
 
 function _pickerSelectSection(sectionLabel) {
@@ -785,10 +792,14 @@ function _pickerSelectSection(sectionLabel) {
 
   const itemEl = document.getElementById('picker-items');
   itemEl.style.display = '';
-  itemEl.innerHTML = group.items.map(name => `
-    <button class="picker-item-btn" onclick="_pickerSelectItem('${esc(name)}')">
-      ${esc(name)}
-    </button>`).join('');
+  itemEl.innerHTML = '';
+  group.items.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'picker-item-btn';
+    btn.textContent = name;
+    btn.addEventListener('click', () => _pickerSelectItem(name));
+    itemEl.appendChild(btn);
+  });
 }
 
 function pickerBack() {
@@ -826,22 +837,33 @@ function pickerSearch(query) {
   itemEl.style.display = '';
   document.getElementById('picker-breadcrumb').textContent = 'Search results';
 
-  let html = '';
+  itemEl.innerHTML = '';
+  let anyMatches = false;
   groups.forEach(g => {
     const matches = g.items.filter(name => name.toLowerCase().includes(q));
     if (!matches.length) return;
-    html += `<div class="picker-search-section">${esc(g.label)}</div>`;
-    html += matches.map(name => `
-      <button class="picker-item-btn picker-highlight"
-              onclick="_pickerSelectItem('${esc(name)}')">${esc(name)}</button>`
-    ).join('');
+    anyMatches = true;
+
+    const heading = document.createElement('div');
+    heading.className = 'picker-search-section';
+    heading.textContent = g.label;
+    itemEl.appendChild(heading);
+
+    matches.forEach(name => {
+      const btn = document.createElement('button');
+      btn.className = 'picker-item-btn picker-highlight';
+      btn.textContent = name;
+      btn.addEventListener('click', () => _pickerSelectItem(name));
+      itemEl.appendChild(btn);
+    });
   });
 
-  if (!html) {
-    html = `<div style="padding:16px;color:var(--ink3);text-align:center;font-size:13px">
-      No items match "<strong>${esc(query)}</strong>"</div>`;
+  if (!anyMatches) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:16px;color:var(--ink3);text-align:center;font-size:13px';
+    empty.innerHTML = `No items match "<strong>${esc(query)}</strong>"`;
+    itemEl.appendChild(empty);
   }
-  itemEl.innerHTML = html;
 }
 
 function makeFertRow(item, qty, unit) {

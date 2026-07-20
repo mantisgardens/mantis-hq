@@ -32,6 +32,10 @@ function openHistory() {
 }
 
 function openHistoryForClient(clientName, cardId) {
+  // clientName arrives URL-encoded from the inline onclick handlers in
+  // crew_render.js (avoids breaking on client names containing apostrophes,
+  // e.g. "O'Brien") — decode it back to the real name here.
+  try { clientName = decodeURIComponent(clientName); } catch (e) { /* already plain */ }
   _populateHistorySelect();
   document.getElementById('history-modal').classList.add('open');
   document.body.style.overflow = 'hidden';

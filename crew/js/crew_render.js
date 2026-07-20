@@ -580,7 +580,7 @@ function renderJobs(cid, jobs, teamClass) {
               ${statuses[j.id]==='done' ? '&#10003; Done' : statuses[j.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
             </button>
             <button class="abtn abtn-history"
-                    onclick="openHistoryForClient('${esc(j.client)}','${j.id}');event.stopPropagation()">
+                    onclick="openHistoryForClient('${encodeURIComponent(j.client||'')}','${j.id}');event.stopPropagation()">
               &#128196; Historical Data
             </button>
             <button class="abtn abtn-checklist" id="cl-btn-${j.id}"
@@ -692,7 +692,7 @@ function renderManagerPanel() {
               ${statuses['mgr_'+ev.id]==='done' ? '&#10003; Done' : statuses['mgr_'+ev.id]==='inprogress' ? '&#9654; In progress' : '&#9654; In progress'}
             </button>
             <button class="abtn abtn-history"
-                    onclick="openHistoryForClient('${esc(ev.clientCandidate||ev.title)}','mgr_${ev.id}');event.stopPropagation()">
+                    onclick="openHistoryForClient('${encodeURIComponent(ev.clientCandidate||ev.title||'')}','mgr_${ev.id}');event.stopPropagation()">
               &#128196; Historical Data
             </button>
             ${stream.workerName ? `<button class="abtn" id="wr-btn-mgr_${ev.id}"
