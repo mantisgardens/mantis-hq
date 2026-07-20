@@ -167,37 +167,40 @@ function openWorkRecord(jobId) {
   // Show modal immediately
   document.getElementById('work-modal').classList.add('open');
 
-  // Restore saved draft if exists
-  const saved = savedRecords[jobId];
-  if (saved && !saved.submitted) {
-    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
-    (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
-    (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
-    (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
-    (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
-    if (!saved.fertilizers && !saved.otherMaterials) {
-      (saved.materials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
-    }
-    document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
-    document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
-    return;
-  }
-
-  // Load service data (fert/materials lists) then auto-populate
+  // Load service data (fert/materials/plants/labor lists) FIRST, then either
+  // restore a saved draft or build a fresh form — both need FERT_PRODUCTS,
+  // IRRIGATION_ITEMS, OTHER_MATERIALS, WORK_RECORD_PLANTS, and LABOR_RATES
+  // loaded, since row builders read them synchronously at creation time.
+  // (Previously, restoring a saved draft returned early and skipped this
+  // entirely, leaving every dropdown/select empty for the rest of the
+  // session whenever the first job opened already had a draft.)
   const fertList = document.getElementById('fert-list');
-  const irrList  = document.getElementById('irrigation-list');
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
 
-  const afterServiceDataLoaded = () => {
+  const buildForm = () => {
     refreshFertDatalist();
     refreshIrrDatalist();
     refreshPlantsDatalist();
     refreshOtherDatalist();
     refreshLaborDropdowns();  // rebuild labor type selects now that LABOR_RATES is loaded
 
+    // Restore saved draft if exists
+    const saved = savedRecords[jobId];
+    if (saved && !saved.submitted) {
+      (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
+      (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
+      (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
+      (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
+      (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+      if (!saved.fertilizers && !saved.otherMaterials) {
+        (saved.materials || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+      }
+      document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
+      document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
+      return;
+    }
+
     // ── Auto-populate workers from today's team brief ──────
-    const brief = _historyData && _historyData._teamBrief;  // not available here
-    // Use the team's crew names from the morning brief all_crew list if available
     const teamWorkers = _getTeamWorkers(teamKey);
     if (teamWorkers.length) {
       teamWorkers.forEach(name => addWorker(name, ''));
@@ -214,13 +217,13 @@ function openWorkRecord(jobId) {
 
   if (needsLoad && typeof loadServiceData === 'function') {
     loadServiceData()
-      .then(() => afterServiceDataLoaded())
+      .then(() => buildForm())
       .catch(() => {
         // First attempt failed — wait 2 seconds and retry once before giving up.
         // This handles Apps Script cold-start timeouts which are common on first load.
         setTimeout(() => {
           loadServiceData()
-            .then(() => afterServiceDataLoaded())
+            .then(() => buildForm())
             .catch(() => {
               // Both attempts failed — show a reload prompt in the fert/materials area
               // so the crew member knows the lists didn't load rather than silently
@@ -232,12 +235,12 @@ function openWorkRecord(jobId) {
                 to get the dropdowns, then re-open the work record.
               </div>`;
               if (fertList) fertList.innerHTML = msg;
-              afterServiceDataLoaded();
+              buildForm();
             });
         }, 2000);
       });
   } else {
-    afterServiceDataLoaded();
+    buildForm();
   }
 
   // Seed the folder ID cache from the already-resolved _sc if available —
@@ -325,25 +328,29 @@ function openMgrWorkRecord(evId, workerName) {
   _ensureCrewDatalist();
   document.getElementById('work-modal').classList.add('open');
 
-  // Restore draft if one exists
-  const saved = savedRecords['mgr_' + evId];
-  if (saved && !saved.submitted) {
-    (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
-    (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
-    (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
-    (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
-    (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
-    document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
-    document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
-    return;
-  }
-
-  const afterServiceDataLoaded = () => {
+  // Load service data FIRST, then either restore a saved draft or build a
+  // fresh form — see the matching fix/comment in openWorkRecord above for
+  // why the draft-restore path can no longer skip this step.
+  const buildForm = () => {
     refreshFertDatalist();
     refreshIrrDatalist();
     refreshPlantsDatalist();
     refreshOtherDatalist();
     refreshLaborDropdowns();  // rebuild labor type selects now that LABOR_RATES is loaded
+
+    // Restore draft if one exists
+    const saved = savedRecords['mgr_' + evId];
+    if (saved && !saved.submitted) {
+      (saved.workers        || []).forEach(w => addWorker(w.name, w.hours, w.laborType));
+      (saved.fertilizers     || []).forEach(f => addFert(f.item, f.qty, f.unit));
+      (saved.irrigationItems || []).forEach(m => addIrrigationItem(m.item, m.qty, m.unit));
+      (saved.plants          || []).forEach(p => addPlant(p.name, p.qty, p.size));
+      (saved.otherMaterials  || []).forEach(m => addOtherMaterial(m.item, m.qty, m.unit));
+      document.getElementById('wr-service-notes').value  = saved.serviceNotes  || '';
+      document.getElementById('wr-internal-notes').value = saved.internalNotes || '';
+      return;
+    }
+
     // Pre-fill the named worker (Ashley or Brooke) from the calendar stream
     addWorker(workerName || '', '');
     addFert();
@@ -352,13 +359,13 @@ function openMgrWorkRecord(evId, workerName) {
 
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
   if (needsLoad && typeof loadServiceData === 'function') {
-    loadServiceData().then(afterServiceDataLoaded).catch(() => {
+    loadServiceData().then(buildForm).catch(() => {
       setTimeout(() => {
-        loadServiceData().then(afterServiceDataLoaded).catch(afterServiceDataLoaded);
+        loadServiceData().then(buildForm).catch(buildForm);
       }, 2000);
     });
   } else {
-    afterServiceDataLoaded();
+    buildForm();
   }
 
   if (ev.clientCandidate && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
@@ -482,16 +489,29 @@ function isFormEmpty() {
     const inp = row.querySelector('.fert-item-input');
     return inp && inp.value.trim() !== '';
   });
-  const hasMatl   = Array.from(
-    document.querySelectorAll('#other-materials-list .dynamic-row')
+  // Checks a picker-row list (irrigation-list / other-materials-list) for
+  // content across all three input modes: native <select> (list mode),
+  // the picker text input (search/browse mode), or the legacy custom
+  // text fallback, in case any old-format rows are still present.
+  function hasPickerContent(listId) {
+    return Array.from(document.querySelectorAll(`#${listId} .dynamic-row`)).some(row => {
+      const sel    = row.querySelector('.irr-select, .other-select');
+      const custom = row.querySelector('.irr-custom, .other-custom, .picker-item-input');
+      if (sel && sel.value.trim() !== '') return true;
+      if (custom && custom.value.trim() !== '') return true;
+      return false;
+    });
+  }
+  const hasIrrigation = hasPickerContent('irrigation-list');
+  const hasMatl       = hasPickerContent('other-materials-list');
+  const hasPlants     = Array.from(
+    document.querySelectorAll('#plants-list .dynamic-row')
   ).some(row => {
-    const sel    = row.querySelector('.irr-select');
-    const custom = row.querySelector('.irr-custom');
-    if (sel && sel.style.display !== 'none') return sel.value.trim() !== '';
-    if (custom && custom.style.display !== 'none') return custom.value.trim() !== '';
-    return false;
+    const inp = row.querySelector('.plant-name-input');
+    return inp && inp.value.trim() !== '';
   });
-  return !hasWorker && !hasNotes && !hasFert && !hasMatl && photoFiles.length === 0;
+  return !hasWorker && !hasNotes && !hasFert && !hasIrrigation && !hasMatl && !hasPlants
+      && photoFiles.length === 0;
 }
 
 function closeModal() {
@@ -647,224 +667,170 @@ function addPlant(name, qty, size) {
   list.appendChild(row);
 }
 
-// ── Irrigation item row (was addOtherMaterial) ────────────────
+// ── Irrigation/materials row — grouped select dropdown ────────
+// 130+ irrigation items are grouped into subsections (Micro Sprayers,
+// 1/4" Fittings, Netafim, PVC, etc.) so a searchable grouped select
+// is much easier to use than a freetext datalist.
 function addIrrigationItem(item, qty, unit) {
   makeIrrRow(item, qty, unit);
 }
 
-// ── Other Materials row ────────────────────────────────────────
-function makeOtherMatRow(item, qty, unit) {
-  _makePickerRow('other-materials-list', 'other', item, qty, unit);
-}
-
-function addOtherMaterial(item, qty, unit) { makeOtherMatRow(item, qty, unit); }
-function addMaterial(item, qty, unit) { addOtherMaterial(item, qty, unit); }
-
-// ── Shared picker-based row builder ───────────────────────────
-// Used by both irrigation and other materials rows.
-// Shows a text input + "Browse…" button. Tap Browse to open
-// the two-step section → item picker modal.
-function _makePickerRow(listId, kind, item, qty, unit) {
-  const list = document.getElementById(listId);
+function makeIrrRow(item, qty, unit) {
+  const list = document.getElementById('irrigation-list');
   if (!list) return;
-  const row = document.createElement('div');
+  const row  = document.createElement('div');
   row.className = 'dynamic-row';
+
+  // Build grouped <select> options for the secondary "pick from list" view
+  const groups  = getIrrigationGroups();
+  let optHtml   = '<option value="">— select item —</option>';
+  groups.forEach(g => {
+    optHtml += `<optgroup label="${esc(g.label)}">`;
+    g.items.forEach(name => {
+      const sel = (name === (item||'')) ? ' selected' : '';
+      optHtml  += `<option value="${esc(name)}"${sel}>${esc(name)}</option>`;
+    });
+    optHtml += '</optgroup>';
+  });
+
+  // Lead with text input + datalist (matches Fertilizers UX).
+  // "pick from list" toggle switches to the grouped select for browsing.
   row.innerHTML = `
-    <input class="form-input picker-item-input" type="text"
-           placeholder="${kind === 'irr' ? 'Irrigation item' : 'Material'}"
-           list="dl-${kind === 'irr' ? 'irr' : 'other'}-global"
-           autocomplete="off" style="flex:3" value="${esc(item||'')}"/>
-    <button class="btn-link picker-browse-btn" type="button"
-            style="font-size:11px;padding:0 6px;white-space:nowrap;color:var(--g)">Browse</button>
+    <input  class="form-input irr-custom" type="text" placeholder="Material / irrigation item"
+            list="dl-irr-global" style="flex:3" value="${esc(item||'')}"/>
+    <select class="form-input irr-select" style="flex:3;display:none">${optHtml}</select>
+    <button class="btn-link irr-toggle" type="button"
+            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
            value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
     <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
 
-  const nameInput = row.querySelector('.picker-item-input');
-  const unitInput = row.querySelector('input[placeholder="Unit"]');
-  const browseBtn = row.querySelector('.picker-browse-btn');
+  const custom = row.querySelector('.irr-custom');
+  const sel    = row.querySelector('.irr-select');
+  const toggle = row.querySelector('.irr-toggle');
 
-  function tryFillUnit() {
+  // Toggle between text input and grouped select
+  toggle.addEventListener('click', () => {
+    const showingSelect = sel.style.display !== 'none';
+    if (showingSelect) {
+      // Switch back to text input — copy selected value across
+      if (sel.value) custom.value = sel.value;
+      sel.style.display    = 'none';
+      custom.style.display = '';
+      toggle.textContent   = 'list';
+      custom.focus();
+    } else {
+      // Switch to grouped select — copy typed value into selection if possible
+      const typed = custom.value.trim();
+      if (typed) {
+        const opt = Array.from(sel.options).find(o => o.value === typed);
+        if (opt) sel.value = typed;
+      }
+      custom.style.display = 'none';
+      sel.style.display    = '';
+      toggle.textContent   = 'type';
+      sel.focus();
+    }
+  });
+
+  // When user picks from the select, copy back to text input and switch back
+  sel.addEventListener('change', () => {
+    if (sel.value) {
+      custom.value         = sel.value;
+      sel.style.display    = 'none';
+      custom.style.display = '';
+      toggle.textContent   = 'list';
+      tryFillIrrUnit();
+    }
+  });
+
+  // Auto-fill unit when an item is picked from either the text input or select
+  const unitInput = row.querySelector('input[placeholder="Unit"]');
+  function tryFillIrrUnit() {
     if (unitInput && !unitInput.value) {
-      const u = getItemUnit(nameInput.value.trim());
+      const name = custom.value.trim() || sel.value.trim();
+      const u = getItemUnit(name);
       if (u) unitInput.value = u;
     }
   }
-  nameInput.addEventListener('change', tryFillUnit);
-  nameInput.addEventListener('blur',   tryFillUnit);
-
-  browseBtn.addEventListener('click', () => {
-    openItemPicker(kind, (selectedName) => {
-      nameInput.value = selectedName;
-      unitInput.value = '';
-      tryFillUnit();
-    });
-  });
+  custom.addEventListener('change', tryFillIrrUnit);
+  custom.addEventListener('blur',   tryFillIrrUnit);
 
   list.appendChild(row);
 }
 
-function makeIrrRow(item, qty, unit) {
-  _makePickerRow('irrigation-list', 'irr', item, qty, unit);
-}
+// ── Other Materials row (staking, dump fees, installation etc.) ─
+function makeOtherMatRow(item, qty, unit) {
+  const list = document.getElementById('other-materials-list');
+  if (!list) return;
+  const row = document.createElement('div');
+  row.className = 'dynamic-row';
 
-// ── Item Picker Modal engine ───────────────────────────────────
-// _pickerCallback: function called with selected item name
-// _pickerKind:     'irr' | 'other'
-// _pickerSection:  null (step 1) | section name (step 2)
-let _pickerCallback = null;
-let _pickerKind     = null;
-let _pickerSection  = null;
-
-function openItemPicker(kind, callback) {
-  _pickerCallback = callback;
-  _pickerKind     = kind;
-  _pickerSection  = null;
-
-  document.getElementById('picker-search').value = '';
-  document.getElementById('picker-title').textContent =
-    kind === 'irr' ? 'Irrigation & Drainage' : 'Other Materials & Fees';
-
-  _pickerShowSections();
-  document.getElementById('item-picker-modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => document.getElementById('picker-search').focus(), 150);
-}
-
-function closeItemPicker(e) {
-  if (e && e.target !== document.getElementById('item-picker-modal')) return;
-  document.getElementById('item-picker-modal').classList.remove('open');
-  document.body.style.overflow = '';
-  _pickerCallback = null;
-}
-
-function _pickerGetGroups() {
-  if (_pickerKind === 'irr') {
-    return getIrrigationGroups();   // [{label, items:[name,...]}]
-  }
-  // Other materials — build groups from OTHER_MATERIALS sections
+  // Build grouped select from OTHER_MATERIALS sections
   const mats = (typeof OTHER_MATERIALS !== 'undefined') ? OTHER_MATERIALS : [];
-  const sectionNames = [...new Set(mats.map(m => m.section).filter(Boolean))];
-  return sectionNames.map(sec => ({
-    label: sec,
-    items: mats.filter(m => m.section === sec).map(m => m.name),
-  }));
-}
-
-function _pickerShowSections() {
-  _pickerSection = null;
-  const groups = _pickerGetGroups();
-  const sectEl = document.getElementById('picker-sections');
-  const itemEl = document.getElementById('picker-items');
-  const backEl = document.getElementById('picker-back-bar');
-  const crumb  = document.getElementById('picker-breadcrumb');
-
-  itemEl.style.display   = 'none';
-  backEl.style.display   = 'none';
-  sectEl.style.display   = '';
-  crumb.textContent      = '';
-
-  sectEl.innerHTML = '';
-  groups.forEach(g => {
-    const btn = document.createElement('button');
-    btn.className = 'picker-section-btn';
-    btn.textContent = g.label + ' ';
-    const count = document.createElement('span');
-    count.className = 'picker-section-count';
-    count.textContent = g.items.length;
-    btn.appendChild(count);
-    btn.addEventListener('click', () => _pickerSelectSection(g.label));
-    sectEl.appendChild(btn);
-  });
-}
-
-function _pickerSelectSection(sectionLabel) {
-  _pickerSection = sectionLabel;
-  const groups   = _pickerGetGroups();
-  const group    = groups.find(g => g.label === sectionLabel);
-  if (!group) return;
-
-  document.getElementById('picker-breadcrumb').textContent = sectionLabel;
-  document.getElementById('picker-sections').style.display = 'none';
-  document.getElementById('picker-back-bar').style.display = '';
-
-  const itemEl = document.getElementById('picker-items');
-  itemEl.style.display = '';
-  itemEl.innerHTML = '';
-  group.items.forEach(name => {
-    const btn = document.createElement('button');
-    btn.className = 'picker-item-btn';
-    btn.textContent = name;
-    btn.addEventListener('click', () => _pickerSelectItem(name));
-    itemEl.appendChild(btn);
-  });
-}
-
-function pickerBack() {
-  document.getElementById('picker-search').value = '';
-  _pickerShowSections();
-}
-
-function _pickerSelectItem(name) {
-  document.getElementById('item-picker-modal').classList.remove('open');
-  document.body.style.overflow = '';
-  if (_pickerCallback) _pickerCallback(name);
-  _pickerCallback = null;
-}
-
-function pickerSearch(query) {
-  const q = query.trim().toLowerCase();
-  const groups = _pickerGetGroups();
-  const sectEl = document.getElementById('picker-sections');
-  const itemEl = document.getElementById('picker-items');
-  const backEl = document.getElementById('picker-back-bar');
-
-  if (!q) {
-    // Return to section list
-    if (_pickerSection) {
-      _pickerSelectSection(_pickerSection);
-    } else {
-      _pickerShowSections();
-    }
-    return;
-  }
-
-  // Search all items across all sections
-  sectEl.style.display = 'none';
-  backEl.style.display = 'none';
-  itemEl.style.display = '';
-  document.getElementById('picker-breadcrumb').textContent = 'Search results';
-
-  itemEl.innerHTML = '';
-  let anyMatches = false;
-  groups.forEach(g => {
-    const matches = g.items.filter(name => name.toLowerCase().includes(q));
-    if (!matches.length) return;
-    anyMatches = true;
-
-    const heading = document.createElement('div');
-    heading.className = 'picker-search-section';
-    heading.textContent = g.label;
-    itemEl.appendChild(heading);
-
-    matches.forEach(name => {
-      const btn = document.createElement('button');
-      btn.className = 'picker-item-btn picker-highlight';
-      btn.textContent = name;
-      btn.addEventListener('click', () => _pickerSelectItem(name));
-      itemEl.appendChild(btn);
+  const sections = [...new Set(mats.map(m => m.section))];
+  let optHtml = '<option value="">— select item —</option>';
+  sections.forEach(sec => {
+    optHtml += `<optgroup label="${esc(sec)}">`;
+    mats.filter(m => m.section === sec).forEach(m => {
+      const sel = (m.name === (item||'') || m.qbName === (item||'')) ? ' selected' : '';
+      optHtml += `<option value="${esc(m.qbName)}"${sel}>${esc(m.name)}</option>`;
     });
+    optHtml += '</optgroup>';
   });
 
-  if (!anyMatches) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'padding:16px;color:var(--ink3);text-align:center;font-size:13px';
-    empty.innerHTML = `No items match "<strong>${esc(query)}</strong>"`;
-    itemEl.appendChild(empty);
+  row.innerHTML = `
+    <input  class="form-input other-custom" type="text" placeholder="Material"
+            list="dl-other-global" style="flex:3" value="${esc(item||'')}"/>
+    <select class="form-input other-select" style="flex:3;display:none">${optHtml}</select>
+    <button class="btn-link other-toggle" type="button"
+            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
+    <input class="form-input" type="text" placeholder="Qty"
+           value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
+    <input class="form-input" type="text" placeholder="Unit"
+           value="${esc(unit||'')}" style="flex:1;max-width:72px"/>
+    <button class="remove-btn" onclick="this.parentElement.remove()">&#10005;</button>`;
+
+  const custom = row.querySelector('.other-custom');
+  const sel    = row.querySelector('.other-select');
+  const toggle = row.querySelector('.other-toggle');
+  toggle.addEventListener('click', () => {
+    const showingSel = sel.style.display !== 'none';
+    if (showingSel) {
+      if (sel.value) custom.value = sel.value;
+      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list'; custom.focus();
+    } else {
+      const typed = custom.value.trim();
+      if (typed) { const opt = Array.from(sel.options).find(o => o.value === typed); if (opt) sel.value = typed; }
+      custom.style.display = 'none'; sel.style.display = ''; toggle.textContent = 'type'; sel.focus();
+    }
+  });
+  sel.addEventListener('change', () => {
+    if (sel.value) {
+      custom.value = sel.value;
+      sel.style.display = 'none'; custom.style.display = ''; toggle.textContent = 'list';
+      tryFillOtherUnit();
+    }
+  });
+
+  // Auto-fill unit when item is selected
+  const unitInput = row.querySelector('input[placeholder="Unit"]');
+  function tryFillOtherUnit() {
+    if (unitInput && !unitInput.value) {
+      const name = custom.value.trim() || sel.value.trim();
+      const u = getItemUnit(name);
+      if (u) unitInput.value = u;
+    }
   }
+  custom.addEventListener('change', tryFillOtherUnit);
+  custom.addEventListener('blur',   tryFillOtherUnit);
+
+  list.appendChild(row);
 }
+
+function addOtherMaterial(item, qty, unit) { makeOtherMatRow(item, qty, unit); }
 
 function makeFertRow(item, qty, unit) {
   const list = document.getElementById('fert-list');
