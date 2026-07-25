@@ -61,6 +61,7 @@ function doSignOut() {
 const CACHE_TTL = {
   ownerClients:  5 * 60 * 1000,
   ownerSchedule: 3 * 60 * 1000,
+  ownerLoadAll:  3 * 60 * 1000,
 };
 
 function getIdToken() {
@@ -237,11 +238,27 @@ async function loadAll() {
   // Fire a warm-up ping
   fetch(`${SCRIPT_URL}?action=ping&id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
 
-  const [clientsRes, scheduleRes, mgrScheduleRes] = await Promise.allSettled([
-    ownerFetch('ownerClients'),
-    ownerFetch('ownerSchedule'),
-    ownerFetch('ownerManagerSchedule'),
-  ]);
+  // ── Single combined fetch ──────────────────────────────────
+  // Was 3 separate round trips (ownerClients / ownerSchedule /
+  // ownerManagerSchedule), each independently re-verifying the same
+  // Google ID token against Google's tokeninfo endpoint. Now it's one
+  // request — the backend verifies the token once and bundles all
+  // three sections into a single response.
+  let bundle = null, bundleErr = null;
+  try {
+    bundle = await ownerFetch('ownerLoadAll');
+  } catch(e) { bundleErr = e; }
+
+  function toResult(section) {
+    if (bundleErr) return { status: 'rejected', reason: bundleErr };
+    const val = bundle ? bundle[section] : undefined;
+    if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    return { status: 'fulfilled', value: val === undefined ? null : val };
+  }
+
+  const clientsRes     = toResult('clients');
+  const scheduleRes    = toResult('schedule');
+  const mgrScheduleRes = toResult('manager_schedule');
 
   if (clientsRes.status === 'fulfilled') {
     allClients = clientsRes.value.clients || [];
@@ -342,7 +359,8 @@ function renderSchedule() {
   const teams = [
     { key: 't1',       label: 'Maintenance — Team 1', cls: 't1' },
     { key: 't2',       label: 'Maintenance — Team 2', cls: 't2' },
-    { key: 't3',       label: 'Maintenance — Team 3', cls: 't3' },
+    // Team 3 not yet live — re-add this line when the crew starts running:
+    // { key: 't3',       label: 'Maintenance — Team 3', cls: 't3' },
     { key: 'tInstall', label: 'Install Team',         cls: 'install' },
     { key: 'managers', label: 'Managers',             cls: 'mgr' },
   ];
