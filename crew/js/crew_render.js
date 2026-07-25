@@ -362,6 +362,7 @@ function renderBrief(wrapId, team) {
     let teamLabel  = '';
     if      (team === 't1')       { teamNotes = mb.team1_notes   || []; teamLabel = 'Team 1'; }
     else if (team === 't2')       { teamNotes = mb.team2_notes   || []; teamLabel = 'Team 2'; }
+    else if (team === 't3')       { teamNotes = mb.team3_notes   || []; teamLabel = 'Team 3'; }
     else if (team === 'install')  { teamNotes = mb.install_notes  || []; teamLabel = 'Install'; }
     else if (team === 'managers') { teamNotes = mb.manager_notes  || []; teamLabel = 'Managers'; }
 
@@ -800,8 +801,8 @@ function buildTabs() {
   }
 
   DAYS.forEach((d, i) => {
-    const day   = SCHEDULE[d] || { t1:[], t2:[], t3:[] };
-    const total = (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length;
+    const day   = SCHEDULE[d] || { t1:[], t2:[], t3:[], tInstall:[] };
+    const total = (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
     const tab   = document.createElement('div');
     tab.className = `day-tab${d === currentDay ? ' active' : ''}`;
     tab.innerHTML = DAY_LABELS[i]
@@ -835,12 +836,14 @@ function hideJob(id) {
 function render() {
   buildTabs();
 
-  const d   = currentDay ? (SCHEDULE[currentDay] || { t1:[], t2:[], t3:[] }) : { t1:[], t2:[], t3:[] };
+  const d   = currentDay ? (SCHEDULE[currentDay] || { t1:[], t2:[], t3:[], tInstall:[] }) : { t1:[], t2:[], t3:[], tInstall:[] };
   renderJobs('t1-jobs', d.t1, 't1-card');
   renderJobs('t2-jobs', d.t2, 't2-card');
-  renderJobs('install-jobs', d.t3, 'install-card');
+  renderJobs('t3-jobs', d.t3, 't3-card');
+  renderJobs('install-jobs', d.tInstall, 'install-card');
   renderBrief('brief-t1', 't1');
   renderBrief('brief-t2', 't2');
+  renderBrief('brief-t3', 't3');
   renderBrief('brief-install', 'install');
 
   // Manager panel — only rendered if the panel exists in the DOM
@@ -850,13 +853,14 @@ function render() {
 
   document.getElementById('t1-hrs').textContent = calcHrs(d.t1);
   document.getElementById('t2-hrs').textContent = calcHrs(d.t2);
-  document.getElementById('install-hrs').textContent = calcHrs(d.t3);
+  document.getElementById('t3-hrs').textContent = calcHrs(d.t3);
+  document.getElementById('install-hrs').textContent = calcHrs(d.tInstall);
 
-  const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].filter(j => j.type !== 'load-in');
+  const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].filter(j => j.type !== 'load-in');
   const prog      = all.filter(j => statuses[j.id] === 'inprogress').length;
   const submitted = all.filter(j => savedRecords[j.id] && savedRecords[j.id].submitted).length;
   let fh = 0;
-  [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].forEach(j => {
+  [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].forEach(j => {
     const m = j.dur.match(/([\d.]+)/); if (m) fh += parseFloat(m[1]);
   });
 

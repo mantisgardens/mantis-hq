@@ -107,11 +107,11 @@ function openWorkRecord(jobId) {
   let job = null;
   let jobDay = currentDay;
   const dCurrent = SCHEDULE[currentDay] || {};
-  job = [...(dCurrent.t1||[]),...(dCurrent.t2||[]),...(dCurrent.t3||[])].find(j => j.id === jobId);
+  job = [...(dCurrent.t1||[]),...(dCurrent.t2||[]),...(dCurrent.t3||[]),...(dCurrent.tInstall||[])].find(j => j.id === jobId);
   if (!job) {
     for (const day of Object.keys(SCHEDULE)) {
       const d = SCHEDULE[day] || {};
-      const found = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[])].find(j => j.id === jobId);
+      const found = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].find(j => j.id === jobId);
       if (found) { job = found; jobDay = day; break; }
     }
   }
@@ -126,9 +126,11 @@ function openWorkRecord(jobId) {
   // Determine team — re-read from the resolved day
   const d   = SCHEDULE[currentDay] || {};
   const teamKey  = d.t1 && d.t1.find(j=>j.id===jobId) ? 't1'
-                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2' : 'install';
+                 : d.t2 && d.t2.find(j=>j.id===jobId) ? 't2'
+                 : d.t3 && d.t3.find(j=>j.id===jobId) ? 't3' : 'install';
   const teamName = teamKey === 't1' ? 'Maintenance — Team 1'
                  : teamKey === 't2' ? 'Maintenance — Team 2'
+                 : teamKey === 't3' ? 'Maintenance — Team 3'
                  : 'Install Team';
 
   document.getElementById('modal-title').textContent  = 'Work Record';
@@ -263,7 +265,7 @@ function _ensureCrewDatalist() {
   const dl = document.getElementById('dl-crew-global');
   if (!dl) return;
   if (dl.children.length) return;  // already populated
-  const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[])];
+  const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[]), ...(crewTeams.tInstall||[])];
   allNames.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;

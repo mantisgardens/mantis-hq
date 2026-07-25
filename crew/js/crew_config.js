@@ -55,7 +55,7 @@ let expanded     = {}, statuses = {};
 // Restore per-team brief visibility from sessionStorage (default open).
 // Cleared automatically on logout via sessionStorage.clear().
 const _briefStored = JSON.parse(sessionStorage.getItem('mg_brief_open') || 'null');
-let briefOpen = _briefStored || { t1:true, t2:true, install:true, managers:true };
+let briefOpen = _briefStored || { t1:true, t2:true, t3:true, install:true, managers:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
 // ── normClientName ────────────────────────────────────────────
 // Normalises a client name for comparison across two formats:
@@ -186,7 +186,7 @@ function findSheetClient(calendarName) {
   return bestDist <= 1 ? bestMatch : null;
 }
 
-let crewTeams    = { t1: [], t2: [], t3: [], managers: [] };  // team rosters from Crew Info sheet
+let crewTeams    = { t1: [], t2: [], t3: [], tInstall: [], managers: [] };  // team rosters from Crew Info sheet
 
 // ── isManagerUser ─────────────────────────────────────────────
 // Returns true if the logged-in crew member's category indicates
