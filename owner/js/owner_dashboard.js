@@ -342,7 +342,8 @@ function renderSchedule() {
   const teams = [
     { key: 't1',       label: 'Maintenance — Team 1', cls: 't1' },
     { key: 't2',       label: 'Maintenance — Team 2', cls: 't2' },
-    { key: 't3',       label: 'Install Team',         cls: 't3' },
+    { key: 't3',       label: 'Maintenance — Team 3', cls: 't3' },
+    { key: 'tInstall', label: 'Install Team',         cls: 'install' },
     { key: 'managers', label: 'Managers',             cls: 'mgr' },
   ];
 
