@@ -17,6 +17,8 @@ const CACHE_TTL = {
   schedule:           3 * 60 * 1000,
   manager_schedule:   3 * 60 * 1000,
   crew_teams:        60 * 60 * 1000,   // 60 min — team rosters change rarely
+  crew_load_all:      3 * 60 * 1000,   // combined endpoint — matches schedule's TTL,
+                                       // the most volatile section it bundles
 };
 
 // ── Persistent offline cache (localStorage) ───────────────────
@@ -130,8 +132,13 @@ function setStatus(id, state, msg) {
   document.getElementById(`sl-${id}`).textContent = msg;
 }
 
-// loadAll() fires all four requests in parallel (Promise.allSettled)
-// so a single slow sheet doesn't block the others.
+// loadAll() fires ONE combined request (action=crew_load_all) so the
+// crew panel's initial load pays the Apps Script per-request dispatch
+// overhead once instead of four or five times. The backend splits the
+// work into named sections (active_clients / schedule / morning_brief /
+// crew_teams / manager_schedule) and we reconstruct the same
+// {status, value|reason} shape Promise.allSettled used to give us, so
+// none of the per-section handling below had to change.
 // Loads all data (calendars, sheets)
 async function loadAll() {
   document.getElementById('reload-btn').disabled = true;
@@ -147,18 +154,31 @@ async function loadAll() {
   const _mgrTab    = document.getElementById('ttab-managers');
   if (_mgrTab) _mgrTab.style.display = _isManager ? '' : 'none';
 
-  const delay = ms => new Promise(res => setTimeout(res, ms));
+  // ── Single combined fetch ──────────────────────────────────
+  // Ask for manager_schedule only when it'll actually be used.
+  let bundle = null, bundleErr = null;
+  try {
+    bundle = await apiFetch('crew_load_all', _isManager ? '&mgr=1' : '');
+  } catch(e) { bundleErr = e; }
 
-  // Build parallel fetch list — manager schedule only for managers
-  const fetches = [
-    apiFetch('active_clients'),
-    delay(300).then(() => apiFetch('schedule', '&weeks=3&offset=-1')),
-    delay(600).then(() => apiFetch('morning_brief')),
-    delay(900).then(() => apiFetch('crew_teams')),
-    _isManager ? delay(1200).then(() => apiFetch('manager_schedule', '&weeks=3&offset=-1')) : Promise.resolve(null),
+  // Reconstruct the per-section {status, value|reason} shape the rest
+  // of this function expects. A section-level {error: '...'} from the
+  // backend (one sheet/calendar failed) or a hard network failure
+  // (bundleErr) both surface as 'rejected', same as before.
+  function toResult(section) {
+    if (bundleErr) return { status: 'rejected', reason: bundleErr };
+    const val = bundle ? bundle[section] : undefined;
+    if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    return { status: 'fulfilled', value: val === undefined ? null : val };
+  }
+
+  const results = [
+    toResult('active_clients'),
+    toResult('schedule'),
+    toResult('morning_brief'),
+    toResult('crew_teams'),
+    _isManager ? toResult('manager_schedule') : { status: 'fulfilled', value: null },
   ];
-
-  const results = await Promise.allSettled(fetches);
 
   // ── Track which items fell back to offline cache ──────────────
   let offlineCacheTs = null;   // timestamp of oldest stale item used
@@ -248,7 +268,7 @@ async function loadAll() {
 
     const total = DAYS.reduce((sum, d) => {
       const day = SCHEDULE[d] || {};
-      return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length;
+      return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
     }, 0);
     if (results[1].status === 'fulfilled') {
       setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
@@ -298,7 +318,7 @@ async function loadAll() {
     const dl = document.getElementById('dl-crew-global');
     if (dl) {
       dl.innerHTML = '';
-      const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[])];
+      const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[]), ...(crewTeams.tInstall||[])];
       allNames.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
@@ -344,7 +364,7 @@ async function loadAll() {
   // ── Debug panel (set display:none -> block on the div to enable) ──
   const dbg = document.getElementById('debug-panel');
   if (dbg && dbg.style.display !== 'none') {
-    const calResult = results[3];
+    const calResult = results[1];
     const calVal    = calResult.status === 'fulfilled' ? calResult.value : null;
     dbg.innerHTML =
       `<b>Calendar status:</b> ${calResult.status}<br>` +
