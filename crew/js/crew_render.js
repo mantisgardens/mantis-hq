@@ -551,7 +551,7 @@ function renderJobs(cid, jobs, teamClass) {
     const card   = document.createElement('div');
     card.className = `job-card ${isLoad ? 'load-in' : teamClass}${isExp ? ' expanded' : ''}`;
 
-    const clientBlock = (isExp && !isLoad) ? buildClientBlock(j.id, sc, j.description) : '';
+    const clientBlock = (isExp && !isLoad) ? buildClientBlock(j.id, sc, j.description, j.title, j.client) : '';
 
     card.innerHTML = `
       <div class="job-top" onclick="toggle('${j.id}')">
@@ -681,7 +681,7 @@ function renderManagerPanel() {
         // generic events get a compact card.
         const cardCls = isClientEv ? 'mgr-client-card' : 'mgr-generic-card';
 
-        const clientBlock = (isExp && isClientEv) ? buildClientBlock('mgr_' + ev.id, sc, ev.description) : '';
+        const clientBlock = (isExp && isClientEv) ? buildClientBlock('mgr_' + ev.id, sc, ev.description, ev.title, ev.client) : '';
 
         // Action buttons — identical to Team 1/2 cards.
         // WR button passes the worker name so the form pre-fills it.
@@ -905,8 +905,12 @@ function render() {
 //   4. No match        — show "no match" fallback
 // cardId   = stable key used in clientOverrides (job id or mgr event id)
 // sc       = result from findClient() — may have _ambiguous flag
-// description = calendar event description (for Cal notes row)
-function buildClientBlock(cardId, sc, description) {
+// description  = calendar event description (for Cal notes row)
+// rawTitle     = the untouched calendar event title, before "CI - " /
+//                trailing-suffix / address stripping (for name lookup)
+// matchedName  = the cleaned name used for the lookup (job.client) —
+//                shown for comparison so it's clear what's cut off
+function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   // Use an override if the user already picked one
   const resolved = clientOverrides[_overrideKey(cardId)] || (sc && !sc._ambiguous ? sc : null);
 
@@ -953,6 +957,10 @@ function buildClientBlock(cardId, sc, description) {
       _locatorLists[cardId] = [...sheetClients]
         .sort((a, b) => (a['Name(s)'] || '').localeCompare(b['Name(s)'] || ''));
     }
+  }
+
+  if (rawTitle && rawTitle.trim() && rawTitle.trim().toLowerCase() !== (matchedName||'').trim().toLowerCase()) {
+    html += `<div class="drow"><span class="dlabel">Cal title</span><span class="dval note">${esc(rawTitle)}</span></div>`;
   }
 
   if (description && description.trim()) {
