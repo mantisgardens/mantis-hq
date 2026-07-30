@@ -273,7 +273,7 @@ function plantShowProfile(p) {
 
 function plantEmptyCard() {
   return `<div class="pp-empty">
-    <div style="font-size:32px;margin-bottom:10px">&#127807;</div>
+    <div style="font-size:var(--fs-6xl);margin-bottom:10px">&#127807;</div>
     <div>Search or select a plant<br>to see its care profile</div>
   </div>`;
 }
@@ -320,13 +320,13 @@ function renderFert() {
       if (p.info_url) links.push(`<a class="tool-link" href="${p.info_url}" target="_blank" rel="noopener">Product Info</a>`);
       const linkHtml = links.length ? `<div class="tool-links">${links.join(' ')}</div>` : '';
       html += `<tr data-row="1"${warn}>
-        <td><b>${esc(p.name)}</b>${p.abbrev && p.abbrev !== '—' ? `<br><span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--ink3)">${esc(p.abbrev)}</span>` : ''}${linkHtml}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:11px;white-space:nowrap">${esc(p.unit)}</td>
+        <td><b>${esc(p.name)}</b>${p.abbrev && p.abbrev !== '—' ? `<br><span style="font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3)">${esc(p.abbrev)}</span>` : ''}${linkHtml}</td>
+        <td style="font-family:var(--font-mono);font-size:var(--fs-small);white-space:nowrap">${esc(p.unit)}</td>
         <td>${esc(p.type)}</td>
         <td>${esc(p.use)}</td>
-        <td style="font-size:11px">${esc(p.rate)}</td>
-        <td style="font-size:11px">${esc(p.timing)}</td>
-        <td style="font-size:11px">${esc(p.notes)}</td>
+        <td>${esc(p.rate)}</td>
+        <td>${esc(p.timing)}</td>
+        <td>${esc(p.notes)}</td>
       </tr>`;
     });
     html += `</tbody></table>`;

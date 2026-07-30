@@ -21,7 +21,7 @@ function showSubmitProgress(message, pct) {
       'position:absolute','bottom:0','left:0','right:0',
       'background:rgba(31,78,61,0.96)','color:#fff',
       'padding:10px 16px','font-family:Arial,sans-serif',
-      'font-size:13px','display:flex','align-items:center','gap:12px',
+      'font-size:var(--fs-body)','display:flex','align-items:center','gap:12px',
       'z-index:10'
     ].join(';');
     bar.innerHTML = `

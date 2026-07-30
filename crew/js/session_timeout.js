@@ -162,7 +162,7 @@
       'transform:translateX(-50%)',
       'background:#8B6914', 'color:#fff',
       'padding:12px 20px', 'border-radius:8px',
-      'font-family:Arial,sans-serif', 'font-size:13px',
+      'font-family:Arial,sans-serif', 'font-size:var(--fs-body)',
       'z-index:9999', 'display:flex', 'align-items:center',
       'gap:12px', 'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
       'max-width:320px', 'text-align:center',
@@ -175,7 +175,7 @@
                        window._sessionWarningEl=null;"
               style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);
                      color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;
-                     font-family:Arial,sans-serif;font-size:12px;white-space:nowrap">
+                     font-family:Arial,sans-serif;font-size:var(--fs-body);white-space:nowrap">
         Stay signed in
       </button>`;
 

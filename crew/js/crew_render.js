@@ -435,11 +435,16 @@ function renderBrief(wrapId, team) {
       });
 
       if (hasTimeOff) {
-        body += `<div class="bsec-sublabel">&#127774; Time Off</div>`;
-        ac.time_off.forEach(t => {
-          const hoursStr = t.hours ? ` (${esc(t.hours)})` : '';
-          body += `<div class="note-item"><strong>${esc(t.name)}</strong> &mdash; ${esc(t.dates)}${hoursStr}</div>`;
-        });
+        body += `<div class="bsec-sublabel toc-toggle" onclick="toggleTimeOff();event.stopPropagation()">
+          &#127774; Time Off (${ac.time_off.length})
+          <span class="toc-arrow">${timeOffOpen ? '&#9660;' : '&#9654;'}</span>
+        </div>`;
+        if (timeOffOpen) {
+          ac.time_off.forEach(t => {
+            const hoursStr = t.hours ? ` (${esc(t.hours)})` : '';
+            body += `<div class="note-item"><strong>${esc(t.name)}</strong> &mdash; ${esc(t.dates)}${hoursStr}</div>`;
+          });
+        }
       }
 
       if (hasBdays) {
@@ -457,7 +462,7 @@ function renderBrief(wrapId, team) {
       if (hasEvents) {
         body += `<div class="bsec-sublabel">&#128197; Upcoming</div>`;
         ac.special_events.forEach(e => {
-          body += `<div class="note-item">${esc(e.title)} <span style="opacity:0.65;font-size:11px">${esc(e.date)}</span></div>`;
+          body += `<div class="note-item">${esc(e.title)} <span style="opacity:0.65;font-size:var(--fs-small)">${esc(e.date)}</span></div>`;
         });
       }
 
@@ -491,6 +496,19 @@ function toggleBrief(team) {
   briefOpen[team] = !briefOpen[team];
   sessionStorage.setItem('mg_brief_open', JSON.stringify(briefOpen));
   renderBrief(`brief-${team}`, team);
+}
+
+// Time Off is shared All-Crew data (not team-specific), so it's hidden
+// behind one toggle rather than per-team, and starts collapsed each
+// page load. Toggling re-renders every brief panel currently in the
+// DOM (including hidden team tabs) so they all stay in sync.
+let timeOffOpen = false;
+
+function toggleTimeOff() {
+  timeOffOpen = !timeOffOpen;
+  ['t1', 't2', 't3', 'install', 'managers'].forEach(team => {
+    if (document.getElementById(`brief-${team}`)) renderBrief(`brief-${team}`, team);
+  });
 }
 
 
@@ -796,7 +814,7 @@ function buildTabs() {
     const msg = calStatus.includes('error') ? calStatus.replace('Calendar: ','') :
                 calStatus.includes('live')  ? 'No events found in window' :
                 'Loading calendar…';
-    el.innerHTML = `<div style="padding:10px 16px;font-family:'DM Mono',monospace;font-size:10px;color:var(--ink3);letter-spacing:0.06em">${msg}</div>`;
+    el.innerHTML = `<div style="padding:10px 16px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);letter-spacing:0.06em">${msg}</div>`;
     return;
   }
 
@@ -850,11 +868,6 @@ function render() {
   if (document.getElementById('managers-jobs')) {
     renderManagerPanel();
   }
-
-  document.getElementById('t1-hrs').textContent = calcHrs(d.t1);
-  document.getElementById('t2-hrs').textContent = calcHrs(d.t2);
-  document.getElementById('t3-hrs').textContent = calcHrs(d.t3);
-  document.getElementById('install-hrs').textContent = calcHrs(d.tInstall);
 
   const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].filter(j => j.type !== 'load-in');
   const prog      = all.filter(j => statuses[j.id] === 'inprogress').length;
@@ -919,7 +932,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   if (resolved) {
     // ── Confirmed client ───────────────────────────────────
     const changeLink = clientOverrides[_overrideKey(cardId)]
-      ? ` <a href="#" style="font-size:10px;color:var(--ink3);text-decoration:underline;margin-left:8px"
+      ? ` <a href="#" style="font-size:var(--fs-label);color:var(--ink3);text-decoration:underline;margin-left:8px"
              onclick="clearClientOverride('${cardId}');event.preventDefault()">&#215; change</a>`
       : '';
     html += `
@@ -939,7 +952,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   } else if (sc && !sc._ambiguous) {
     // ── Single unambiguous match ───────────────────────────
     // (Shouldn't reach here via buildClientBlock but kept as safety)
-    html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:11px">Matched</span></div>`;
+    html += `<div class="drow"><span class="dlabel">Sheet</span><span class="dval" style="color:var(--ink3);font-size:var(--fs-small)">Matched</span></div>`;
 
   } else {
     // ── Ambiguous or no match — same search picker ────────

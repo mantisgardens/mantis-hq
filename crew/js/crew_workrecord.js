@@ -230,7 +230,7 @@ function openWorkRecord(jobId) {
               // Both attempts failed — show a reload prompt in the fert/materials area
               // so the crew member knows the lists didn't load rather than silently
               // rendering empty text inputs that look like the dropdowns are just missing.
-              const msg = `<div style="padding:8px;color:var(--warn,#b45309);font-size:13px">
+              const msg = `<div style="padding:8px;color:var(--warn,#b45309);font-size:var(--fs-body)">
                 ⚠ Product lists didn't load.
                 <a href="javascript:void(0)" onclick="location.reload()"
                    style="color:inherit;font-weight:bold;text-decoration:underline">Reload page</a>
@@ -702,7 +702,7 @@ function makeIrrRow(item, qty, unit) {
             list="dl-irr-global" style="flex:3" value="${esc(item||'')}"/>
     <select class="form-input irr-select" style="flex:3;display:none">${optHtml}</select>
     <button class="btn-link irr-toggle" type="button"
-            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
+            style="font-size:var(--fs-small);padding:0 4px;white-space:nowrap">list</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
@@ -788,7 +788,7 @@ function makeOtherMatRow(item, qty, unit) {
             list="dl-other-global" style="flex:3" value="${esc(item||'')}"/>
     <select class="form-input other-select" style="flex:3;display:none">${optHtml}</select>
     <button class="btn-link other-toggle" type="button"
-            style="font-size:11px;padding:0 4px;white-space:nowrap">list</button>
+            style="font-size:var(--fs-small);padding:0 4px;white-space:nowrap">list</button>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
     <input class="form-input" type="text" placeholder="Unit"
@@ -841,7 +841,7 @@ function makeFertRow(item, qty, unit) {
   row.className = 'dynamic-row';
 
   row.innerHTML = `
-    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer / Spray"
+    <input class="form-input fert-item-input" type="text" placeholder="Fertilizer / Spray / Bulk"
            list="dl-fert-global" value="${esc(item||'')}" style="flex:3"/>
     <input class="form-input" type="text" placeholder="Qty"
            value="${esc(qty||'')}" style="flex:1;max-width:72px"/>
@@ -896,7 +896,8 @@ function addMaterial(item, qty, unit) {
 // ── Photo settings ────────────────────────────────────────────
 const PHOTO_MAX_DIM  = 1600;   // max width or height in pixels
 const PHOTO_QUALITY  = 0.80;   // JPEG quality 0–1
-const PHOTO_MAX_COUNT = 5;     // warn if more than this selected
+const PHOTO_MAX_COUNT = 30;    // warn if more than this selected
+const PHOTO_BATCH_SIZE = 5;    // photos are uploaded in batches of this size
 
 // ── Compress a File to a JPEG data URL via canvas ─────────────
 function compressPhoto(file) {
@@ -938,11 +939,13 @@ function handlePhotos(e) {
     return;
   }
 
-  files.forEach(file => {
-    photoFiles.push(file);
+  files.forEach(file => photoFiles.push(file));
 
-    // Compress and show thumbnail
-    compressPhoto(file).then(dataUrl => {
+  // Renders one file's thumbnail. Returns a promise that resolves once
+  // the thumbnail (or its uncompressed fallback) is in the DOM, so a
+  // batch of these can be awaited together via Promise.all.
+  function renderThumb(file) {
+    return compressPhoto(file).then(dataUrl => {
       const wrap = document.createElement('div');
       wrap.className = 'photo-thumb-wrap';
       wrap.innerHTML = `
@@ -958,7 +961,7 @@ function handlePhotos(e) {
       const origMb = (file.size / 1024 / 1024).toFixed(1);
       const sizeLabel = wrap.querySelector('.photo-size-label');
       if (sizeLabel) sizeLabel.textContent = `${origMb}MB → ~${compressedKb}KB`;
-    }).catch(() => {
+    }).catch(() => new Promise(res => {
       // Fallback: show without compression
       const reader = new FileReader();
       reader.onload = ev => {
@@ -966,10 +969,24 @@ function handlePhotos(e) {
         img.className = 'photo-thumb';
         img.src = ev.target.result;
         previews.appendChild(img);
+        res();
       };
+      reader.onerror = () => res();
       reader.readAsDataURL(file);
-    });
-  });
+    }));
+  }
+
+  // Render thumbnails in chunks of PHOTO_BATCH_SIZE, one chunk at a time,
+  // rather than firing a canvas compress for every selected file at once.
+  // Selecting a large batch (up to PHOTO_MAX_COUNT) would otherwise spike
+  // memory on the crew member's phone well before Submit is even tapped —
+  // this bounds peak concurrent image decodes the same way the upload
+  // step (submitAllPhotoBatches, below) already bounds upload concurrency.
+  let chain = Promise.resolve();
+  for (let i = 0; i < files.length; i += PHOTO_BATCH_SIZE) {
+    const chunk = files.slice(i, i + PHOTO_BATCH_SIZE);
+    chain = chain.then(() => Promise.all(chunk.map(renderThumb)));
+  }
 }
 
 function removePhoto(btn, fileName) {
@@ -1151,43 +1168,82 @@ function submitForm() {
   // POST to Apps Script if configured
   if (SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
 
-    // Compress photos via canvas then encode as base64
-    const encodePhotos = () => {
-      if (!photoFiles.length) return Promise.resolve([]);
-      return Promise.all(photoFiles.map(file =>
-        compressPhoto(file).then(dataUrl => ({
-          name:     file.name.replace(/\.heic$/i, '.jpg'),  // HEIC → JPEG on output
-          mimeType: 'image/jpeg',
-          base64:   dataUrl.split(',')[1],
-        })).catch(() => new Promise((res, rej) => {
-          // Fallback to uncompressed if canvas fails
-          const reader = new FileReader();
-          reader.onload  = e => res({
-            name:     file.name,
-            mimeType: file.type || 'image/jpeg',
-            base64:   e.target.result.split(',')[1],
-          });
-          reader.onerror = rej;
-          reader.readAsDataURL(file);
-        }))
-      ));
-    };
+    // Photos are sent separately, after the main record succeeds — see below.
+    data.photos = [];
+    data.cachedFolderId = _folderIdCache[data.client] || null;
+    const idToken   = sessionStorage.getItem('mg_id_token') || '';
+    const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
-    encodePhotos()
-      .then(photos => {
-        data.photos = photos;
-        data.cachedFolderId = _folderIdCache[data.client] || null;
-        showSubmitProgress('Uploading to Drive…', 50);
-        const idToken   = sessionStorage.getItem('mg_id_token') || '';
-        const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
-        return fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
-          method:  'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body:    JSON.stringify(data),
+    // Compress + encode one batch (≤ PHOTO_BATCH_SIZE files) as base64.
+    const encodeBatch = files => Promise.all(files.map(file =>
+      compressPhoto(file).then(dataUrl => ({
+        name:     file.name.replace(/\.heic$/i, '.jpg'),  // HEIC → JPEG on output
+        mimeType: 'image/jpeg',
+        base64:   dataUrl.split(',')[1],
+      })).catch(() => new Promise((res, rej) => {
+        // Fallback to uncompressed if canvas fails
+        const reader = new FileReader();
+        reader.onload  = e => res({
+          name:     file.name,
+          mimeType: file.type || 'image/jpeg',
+          base64:   e.target.result.split(',')[1],
         });
-      })
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      }))
+    ));
+
+    // Encodes and POSTs a single batch to the photos-only endpoint.
+    const submitPhotoBatch = files => encodeBatch(files).then(photos => {
+      const batchData = {
+        client: data.client, date: data.date,
+        cachedFolderId: data.cachedFolderId, histId: data.histId,
+        photos,
+      };
+      return fetch(`${SCRIPT_URL}?action=submitWorkRecordPhotos${authParam}`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body:    JSON.stringify(batchData),
+      }).then(r => r.json());
+    });
+
+    // Uploads all selected photos in batches of PHOTO_BATCH_SIZE, one
+    // batch at a time (not in parallel). Only one batch is ever
+    // compressed/held in memory at once, and a dropped connection or
+    // server error only costs that batch — everything already uploaded
+    // stays uploaded, and the record itself is unaffected either way
+    // since the Doc/Notes/Invoice row were already saved by the main POST.
+    function submitAllPhotoBatches() {
+      if (!photoFiles.length) return Promise.resolve({ uploaded: 0, total: 0, failed: false });
+      const batches = [];
+      for (let i = 0; i < photoFiles.length; i += PHOTO_BATCH_SIZE) {
+        batches.push(photoFiles.slice(i, i + PHOTO_BATCH_SIZE));
+      }
+      let uploaded = 0;
+      let failed   = false;
+      let chain    = Promise.resolve();
+      batches.forEach((batch, idx) => {
+        chain = chain.then(() => {
+          if (failed) return;
+          const from = uploaded + 1;
+          const to   = Math.min(uploaded + batch.length, photoFiles.length);
+          showSubmitProgress(`Uploading photos ${from}\u2013${to} of ${photoFiles.length}\u2026`,
+            50 + Math.round(40 * idx / batches.length));
+          return submitPhotoBatch(batch)
+            .then(json => { if (json && json.error) failed = true; else uploaded += batch.length; })
+            .catch(()  => { failed = true; });
+        });
+      });
+      return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
+    }
+
+    fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body:    JSON.stringify(data),
+    })
       .then(r => {
-        showSubmitProgress('Saving documents…', 80);
+        showSubmitProgress('Saving documents…', 45);
         return r.json();
       })
       .then(json => {
@@ -1203,29 +1259,39 @@ function submitForm() {
           if (submitBtn) { submitBtn.disabled = false; }
           return;
         }
-        // Clear checklist state for this job
-        if (currentJobId) delete _checklistStates[currentJobId];
-        const panel = document.getElementById('checklist-panel');
-        if (panel) {
-          panel.style.display = 'none';
-          panel.dataset.jobId = '';
-          panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
-        }
-        savedRecords[currentJobId] = {
-          submitted: true,
-          savedAt:   new Date().toISOString(),
-          client:    data.client || '',
-          date:      data.date   || '',
-        };
-        safeLocalSave();
 
-        showSubmitProgress('Done ✓', 100);
-        if (currentJobId) setSt(currentJobId, 'done');
-        setTimeout(() => {
-          hideSubmitProgress();
-          showToast('Submitted ✓');
-          setTimeout(() => closeModal(), 1500);
-        }, 600);
+        // Main record saved — now upload photos in batches (if any).
+        return submitAllPhotoBatches().then(({ uploaded, total, failed }) => {
+          // Clear checklist state for this job
+          if (currentJobId) delete _checklistStates[currentJobId];
+          const panel = document.getElementById('checklist-panel');
+          if (panel) {
+            panel.style.display = 'none';
+            panel.dataset.jobId = '';
+            panel.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+          }
+          savedRecords[currentJobId] = {
+            submitted: true,
+            savedAt:   new Date().toISOString(),
+            client:    data.client || '',
+            date:      data.date   || '',
+          };
+          safeLocalSave();
+          if (currentJobId) setSt(currentJobId, 'done');
+
+          if (failed && total > 0) {
+            hideSubmitProgress();
+            showToast(`Record saved — ${uploaded} of ${total} photos uploaded. Re-open the job to try attaching the rest.`, 8000);
+            setTimeout(() => closeModal(), 3000);
+          } else {
+            showSubmitProgress('Done ✓', 100);
+            setTimeout(() => {
+              hideSubmitProgress();
+              showToast('Submitted ✓');
+              setTimeout(() => closeModal(), 1500);
+            }, 600);
+          }
+        });
       })
       .catch(err => {
         console.error('Submit error:', err);
