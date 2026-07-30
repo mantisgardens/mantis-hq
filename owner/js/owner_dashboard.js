@@ -304,6 +304,15 @@ async function loadAll() {
 // SECTION 4 — TAB NAVIGATION
 // =============================================================
 function switchTab(tab) {
+  // If leaving the Notes tab with unsaved changes, discard them and
+  // restore the last-loaded/saved state. The owner explicitly did not
+  // click Save, so returning to this tab later should show the real
+  // saved notes, not a lingering edit that only ever existed in memory.
+  const leavingNotesDirty = tab !== 'notes'
+    && document.getElementById('tab-notes').classList.contains('active')
+    && notesDirty;
+  if (leavingNotesDirty) discardUnsavedNotes();
+
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
@@ -311,6 +320,14 @@ function switchTab(tab) {
   // Lazy-load on first visit
   if (tab === 'notes'   && !notesData)    loadNotes();
   if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
+}
+
+function discardUnsavedNotes() {
+  if (notesPristine) notesData = JSON.parse(JSON.stringify(notesPristine));
+  notesDirty = false;
+  const btn = document.getElementById('notes-save-btn');
+  if (btn) btn.classList.remove('unsaved');
+  if (currentTeam === 'leads') renderLeadsEditor(); else renderNotesEditor();
 }
 
 // =============================================================
@@ -714,14 +731,311 @@ function docRow(d) {
 // SECTION 8 — MORNING NOTES TAB
 // =============================================================
 
-let notesData    = null;   // { t1, t2, t3, install } — sections per team
-let currentTeam  = 't1';   // which team tab is active
-let notesDirty   = false;  // unsaved changes flag
+let notesData     = null;   // { t1, t2, t3, install } — sections per team
+let notesPristine = null;   // deep-cloned snapshot of the last loaded/saved state
+let currentTeam   = 't1';   // which team tab is active
+let notesDirty    = false;  // unsaved changes flag
 
 const NOTES_TEAM_LABELS = {
   t1: 'Maint Team 1', t2: 'Maint Team 2', t3: 'Maint Team 3',
   install: 'Install', allcrew: 'All Crew', managers: 'Managers', leads: 'Leads'
 };
+
+// ── Note item rich-text sanitizer ───────────────────────────────
+// Note items are stored as small HTML fragments (bold/italic/font-size/
+// color only) instead of plain text, so the owner can format them via
+// the Note Editor popup below. This allow-list keeps that safe and
+// keeps the stored HTML predictable — nothing else survives a save,
+// including anything pasted in from elsewhere. It's applied again at
+// render time too (defensively — in case a cell was ever hand-edited
+// directly in Google Sheets rather than through this editor).
+const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
+function sanitizeNoteHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+
+  function walk(parent) {
+    let node = parent.firstChild;
+    while (node) {
+      const next = node.nextSibling;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
+          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
+            parent.removeChild(node);
+            node = next;
+            continue;
+          }
+          // Disallowed element — unwrap it, keep its text/children
+          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+          parent.removeChild(node);
+        } else {
+          if (node.tagName === 'SPAN') {
+            const color    = node.style.color;
+            const fontSize = node.style.fontSize;
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            let style = '';
+            if (color)    style += `color:${color};`;
+            if (fontSize) style += `font-size:${fontSize};`;
+            if (style) {
+              node.setAttribute('style', style);
+              walk(node);
+            } else {
+              // Empty span (no allowed style survived) — unwrap
+              while (node.firstChild) parent.insertBefore(node.firstChild, node);
+              parent.removeChild(node);
+            }
+          } else {
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            walk(node);
+          }
+        }
+      } else if (node.nodeType !== Node.TEXT_NODE) {
+        parent.removeChild(node); // comments, etc.
+      }
+      node = next;
+    }
+  }
+  walk(tmp);
+  return tmp.innerHTML.trim();
+}
+
+// ── Note Editor popup ────────────────────────────────────────────
+// Opens on click of any note item (team sections or leads columns).
+// Minimal toolbar — bold, italic, three font sizes, and a small preset
+// color palette — applied via the Selection API rather than the
+// deprecated document.execCommand, so the output is exactly the
+// b/i/span[style] markup sanitizeNoteHtml() expects.
+let _neTarget = null; // { kind:'section', si, ii } or { kind:'lead', ci, ii }
+
+function openNoteEditor(si, ii) {
+  _neTarget = { kind: 'section', si, ii };
+  const item = notesData[currentTeam][si].items[ii] || '';
+  _openNoteEditorModal(item);
+}
+
+function openNoteEditorLead(ci, ii) {
+  _neTarget = { kind: 'lead', ci, ii };
+  const item = notesData.leads.columns[ci][ii] || '';
+  _openNoteEditorModal(item);
+}
+
+function _openNoteEditorModal(item) {
+  const canvas = document.getElementById('note-editor-canvas');
+  canvas.innerHTML = sanitizeNoteHtml(item);
+  _neActiveSpan = null;
+  document.getElementById('note-editor-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  canvas.focus();
+}
+
+function closeNoteEditor(e) {
+  if (e && e.target !== document.getElementById('note-editor-modal')) return;
+  document.getElementById('note-editor-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _neTarget = null;
+}
+
+function saveNoteEditor() {
+  if (!_neTarget) return;
+  const canvas = document.getElementById('note-editor-canvas');
+  const clean  = sanitizeNoteHtml(canvas.innerHTML);
+  const target = _neTarget;
+  if (target.kind === 'section') {
+    updateItem(target.si, target.ii, clean);
+  } else {
+    updateLeadItem(target.ci, target.ii, clean);
+  }
+  document.getElementById('note-editor-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _neTarget = null;
+  if (target.kind === 'lead') renderLeadsEditor(); else renderNotesEditor();
+}
+
+// Wraps the current selection inside the canvas with a new element built
+// by makeEl(). With nothing selected, wraps the whole note instead —
+// friendlier for these short single-line items than requiring a select-all.
+function neWrapSelection(makeEl) {
+  const canvas = document.getElementById('note-editor-canvas');
+  const sel = window.getSelection();
+  let range = null;
+  if (sel.rangeCount) {
+    const r = sel.getRangeAt(0);
+    if (canvas.contains(r.commonAncestorContainer) && !r.collapsed) range = r;
+  }
+  if (!range) {
+    range = document.createRange();
+    range.selectNodeContents(canvas);
+  }
+  const el = makeEl();
+  try {
+    range.surroundContents(el);
+  } catch (e) {
+    // surroundContents throws if the range's boundaries cross element
+    // edges awkwardly — fall back to extract-then-wrap.
+    const frag = range.extractContents();
+    el.appendChild(frag);
+    range.insertNode(el);
+  }
+  const newRange = document.createRange();
+  newRange.selectNodeContents(el);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  canvas.focus();
+}
+
+function neBold()          { neWrapSelection(() => document.createElement('b')); }
+function neItalic()        { neWrapSelection(() => document.createElement('i')); }
+function neSize(size)      { neApplyStyle('fontSize', size); }
+function neColor(color)    { neApplyStyle('color', color); }
+
+// Size ladder for the -/+ buttons. 1 (normal) stores no font-size at
+// all — same as today's untouched text. Each click steps one notch
+// from wherever the current selection actually is, so repeated clicks
+// keep growing/shrinking instead of snapping between two fixed values
+// (which only ever looked like it worked "once": a second "+" click
+// just reapplied the same 1.3em on top of itself, with no visible
+// change).
+const NE_SIZE_STEPS = [0.7, 0.85, 1, 1.15, 1.3, 1.5, 1.75];
+
+function neSizeStep(dir) {
+  const canvas = document.getElementById('note-editor-canvas');
+  let currentEm = 1;
+
+  if (_neActiveSpan && _neActiveSpan.style.fontSize) {
+    currentEm = parseFloat(_neActiveSpan.style.fontSize) || 1;
+  } else {
+    // Walk up from the current selection to find the nearest element
+    // (within the canvas) that already has an explicit font-size.
+    const sel = window.getSelection();
+    if (sel.rangeCount) {
+      let node = sel.getRangeAt(0).startContainer;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+      while (node && node !== canvas && canvas.contains(node)) {
+        if (node.nodeType === Node.ELEMENT_NODE && node.style && node.style.fontSize) {
+          currentEm = parseFloat(node.style.fontSize) || 1;
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+  }
+
+  let idx = 0, bestDist = Infinity;
+  NE_SIZE_STEPS.forEach((v, i) => {
+    const d = Math.abs(v - currentEm);
+    if (d < bestDist) { bestDist = d; idx = i; }
+  });
+  idx = Math.max(0, Math.min(NE_SIZE_STEPS.length - 1, idx + dir));
+  const newVal = NE_SIZE_STEPS[idx];
+  neApplyStyle('fontSize', newVal === 1 ? '' : newVal + 'em');
+}
+
+function neSizeUp()   { neSizeStep(1); }
+function neSizeDown() { neSizeStep(-1); }
+
+// Tracks the span currently being edited by consecutive size/color
+// toolbar clicks, so the second, third, etc. click updates that same
+// span instead of nesting a new one. This is deliberately NOT derived
+// from window.getSelection() on each click — the selection state left
+// behind after a DOM mutation (surroundContents/insertNode) is exactly
+// the kind of thing that varies subtly across engines, and got this
+// wrong badly in testing (a later click resolved against the wrong
+// ancestor and wrapped the *entire note* instead of just the word).
+// An explicit variable, reset whenever the owner actually changes their
+// selection in the canvas, is simple and unambiguous instead.
+let _neActiveSpan = null;
+
+function neResetActiveSpan() { _neActiveSpan = null; }
+
+// Narrow, safe check: does the current selection consist of exactly one
+// text node, whose entire content is selected, whose parent is a <span>
+// with no other children? If so return that span. Deliberately does NOT
+// also match at the element-boundary level (e.g. a range produced by
+// selectNodeContents on the span itself) — that broader version existed
+// briefly and occasionally resolved against the wrong ancestor,
+// corrupting the whole note instead of just the selected word.
+function _neExactSpanForSelection(canvas) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  const s = range.startContainer;
+  if (s !== range.endContainer || s.nodeType !== Node.TEXT_NODE) return null;
+  const span = s.parentNode;
+  if (!span || span.tagName !== 'SPAN' || span.childNodes.length !== 1) return null;
+  if (range.startOffset !== 0 || range.endOffset !== s.length) return null;
+  if (!canvas.contains(span)) return null;
+  return span;
+}
+
+// If the current selection is exactly the contents of a single <span>
+// (e.g. re-clicking a size or color button on a word already styled by
+// a previous click), update that span's property in place rather than
+// wrapping it in a second, nested span. Nesting is both messy markup
+// and actively wrong for font-size specifically — nested "em" values
+// compound multiplicatively instead of the later click just replacing
+// the earlier one.
+function neApplyStyle(prop, value) {
+  const canvas = document.getElementById('note-editor-canvas');
+
+  // If we're not already tracking a span from earlier clicks, check
+  // whether the owner's current manual selection happens to be exactly
+  // the contents of an existing span (e.g. they closed and reopened, or
+  // clicked elsewhere and came back to a word already styled from a
+  // previous save). Deliberately narrow: only matches when the
+  // selection boundary is the text node itself, never derived from an
+  // element boundary — that broader check was what caused an earlier
+  // version of this to occasionally resolve against the wrong ancestor
+  // and style the entire note instead of one word.
+  if (!_neActiveSpan || !canvas.contains(_neActiveSpan)) {
+    _neActiveSpan = _neExactSpanForSelection(canvas);
+  }
+
+  if (_neActiveSpan && canvas.contains(_neActiveSpan)) {
+    if (value) _neActiveSpan.style[prop] = value;
+    else _neActiveSpan.style[prop] = '';
+    // Deliberately NOT unwrapping/removing the span here even if it now
+    // has no meaningful style left — doing so would lose track of
+    // exactly which text is being edited, so the *next* click (e.g.
+    // growing the size again after shrinking to normal) would have
+    // nothing to reuse and would fall back to styling the whole note
+    // instead of just this word. A style-less span is visually inert
+    // (identical to plain text) while editing, and sanitizeNoteHtml()
+    // already strips it automatically on save and on every render, so
+    // nothing empty ever actually persists.
+    canvas.focus();
+    return;
+  }
+
+  // No span currently being edited — wrap the current selection (or the
+  // whole note, if nothing is selected) in a fresh span, and remember it
+  // so subsequent clicks (until the owner picks a new selection) update
+  // this same span instead of nesting another one.
+  const sel = window.getSelection();
+  let range = null;
+  if (sel.rangeCount) {
+    const r = sel.getRangeAt(0);
+    if (canvas.contains(r.commonAncestorContainer) && !r.collapsed) range = r;
+  }
+  if (!range) {
+    range = document.createRange();
+    range.selectNodeContents(canvas);
+  }
+  const el = document.createElement('span');
+  if (value) el.style[prop] = value;
+  try {
+    range.surroundContents(el);
+  } catch (e) {
+    const frag = range.extractContents();
+    el.appendChild(frag);
+    range.insertNode(el);
+  }
+  _neActiveSpan = el;
+  const newRange = document.createRange();
+  newRange.selectNodeContents(el);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  canvas.focus();
+}
 
 async function loadNotes() {
   setStatus('notes', 'loading', 'Notes: loading…');
@@ -730,6 +1044,7 @@ async function loadNotes() {
   try {
     const data = await ownerFetch('ownerGetNotes');
     notesData  = data.tabs || { t1: [], t2: [], t3: [], install: [] };
+    notesPristine = JSON.parse(JSON.stringify(notesData));
     setStatus('notes', 'live', 'Notes: loaded');
     renderNotesEditor();
   } catch(err) {
@@ -741,7 +1056,19 @@ async function loadNotes() {
 function switchNotesTeam(team) {
   if (notesDirty) {
     if (!confirm('You have unsaved changes. Switch team anyway?')) return;
+    // Revert the team/leads being left back to its last-saved state —
+    // clearing the dirty flag alone would leave the in-memory edit
+    // sitting there, so switching back to it later would still show it.
+    if (notesPristine) {
+      if (currentTeam === 'leads') {
+        notesData.leads = JSON.parse(JSON.stringify(notesPristine.leads));
+      } else {
+        notesData[currentTeam] = JSON.parse(JSON.stringify(notesPristine[currentTeam] || []));
+      }
+    }
     notesDirty = false;
+    const btn = document.getElementById('notes-save-btn');
+    if (btn) btn.classList.remove('unsaved');
   }
   currentTeam = team;
   document.querySelectorAll('.notes-tab').forEach(btn => {
@@ -788,9 +1115,11 @@ function renderLeadsEditor() {
       <div class="leads-items" id="lead-col-${ci}">`;
     items.forEach((item, ii) => {
       html += `<div class="notes-item-row">
-        <input class="notes-item-input" value="${esc(item)}"
-          oninput="updateLeadItem(${ci},${ii},this.value)"
-          onkeydown="leadItemKeydown(event,${ci},${ii})"/>
+        <div class="notes-item-input" onclick="openNoteEditorLead(${ci},${ii})">${noteItemPreviewHtml(item)}</div>
+        <div class="notes-item-move">
+          <button class="notes-item-move-btn" onclick="moveLeadItem(${ci},${ii},-1)" title="Move up" ${ii === 0 ? 'disabled' : ''}>&#9650;</button>
+          <button class="notes-item-move-btn" onclick="moveLeadItem(${ci},${ii},1)" title="Move down" ${ii === items.length - 1 ? 'disabled' : ''}>&#9660;</button>
+        </div>
         <button class="notes-item-del" onclick="deleteLeadItem(${ci},${ii})" title="Remove">&#10005;</button>
       </div>`;
     });
@@ -812,8 +1141,7 @@ function addLeadItem(ci) {
   notesData.leads.columns[ci].push('');
   markDirty();
   renderLeadsEditor();
-  const inputs = document.querySelectorAll(`#lead-col-${ci} .notes-item-input`);
-  if (inputs.length) inputs[inputs.length - 1].focus();
+  openNoteEditorLead(ci, notesData.leads.columns[ci].length - 1);
 }
 
 function deleteLeadItem(ci, ii) {
@@ -822,20 +1150,25 @@ function deleteLeadItem(ci, ii) {
   renderLeadsEditor();
 }
 
-function leadItemKeydown(e, ci, ii) {
-  if (e.key === 'Enter') { e.preventDefault(); addLeadItem(ci); }
-  else if (e.key === 'Backspace' && e.target.value === '') {
-    e.preventDefault(); deleteLeadItem(ci, ii);
-  }
+function moveLeadItem(ci, ii, dir) {
+  const arr = notesData.leads.columns[ci];
+  const jj = ii + dir;
+  if (!arr || jj < 0 || jj >= arr.length) return;
+  [arr[ii], arr[jj]] = [arr[jj], arr[ii]];
+  markDirty();
+  renderLeadsEditor();
 }
 
 function noteSectionHtml(sec, si) {
-  const items = (sec.items || []).map((item, ii) => `
+  const items = (sec.items || []);
+  const itemsHtml = items.map((item, ii) => `
     <div class="notes-item-row" data-si="${si}" data-ii="${ii}">
       <span class="notes-bullet">•</span>
-      <input class="notes-item-input" value="${esc(item)}"
-        oninput="updateItem(${si},${ii},this.value)"
-        onkeydown="itemKeydown(event,${si},${ii})"/>
+      <div class="notes-item-input" onclick="openNoteEditor(${si},${ii})">${noteItemPreviewHtml(item)}</div>
+      <div class="notes-item-move">
+        <button class="notes-item-move-btn" onclick="moveItem(${si},${ii},-1)" title="Move up" ${ii === 0 ? 'disabled' : ''}>&#9650;</button>
+        <button class="notes-item-move-btn" onclick="moveItem(${si},${ii},1)" title="Move down" ${ii === items.length - 1 ? 'disabled' : ''}>&#9660;</button>
+      </div>
       <button class="notes-item-del" onclick="deleteItem(${si},${ii})" title="Remove">&#10005;</button>
     </div>`).join('');
 
@@ -847,10 +1180,19 @@ function noteSectionHtml(sec, si) {
       <button class="notes-section-del" onclick="deleteSection(${si})" title="Delete section">&#128465;</button>
     </div>
     <div class="notes-items" id="items-${si}">
-      ${items}
+      ${itemsHtml}
     </div>
     <button class="notes-add-item" onclick="addItem(${si})">+ Add item</button>
   </div>`;
+}
+
+// Shows a placeholder for empty items, otherwise the item's sanitized
+// rich-text HTML (re-sanitized on every render — defensive, in case the
+// sheet cell was ever edited directly in Google Sheets rather than
+// through this editor).
+function noteItemPreviewHtml(item) {
+  const clean = sanitizeNoteHtml(item || '');
+  return clean || `<span class="notes-item-placeholder">Click to add note…</span>`;
 }
 
 function markDirty() {
@@ -889,9 +1231,8 @@ function addItem(si) {
   notesData[currentTeam][si].items.push('');
   markDirty();
   renderNotesEditor();
-  // Focus the new item input
-  const inputs = document.querySelectorAll(`#items-${si} .notes-item-input`);
-  if (inputs.length) inputs[inputs.length - 1].focus();
+  const newIndex = notesData[currentTeam][si].items.length - 1;
+  openNoteEditor(si, newIndex);
 }
 
 function deleteItem(si, ii) {
@@ -900,17 +1241,13 @@ function deleteItem(si, ii) {
   renderNotesEditor();
 }
 
-function itemKeydown(e, si, ii) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    addItem(si);
-  } else if (e.key === 'Backspace') {
-    const input = e.target;
-    if (input.value === '') {
-      e.preventDefault();
-      deleteItem(si, ii);
-    }
-  }
+function moveItem(si, ii, dir) {
+  const arr = notesData[currentTeam][si].items;
+  const jj = ii + dir;
+  if (!arr || jj < 0 || jj >= arr.length) return;
+  [arr[ii], arr[jj]] = [arr[jj], arr[ii]];
+  markDirty();
+  renderNotesEditor();
 }
 
 async function saveNotes() {
@@ -927,6 +1264,16 @@ async function saveNotes() {
     await ownerPost('ownerSaveNotes', payload);
     notesDirty = false;
     if (btn) btn.classList.remove('unsaved');
+    // Only the currently-selected team/leads was actually persisted —
+    // update just that slice of the pristine snapshot, not the whole
+    // thing, so other teams' last-known-saved state stays accurate.
+    if (notesPristine) {
+      if (currentTeam === 'leads') {
+        notesPristine.leads = JSON.parse(JSON.stringify(notesData.leads));
+      } else {
+        notesPristine[currentTeam] = JSON.parse(JSON.stringify(notesData[currentTeam] || []));
+      }
+    }
     setStatus('notes', 'live', 'Notes: saved ✓');
     showToast('Notes saved ✓');
   } catch(err) {
