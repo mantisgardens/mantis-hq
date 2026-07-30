@@ -3,9 +3,35 @@
    Mantis Gardens — Owner Portal
 
    Sections:
-     1. Typography (fonts & size scale) — EDIT SIZES HERE
-     2. CSS Variables & Reset
-     3. (page-specific styles below)
+     1.  Typography (fonts & size scale) — EDIT SIZES HERE
+     2.  CSS Variables & Reset
+     3.  Login Page
+     4.  Header
+     5.  Nav Tabs
+     6.  Status Bar
+     7.  Content & Tabs
+     8.  Schedule (week nav, day-card grid, team sections, job pills)
+     9.  Client List
+     10. Work Records
+     11. Work Documents
+     12. Morning Notes (notes editor, leads grid)
+     13. Client Profile Modal
+     14. Modals
+     15. Form Elements
+     16. Modal Buttons
+     17. Empty State
+     18. Toast
+     19. Responsive
+     20. Crew Login Log
+     21. Danger Action Button (Crew Logins Clear)
+     22. Note Editor Popup
+
+   This directory used to just say "3. (page-specific styles below)"
+   even though the file already had ~19 separately-named sections —
+   they used a different, unnumbered comment style ("── NAME ──")
+   than sections 1-2's numbered banners, so nothing above matched
+   what was actually here. Filled in for real; keep this list in
+   sync with the file going forward.
    ============================================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
@@ -65,7 +91,9 @@
 }
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--fs-body);min-height:100vh}
 
-/* ── LOGIN PAGE ─────────────────────────────────────────────── */
+/* =============================================================
+   3. LOGIN PAGE
+   ============================================================= */
 body.login-page{
   background:var(--g);
   display:flex;align-items:center;justify-content:center;padding:24px;
@@ -84,7 +112,9 @@ body.login-page{
 .login-error{display:none;background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#ffcccc;border-radius:6px;padding:10px 14px;font-size:var(--fs-body);margin-bottom:16px}
 .login-footer{font-size:var(--fs-small);color:rgba(255,255,255,0.35);margin-top:20px}
 
-/* ── HEADER ─────────────────────────────────────────────────── */
+/* =============================================================
+   4. HEADER
+   ============================================================= */
 .header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
@@ -95,13 +125,17 @@ body.login-page{
 .sign-out-btn{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.06em;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:5px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase}
 .sign-out-btn:hover{background:rgba(255,255,255,0.22)}
 
-/* ── NAV TABS ───────────────────────────────────────────────── */
+/* =============================================================
+   5. NAV TABS
+   ============================================================= */
 .nav-tabs{background:var(--bg2);border-bottom:2px solid var(--bg3);display:flex;padding:0 12px;overflow-x:auto}
 .nav-tab{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.08em;text-transform:uppercase;padding:11px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--ink3);cursor:pointer;white-space:nowrap;margin-bottom:-2px;transition:all .15s}
 .nav-tab:hover{color:var(--ink)}
 .nav-tab.active{color:var(--g);border-bottom-color:var(--g);font-weight:500}
 
-/* ── STATUS BAR ─────────────────────────────────────────────── */
+/* =============================================================
+   6. STATUS BAR
+   ============================================================= */
 .status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .status-pill{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);letter-spacing:.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
 .sdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
@@ -111,7 +145,9 @@ body.login-page{
 .reload-btn:hover{background:var(--g2);color:#fff}
 .reload-btn:disabled{opacity:.4;cursor:not-allowed}
 
-/* ── CONTENT & TABS ─────────────────────────────────────────── */
+/* =============================================================
+   7. CONTENT & TABS
+   ============================================================= */
 .content{padding:0}
 .tab-panel{display:none;animation:fadeIn .2s ease;min-width:0}
 .tab-panel.active{display:block}
@@ -128,7 +164,9 @@ body.login-page{
 .action-btn.primary{background:var(--g);color:#fff;border-color:var(--g)}
 .action-btn.primary:hover{background:var(--g2)}
 
-/* ── SCHEDULE ───────────────────────────────────────────────── */
+/* =============================================================
+   8. SCHEDULE
+   ============================================================= */
 .week-nav{display:flex;align-items:center;gap:8px}
 .wk-btn{background:var(--bg2);border:1.5px solid var(--bg3);color:var(--ink2);width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:var(--fs-sub);display:flex;align-items:center;justify-content:center;transition:all .15s}
 .wk-btn:hover{background:var(--bg3)}
@@ -207,7 +245,9 @@ body.login-page{
 .sched-job-meta    { font-size:var(--fs-label); color: var(--ink3); font-family:var(--font-mono); margin-top: 1px; }
 .sched-dur         { margin-left: 6px; }
 
-/* ── CLIENT LIST ────────────────────────────────────────────── */
+/* =============================================================
+   9. CLIENT LIST
+   ============================================================= */
 .client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
 .client-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
 .client-row:hover{border-color:var(--g);background:var(--g3)}
@@ -221,7 +261,9 @@ body.login-page{
 .active-badge.active{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
 .active-badge.inactive{background:var(--bg2);color:var(--ink3);border:1px solid var(--bg3)}
 
-/* ── WORK RECORDS ───────────────────────────────────────────── */
+/* =============================================================
+   10. WORK RECORDS
+   ============================================================= */
 .records-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
 .record-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px}
 .record-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
@@ -234,7 +276,9 @@ body.login-page{
 .record-notes{font-size:var(--fs-body);color:var(--ink);margin-top:6px;padding:8px 10px;background:var(--bg2);border-radius:4px;line-height:1.5}
 .record-internal{font-size:var(--fs-body);color:var(--rd);margin-top:4px;padding:6px 10px;background:#fdf0f0;border-radius:4px;border-left:3px solid var(--rd)}
 
-/* ── WORK DOCUMENTS ─────────────────────────────────────────── */
+/* =============================================================
+   11. WORK DOCUMENTS
+   ============================================================= */
 .docs-info-bar{padding:8px 18px;background:#f0f7f4;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);color:var(--ink3);line-height:1.5}
 .doc-group{margin-bottom:4px}
 .doc-group-name{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:10px 16px 4px;border-top:1px solid var(--bg3);background:var(--bg2)}
@@ -251,7 +295,9 @@ body.login-page{
 .doc-loading-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--bg3);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── MORNING NOTES ──────────────────────────────────────────── */
+/* =============================================================
+   12. MORNING NOTES
+   ============================================================= */
 .notes-tabs{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--bg3);background:var(--bg2);overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent;padding-bottom:1px}
 .notes-tabs::-webkit-scrollbar{height:4px}
 .notes-tabs::-webkit-scrollbar-track{background:transparent}
@@ -269,11 +315,25 @@ body.login-page{
 .notes-items{padding:6px 12px 2px}
 .notes-item-row{display:flex;align-items:center;gap:6px;padding:3px 0}
 .notes-bullet{color:var(--ink3);font-size:var(--fs-body);flex-shrink:0}
-.notes-item-input{flex:1;border:none;border-bottom:1px solid transparent;background:transparent;font-size:var(--fs-body);font-family:inherit;color:var(--ink);outline:none;padding:3px 2px;transition:border-color .12s}
-.notes-item-input:focus{border-bottom-color:var(--g)}
-.notes-item-del{border:none;background:none;color:transparent;cursor:pointer;font-size:var(--fs-small);padding:2px 4px;border-radius:3px;transition:color .1s}
-.notes-item-row:hover .notes-item-del{color:var(--ink3)}
+.notes-item-input{flex:1;border:none;border-bottom:1px solid transparent;background:transparent;font-size:var(--fs-body);font-family:inherit;color:var(--ink);outline:none;padding:3px 2px;transition:border-color .12s;cursor:pointer;min-height:1.4em;line-height:1.4}
+.notes-item-input:hover{border-bottom-color:var(--bg3)}
+.notes-item-input .notes-item-placeholder{color:var(--ink3);font-style:italic}
+.notes-item-del{border:none;background:none;color:var(--ink3);cursor:pointer;font-size:var(--fs-small);padding:2px 4px;border-radius:3px;transition:color .1s}
+.notes-item-move{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.notes-item-move-btn{border:none;background:none;color:var(--ink3);cursor:pointer;font-size:0.7rem;line-height:1;padding:4px 8px;border-radius:2px;transition:all .1s}
+.notes-item-move-btn:hover{background:var(--bg2);color:var(--g)}
+.notes-item-move-btn:disabled{color:var(--bg3);cursor:default}
+.notes-item-move-btn:disabled:hover{background:none;color:var(--bg3)}
 .notes-item-del:hover{color:var(--rd,#c0392b) !important}
+/* Fade these to invisible-until-hover only on devices that actually
+   have a mouse — touch devices (phones, tablets) have no reliable
+   hover state, so they'd otherwise be permanently hidden there. */
+@media (hover: hover) and (pointer: fine) {
+  .notes-item-del{color:transparent}
+  .notes-item-row:hover .notes-item-del{color:var(--ink3)}
+  .notes-item-move{opacity:0;transition:opacity .1s}
+  .notes-item-row:hover .notes-item-move{opacity:1}
+}
 .notes-add-item{border:none;background:none;color:var(--g);font-size:var(--fs-body);font-family:inherit;cursor:pointer;padding:4px 12px 8px;text-align:left;opacity:.7;transition:opacity .1s}
 .notes-add-item:hover{opacity:1}
 .notes-add-section{border:1.5px dashed var(--bg3);border-radius:8px;background:none;color:var(--ink3);font-size:var(--fs-body);font-family:inherit;cursor:pointer;padding:10px;width:100%;text-align:center;transition:all .12s;margin-top:2px}
@@ -285,7 +345,9 @@ body.login-page{
 .leads-items{padding:6px 12px 2px}
 .leads-items .notes-item-input{width:100%}
 
-/* ── CLIENT PROFILE MODAL ───────────────────────────────────── */
+/* =============================================================
+   13. CLIENT PROFILE MODAL
+   ============================================================= */
 .profile-fields{display:flex;flex-direction:column;gap:0}
 .profile-row{display:flex;padding:8px 0;border-bottom:1px solid var(--bg2);gap:12px}
 .profile-row:last-child{border-bottom:none}
@@ -299,7 +361,9 @@ body.login-page{
 .pr-workers{font-size:var(--fs-body);font-weight:600;color:var(--ink)}
 .pr-notes{width:100%;font-size:var(--fs-body);color:var(--ink2);margin-top:4px;line-height:1.4}
 
-/* ── MODALS ─────────────────────────────────────────────────── */
+/* =============================================================
+   14. MODALS
+   ============================================================= */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
 .modal-overlay.open{display:flex}
 .modal{background:#fff;border-radius:12px;width:100%;max-width:580px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
@@ -311,7 +375,9 @@ body.login-page{
 .modal-body{padding:20px 22px;overflow-y:auto;flex:1}
 .modal-footer{padding:14px 22px;border-top:1px solid var(--bg3);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
 
-/* ── FORM ELEMENTS ──────────────────────────────────────────── */
+/* =============================================================
+   15. FORM ELEMENTS
+   ============================================================= */
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-group{display:flex;flex-direction:column;gap:5px}
 .form-group.full{grid-column:1/-1}
@@ -321,28 +387,44 @@ body.login-page{
 .form-input:focus,.form-textarea:focus{border-color:var(--g)}
 .form-textarea{min-height:80px;resize:vertical}
 
-/* ── MODAL BUTTONS ──────────────────────────────────────────── */
+/* =============================================================
+   16. MODAL BUTTONS
+   ============================================================= */
 .fbtn{padding:9px 20px;border-radius:6px;font-family:var(--font-mono);font-size:var(--fs-body);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:1.5px solid;transition:all .15s}
 .fbtn-cancel{background:#fff;border-color:var(--bg3);color:var(--ink3)}
 .fbtn-cancel:hover{background:var(--bg2)}
 .fbtn-save{background:var(--g);border-color:var(--g);color:#fff}
 .fbtn-save:hover{background:var(--g2)}
 .fbtn-save:disabled{opacity:.5;cursor:not-allowed}
+/* Note Editor popup's confirm button — deliberately a different word
+   ("Apply") and color (blue, not green) from the main notes-tab Save
+   button, since this only commits the item's text back into the
+   in-memory note; the owner still has to press the real Save to send
+   anything to the server. Sharing "Save"/green with that button was
+   confusing them together. */
+.fbtn-apply{background:var(--b);border-color:var(--b);color:#fff}
+.fbtn-apply:hover{opacity:.85}
 .form-extra-details{margin-top:16px;border-top:1px solid var(--bg3);padding-top:4px}
 .form-extra-summary{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);cursor:pointer;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
 .form-extra-summary::-webkit-details-marker{display:none}
 .form-extra-summary::before{content:"›";font-size:var(--fs-body);transition:transform .15s;display:inline-block}
 details[open] .form-extra-summary::before{transform:rotate(90deg)}
 
-/* ── EMPTY STATE ────────────────────────────────────────────── */
+/* =============================================================
+   17. EMPTY STATE
+   ============================================================= */
 .empty-state{padding:40px 20px;text-align:center;color:var(--ink3);font-style:italic;font-size:var(--fs-body)}
 .empty-state.small{padding:16px;font-size:var(--fs-body)}
 
-/* ── TOAST ──────────────────────────────────────────────────── */
+/* =============================================================
+   18. TOAST
+   ============================================================= */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g);color:#fff;padding:10px 22px;border-radius:8px;font-size:var(--fs-body);font-family:var(--font-mono);opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ── RESPONSIVE ─────────────────────────────────────────────── */
+/* =============================================================
+   19. RESPONSIVE
+   ============================================================= */
 @media(max-width:680px){
   .form-grid{grid-template-columns:1fr}
   .form-group.full{grid-column:1}
@@ -352,7 +434,9 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
   .panel-header{flex-direction:column;align-items:flex-start}
 }
 
-/* ── CREW LOGIN LOG ─────────────────────────────────────────── */
+/* =============================================================
+   20. CREW LOGIN LOG
+   ============================================================= */
 .logins-list{padding:0 20px 20px}
 .logins-empty{padding:40px 20px;text-align:center;color:var(--ink3);font-style:italic;font-size:var(--fs-body)}
 .logins-error{color:var(--rd)}
@@ -370,9 +454,9 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 }
 
 
-/* ============================================================
-   Danger action button — Crew Logins Clear
-   ============================================================ */
+/* =============================================================
+   21. DANGER ACTION BUTTON (CREW LOGINS CLEAR)
+   ============================================================= */
 .action-btn-danger {
   background: #fff;
   color: #c0392b;
@@ -382,3 +466,17 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
   background: #fdf0ef;
   border-color: #c0392b;
 }
+
+/* =============================================================
+   22. NOTE EDITOR POPUP
+   ============================================================= */
+.ne-toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bg3)}
+.ne-btn{min-width:30px;height:30px;padding:0 8px;border:1.5px solid var(--bg3);border-radius:5px;background:#fff;color:var(--ink2);font-size:var(--fs-body);font-family:inherit;cursor:pointer;transition:all .12s}
+.ne-btn:hover{background:var(--bg2);border-color:var(--g)}
+.ne-sep{width:1px;height:22px;background:var(--bg3);margin:0 4px}
+.ne-swatch{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--bg3);cursor:pointer;padding:0;transition:transform .1s}
+.ne-swatch:hover{transform:scale(1.15)}
+.ne-swatch-clear{background:#fff;border-style:dashed}
+.ne-canvas{min-height:70px;border:1.5px solid var(--bg3);border-radius:6px;padding:12px 14px;font-size:var(--fs-body);color:var(--ink);line-height:1.5;outline:none;background:#fff}
+.ne-canvas:focus{border-color:var(--g)}
+.ne-hint{font-size:var(--fs-small);color:var(--ink3);margin-top:8px;font-style:italic}
