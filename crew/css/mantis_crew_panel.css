@@ -68,7 +68,7 @@
    2. CSS VARIABLES & RESET
    ============================================================= */
 :root{
-  --bg:#ddd4bf;--bg2:#d0c5aa;--bg3:#c7ba9a;
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
   --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
   --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
   --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
@@ -110,36 +110,66 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .offline-retry:hover{color:var(--ink)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
-.day-tabs{background:var(--b);border-bottom:1px solid var(--bg3);padding:0 16px;display:flex;overflow-x:auto}
-.day-tab{padding:9px 14px;font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:rgba(255,255,255,0.65);white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:5px}
-.day-tab:hover{color:#fff}
-.day-tab.active{color:#fff;border-bottom-color:#fff}
+.day-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:0 16px;display:flex;overflow-x:auto}
+.day-tab{padding:9px 14px;font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink3);white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.day-tab:hover{color:var(--ink)}
+.day-tab.active{color:var(--g);border-bottom-color:var(--g)}
 .today-badge{font-size:var(--fs-tiny);background:#f0a030;color:#fff;padding:1px 5px;border-radius:3px}
-.dcnt{background:rgba(255,255,255,0.25);color:#fff;border-radius:8px;padding:1px 5px;font-size:var(--fs-tiny)}
-.day-tab.active .dcnt{background:var(--a2);color:var(--ink)}
+.dcnt{background:var(--bg3);color:var(--ink3);border-radius:8px;padding:1px 5px;font-size:var(--fs-tiny)}
+.day-tab.active .dcnt{background:var(--g);color:#fff}
 
-/* ── Team tab bar ──────────────────────────────────────────── */
+/* ── Team tab bar — filesystem-style folder tabs ──────────────
+   Inactive tabs share one neutral pastel background; each team is
+   identified only by its bold accent-colored label (same accent
+   used for that team's header/name elsewhere). The active tab
+   lifts up, loses its bottom edge, and takes on that team's own
+   panel tint so it reads as "open" and flows straight into the
+   panel content beneath it — like an open folder tab. */
 .team-tabs{
-  display:flex;border-bottom:2px solid var(--bg3);
-  background:var(--bg2);overflow-x:auto;
+  display:flex;align-items:flex-end;gap:3px;
+  background:var(--bg2);
+  padding:7px 10px 0;
+  border-bottom:2px solid var(--bg3);
+  overflow-x:auto;
   scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
 .team-tab{
   flex:0 0 auto;
   display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:9px 18px;font-size:var(--fs-body);font-weight:600;
-  color:var(--ink);cursor:pointer;
-  border-bottom:3px solid transparent;
-  white-space:nowrap;transition:background-color .15s,border-color .15s;
+  padding:8px 18px;font-size:var(--fs-body);font-weight:600;
+  background:#ddd2b7;
+  border:1px solid var(--bg3);border-bottom:none;
+  border-radius:8px 8px 0 0;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background-color .15s,color .15s,padding .15s;
 }
-.team-tab.active{border-bottom-color:var(--ink);font-weight:700}
-.team-tab:hover:not(.active){filter:brightness(0.96)}
-/* Per-team tab background — light/pastel so black text stays easy to read */
-.team-tab.t1      { background: #dcf2dc; }  /* light green */
-.team-tab.t2      { background: #e8dcf5; }  /* light purple */
-.team-tab.t3      { background: #fbdce8; }  /* light pink */
-.team-tab.install { background: #fce1c2; }  /* light orange */
-.team-tab.managers{ background: #ecdfcd; }  /* light brown */
+.team-tab:hover:not(.active){background:#d3c6a5}
+.team-tab.active{
+  font-weight:700;
+  padding-top:10px;padding-bottom:11px;
+  margin-bottom:-2px;
+  border-color:var(--bg3);
+  box-shadow:0 -2px 5px rgba(0,0,0,0.05);
+  z-index:2;
+}
+/* Per-team bold accent text — background stays uniform above;
+   only the active tab's background lifts to a light tint of that
+   same hue so it stays legible and reads as "open."
+   Note: true pastel/light shades are too low-contrast for text on
+   a pastel background, so these are medium-saturation versions of
+   each requested color (green / purple / pink / orange / brown)
+   rather than literal pastels — enough to stay easily readable. */
+.team-tab.t1      { color:#217a21; }
+.team-tab.t1.active      { background:#e6f5e6; }
+.team-tab.t2      { color:#7c4dbf; }
+.team-tab.t2.active      { background:#f1e8fb; }
+.team-tab.t3      { color:#c94f85; }
+.team-tab.t3.active      { background:#fce8f0; }
+.team-tab.install { color:#c2700a; }
+.team-tab.install.active { background:#fdf0dc; }
+.team-tab.managers{ color:#6b4a20; }
+.team-tab.managers.active{ background:#f5ede0; }
 
 /* ── Main panel — full width single team ────────────────────── */
 .main{min-height:calc(100vh - 180px)}
