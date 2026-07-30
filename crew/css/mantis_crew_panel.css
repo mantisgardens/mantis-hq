@@ -8,18 +8,33 @@
      3.  Page Header
      4.  Status Bar
      5.  Day Tabs
-     6.  Three-Column Layout & Team Headers
+     6.  Team Tabs & Team Headers
      7.  Morning Brief (toggle + body)
      8.  Brief Sections (crew, notes, items, plants)
-     9.  Job Cards
+     9.  Job Cards & Summary Bar
      10. Job Card Expanded Detail
      11. Work Record Form Modal
      12. Form Elements (inputs, selects, textareas)
      13. Dynamic Rows (workers, materials)
-     14. Photo Upload
-     15. Modal Footer Buttons
-     16. Toast Notification
-     17. Saved Records Badge
+     14. End-of-Job Checklist
+     15. Photo Upload
+     16. Modal Footer Buttons
+     17. Toast Notification
+     18. Saved Records Badge
+     19. Header Sign-Out & Brief Hide Buttons
+     20. Materials Sub-Sections & Photo Thumbnails
+     21. Historical Data Modal
+     22. Managers Tab
+     23. Ambiguous Client Picker
+     24. Item Picker Modal
+
+   Sections 19-24 were added after this file's original 17-section
+   plan (sign-out/brief-hide buttons, materials sub-sections, the
+   Historical Data modal, the Managers tab, the ambiguous-client
+   picker, and the item picker modal) but were never added to this
+   directory or given their own banners — they used to just start
+   mid-file with no clear boundary. Keep this list in sync with the
+   file: if you add a new named block below, add it here too.
    ============================================================= */
 
 /* Google Fonts */
@@ -80,6 +95,10 @@
 }
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--fs-body);min-height:100vh}
 
+/* =============================================================
+   3. PAGE HEADER
+   ============================================================= */
+
 .header{background:var(--g);padding:8px 16px 10px}
 .header-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .header-row2{display:flex;align-items:center;justify-content:center;gap:12px}
@@ -91,6 +110,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .week-label{font-family:var(--font-mono);font-size:var(--fs-small);color:rgba(255,255,255,0.8);letter-spacing:0.06em}
 .nav-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:var(--font-mono);font-size:var(--fs-small);transition:background 0.15s}
 .nav-btn:hover{background:rgba(255,255,255,0.25)}
+
+/* =============================================================
+   4. STATUS BAR
+   ============================================================= */
 
 .status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .status-pill{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);letter-spacing:0.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
@@ -110,6 +133,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .offline-retry:hover{color:var(--ink)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 
+/* =============================================================
+   5. DAY TABS
+   ============================================================= */
+
 .day-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:0 16px;display:flex;overflow-x:auto}
 .day-tab{padding:9px 14px;font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink3);white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:5px}
 .day-tab:hover{color:var(--ink)}
@@ -117,6 +144,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .today-badge{font-size:var(--fs-tiny);background:#f0a030;color:#fff;padding:1px 5px;border-radius:3px}
 .dcnt{background:var(--bg3);color:var(--ink3);border-radius:8px;padding:1px 5px;font-size:var(--fs-tiny)}
 .day-tab.active .dcnt{background:var(--g);color:#fff}
+
+/* =============================================================
+   6. TEAM TABS & TEAM HEADERS
+   ============================================================= */
 
 /* ── Team tab bar — filesystem-style folder tabs ──────────────
    Inactive tabs share one neutral pastel background; each team is
@@ -196,7 +227,9 @@ body.team-locked .team-tabs{display:none}
 .t3 .team-hrs{background:#fce8f0;color:#c94f85;border:1px solid #f3c3d8}
 .install .team-hrs{background:#fdf0dc;color:#c2700a;border:1px solid #f0d0a0}
 
-/* ── Morning Brief ── */
+/* =============================================================
+   7. MORNING BRIEF (TOGGLE + BODY)
+   ============================================================= */
 .brief-wrap{border-bottom:2px solid var(--bg3)}
 .brief-toggle{padding:9px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--g);user-select:none;transition:background 0.15s}
 .brief-toggle:hover{background:var(--g2)}
@@ -208,7 +241,9 @@ body.team-locked .team-tabs{display:none}
 .brief-body{display:none;padding:12px 14px;background:#fff;flex-direction:column;gap:12px}
 .brief-wrap.open .brief-body{display:flex}
 
-/* Brief sections */
+/* =============================================================
+   8. BRIEF SECTIONS (CREW, NOTES, ITEMS, PLANTS)
+   ============================================================= */
 .bsec{display:flex;flex-direction:column;gap:5px}
 .bsec-label{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:3px;border-bottom:1px solid var(--bg3);margin-bottom:2px}
 
@@ -301,7 +336,9 @@ body.team-locked .team-tabs{display:none}
 
 .brief-empty{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);padding:4px 0}
 
-/* ── Job cards ── */
+/* =============================================================
+   9. JOB CARDS & SUMMARY BAR
+   ============================================================= */
 .jobs-list{padding:10px;display:flex;flex-direction:column;gap:7px}
 .job-card{background:#fff;border:1px solid var(--bg3);border-radius:5px;overflow:hidden;cursor:pointer;transition:box-shadow 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
 .job-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.07)}
@@ -327,6 +364,10 @@ body.team-locked .team-tabs{display:none}
 .tag-warn{background:#fff3e0;color:#8a5000;border:1px solid #f0d090}
 .tag-load{background:#f5f5f5;color:#888;border:1px solid #ddd}
 .tag-live{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+/* =============================================================
+   10. JOB CARD EXPANDED DETAIL
+   ============================================================= */
+
 .job-body{display:none;border-top:1px solid var(--bg3);padding:10px 12px;background:var(--bg);flex-direction:column;gap:7px}
 .job-card.expanded .job-body{display:flex}
 .client-detail{background:#fff;border:1px solid var(--g4);border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
@@ -350,7 +391,9 @@ body.team-locked .team-tabs{display:none}
 .snum{font-family:var(--font-display);font-size:var(--fs-title);font-style:italic}
 .snum.g{color:var(--g2)}.snum.a{color:#c07800}.snum.r{color:var(--rd)}.snum.k{color:var(--ink)}
 
-/* ── Work Record Form Modal ── */
+/* =============================================================
+   11. WORK RECORD FORM MODAL
+   ============================================================= */
 .modal-overlay{
   display:none;position:fixed;inset:0;
   background:rgba(15,12,8,0.6);backdrop-filter:blur(3px);
@@ -384,7 +427,9 @@ body.team-locked .team-tabs{display:none}
   display:flex;gap:8px;flex-shrink:0;background:var(--bg2);
 }
 
-/* Form sections */
+/* =============================================================
+   12. FORM ELEMENTS (INPUTS, SELECTS, TEXTAREAS)
+   ============================================================= */
 .form-section{display:flex;flex-direction:column;gap:8px}
 .form-section-label{
   font-family:var(--font-mono);font-size:var(--fs-tiny);
@@ -420,7 +465,9 @@ body.team-locked .team-tabs{display:none}
 }
 .form-select:focus{border-color:var(--g4)}
 
-/* Dynamic rows */
+/* =============================================================
+   13. DYNAMIC ROWS (WORKERS, MATERIALS)
+   ============================================================= */
 .dynamic-list{display:flex;flex-direction:column;gap:6px}
 .dynamic-row{display:flex;gap:6px;align-items:center}
 .dynamic-row .form-input{flex:1}
@@ -439,7 +486,9 @@ body.team-locked .team-tabs{display:none}
 .irr-select{min-width:0;font-size:var(--fs-body)}
 
 
-/* ── End of Job Checklist ─────────────────────────────────── */
+/* =============================================================
+   14. END-OF-JOB CHECKLIST
+   ============================================================= */
 /* Checklist button on job card */
 .abtn-checklist{background:#f0f7f4;border-color:var(--g);color:var(--g)}
 .abtn-checklist:hover{background:var(--g);color:#fff}
@@ -509,7 +558,9 @@ body.team-locked .team-tabs{display:none}
 }
 .add-row-btn:hover{border-color:var(--g4);color:var(--g);background:var(--g3)}
 
-/* Photo upload */
+/* =============================================================
+   15. PHOTO UPLOAD
+   ============================================================= */
 .photo-upload-row{display:flex;gap:10px}
 .photo-upload-btn{
   flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
@@ -528,7 +579,9 @@ body.team-locked .team-tabs{display:none}
   border-radius:5px;border:1px solid var(--bg3);
 }
 
-/* Footer buttons */
+/* =============================================================
+   16. MODAL FOOTER BUTTONS
+   ============================================================= */
 .fbtn{
   font-family:var(--font-mono);font-size:var(--fs-label);
   letter-spacing:0.08em;text-transform:uppercase;
@@ -542,7 +595,9 @@ body.team-locked .team-tabs{display:none}
 .fbtn-clear{background:var(--bg2);color:var(--ink3);border-color:var(--bg3)}
 .fbtn-clear:hover{background:var(--bg3);color:var(--ink)}
 
-/* Save confirmation toast */
+/* =============================================================
+   17. TOAST NOTIFICATION
+   ============================================================= */
 .toast{
   position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
   background:var(--ink);color:#fff;
@@ -553,13 +608,19 @@ body.team-locked .team-tabs{display:none}
 }
 .toast.show{opacity:1}
 
-/* Saved records badge */
+/* =============================================================
+   18. SAVED RECORDS BADGE
+   ============================================================= */
 .saved-badge{
   font-family:var(--font-mono);font-size:var(--fs-tiny);
   background:var(--b3);color:var(--b);border:1px solid var(--b4);
   padding:1px 5px;border-radius:3px;letter-spacing:0.04em;
   text-transform:uppercase;margin-left:4px;
 }
+/* =============================================================
+   19. HEADER SIGN-OUT & BRIEF HIDE BUTTONS
+   ============================================================= */
+
 /* ── Sign-out button in crew panel header ── */
 .signout-btn{
   font-family:var(--font-mono);font-size:var(--fs-tiny);
@@ -581,6 +642,10 @@ body.team-locked .team-tabs{display:none}
   transition:all 0.15s;
 }
 .brief-hide-btn:hover{background:var(--bg3);color:var(--ink);border-color:var(--g4)}
+
+/* =============================================================
+   20. MATERIALS SUB-SECTIONS & PHOTO THUMBNAILS
+   ============================================================= */
 
 /* ── Materials sub-sections ─────────────────────────────────── */
 .mat-subsection {
@@ -661,7 +726,7 @@ body.team-locked .team-tabs{display:none}
 .snum.b{color:var(--b)}
 
 /* =============================================================
-   Section 17 — Service History Modal
+   21. HISTORICAL DATA MODAL
    ============================================================= */
 
 /* History button in status bar */
@@ -770,9 +835,9 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
 .hp-link:hover{color:var(--a);text-decoration:underline}
 
 
-/* ============================================================
-   Managers Tab — added in Managers feature update
-   ============================================================ */
+/* =============================================================
+   22. MANAGERS TAB
+   ============================================================= */
 
 /* Panel header */
 .team-header.managers { background: #f5ede0; border-bottom: 1px solid #e0cfa8; }
@@ -814,9 +879,9 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
 .mgr-client-card  { border-left: 4px solid var(--g); background: #fff; }
 .mgr-generic-card { border-left: 4px solid #8B6914; background: #fdfaf4; }
 
-/* ============================================================
-   Ambiguous client picker — added in client matching update
-   ============================================================ */
+/* =============================================================
+   23. AMBIGUOUS CLIENT PICKER
+   ============================================================= */
 .client-detail-ambiguous {
   background: #FFFBEB;
   border: 1px solid #F59E0B;
@@ -858,6 +923,10 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
 .amb-search:focus { outline: none; border-color: #B45309; box-shadow: 0 0 0 2px #FDE68A; }
 .amb-list { max-height: 260px; overflow-y: auto; }
 .amb-empty { font-size:var(--fs-body); color: var(--ink3); padding: 8px 4px; text-align: center; }
+
+/* =============================================================
+   24. ITEM PICKER MODAL
+   ============================================================= */
 
 /* ── Item picker modal ──────────────────────────────────────── */
 .picker-section-btn {

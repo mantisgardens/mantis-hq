@@ -13,6 +13,15 @@
      8.  Navigation Cards  (crew, manual)
      9.  Home Stats Bar
      10. Responsive  (@media mobile)
+     11. Google Sign-In
+     12. Team Picker Modal
+
+   Sections 11-12 were added after this file's original 10-section
+   plan and never added to this directory — Google Sign-In had a
+   small unlabeled comment, and Team Picker Modal's banner was
+   numbered "11" on its own before this list caught up. Keep this
+   list in sync with the file: if you add a new named block below,
+   add it here too.
    ============================================================= */
 
 /* Google Fonts */
@@ -73,13 +82,15 @@
 }
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-height:100vh}
 
-/* ── SCREENS ── */
+/* =============================================================
+   3. SCREEN MANAGEMENT (.SCREEN, .SCREEN.ACTIVE)
+   ============================================================= */
 .screen{display:none;min-height:100vh}
 .screen.active{display:flex;flex-direction:column}
 
-/* ══════════════════════════════
-   LOGIN SCREEN
-══════════════════════════════ */
+/* =============================================================
+   4. LOGIN SCREEN (CARD, LOGO, INPUTS, BUTTON, ERROR)
+   ============================================================= */
 #screen-login{
   background:var(--g);
   align-items:center;
@@ -153,9 +164,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   letter-spacing:0.1em;text-transform:uppercase;
 }
 
-/* ══════════════════════════════
-   HOME SCREEN
-══════════════════════════════ */
+/* =============================================================
+   5. HOME HEADER (BRAND, LOGO, SIGN-OUT BUTTON)
+   ============================================================= */
 #screen-home{background:var(--bg)}
 
 .home-header{
@@ -186,6 +197,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
 }
 .signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
 
+/* =============================================================
+   6. DATE BAR
+   ============================================================= */
+
 .date-bar{
   background:var(--bg2);border-bottom:1px solid var(--bg3);
   padding:8px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -195,6 +210,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
 .date-category{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--g2);font-weight:600;letter-spacing:0.08em;background:var(--bg3);border-radius:4px;padding:2px 7px;align-self:flex-start;white-space:nowrap}
 .date-category:empty{display:none}
 .date-today{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--g2);font-weight:500;letter-spacing:0.06em;text-align:right;white-space:nowrap}
+
+/* =============================================================
+   7. HOME BODY & WELCOME TEXT
+   ============================================================= */
 
 .home-body{
   flex:1;display:flex;flex-direction:column;
@@ -210,6 +229,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;
   margin-bottom:32px;text-align:center;
 }
+
+/* =============================================================
+   8. NAVIGATION CARDS (CREW, MANUAL)
+   ============================================================= */
 
 .nav-cards{
   display:grid;grid-template-columns:1fr 1fr;
@@ -250,6 +273,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
 }
 .nav-card:hover .nav-card-arrow{color:var(--ink3);right:12px}
 
+/* =============================================================
+   9. HOME STATS BAR
+   ============================================================= */
+
 .home-stats{
   display:flex;gap:10px;margin-top:20px;
   width:100%;max-width:680px;flex-wrap:wrap;
@@ -268,6 +295,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   text-transform:uppercase;margin-top:2px;
 }
 
+/* =============================================================
+   10. RESPONSIVE (@MEDIA MOBILE)
+   ============================================================= */
+
 @media(max-width:520px){
   .nav-cards{grid-template-columns:1fr}
   .login-card{padding:36px 24px 30px}
@@ -275,13 +306,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   .date-today{text-align:left}
 }
 
-/* ── Google Sign-In ─────────────────────────────────────────── */
+/* =============================================================
+   11. GOOGLE SIGN-IN
+   ============================================================= */
 .google-signin-wrap{
   display:flex;justify-content:center;
   margin:8px 0 20px;
 }
 /* =============================================================
-   11. TEAM PICKER MODAL
+   12. TEAM PICKER MODAL
    Shown when the Crew Assignments card is tapped. Team 1/2/3/Install
    route to a locked single-team view; Managers gets the full panel.
    Per-team accent colors match the tab colors used inside

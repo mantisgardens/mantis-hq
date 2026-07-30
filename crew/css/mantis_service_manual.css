@@ -14,6 +14,16 @@
      9.  Equipment Lists
      10. Shared Utilities (tags, badges, empty state)
      11. Responsive
+     12. Plant Lookup (search, filters, split-pane results + profile)
+     13. Pruning Guide Tab
+
+   Sections 12-13 were added after this file's original 11-section
+   plan and never added to this directory or given matching banners
+   — they used to just start mid-file with no clear boundary. The
+   inline numbers on sections 3-11 were also off by one from this
+   list (their comments started counting from "2" at Header instead
+   of "3") — fixed to match. Keep this list in sync with the file:
+   if you add a new named block below, add it here too.
    ============================================================= */
 
 /* =============================================================
@@ -74,7 +84,9 @@
 body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   font-size:var(--fs-body);min-height:100vh}
 
-/* 2 — Header */
+/* =============================================================
+   3. HEADER
+   ============================================================= */
 .header{background:var(--g);padding:11px 16px;display:flex;
   align-items:center;justify-content:space-between;gap:8px}
 .brand{display:flex;align-items:center;gap:10px}
@@ -89,7 +101,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   padding:5px 11px;border-radius:4px;cursor:pointer;transition:all 0.15s}
 .signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
 
-/* 3 — Section Tabs */
+/* =============================================================
+   4. SECTION TABS
+   ============================================================= */
 .section-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);
   display:flex;overflow-x:auto}
 .section-tab{padding:11px 18px;font-family:var(--font-mono);font-size:var(--fs-small);
@@ -100,7 +114,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .section-tab.active{color:var(--g);border-bottom-color:var(--g);background:#fff}
 .tab-icon{font-size:var(--fs-body)}
 
-/* 4 — Search Bar */
+/* =============================================================
+   5. SEARCH BAR
+   ============================================================= */
 .search-bar{background:#fff;border-bottom:1px solid var(--bg3);
   padding:9px 16px;display:flex;align-items:center;gap:10px}
 .search-input{flex:1;font-family:var(--font-body);font-size:var(--fs-body);
@@ -110,11 +126,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .search-count{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);
   white-space:nowrap;letter-spacing:0.06em}
 
-/* 5 — Section Containers */
+/* =============================================================
+   6. SECTION CONTAINERS
+   ============================================================= */
 .section{display:none;padding:16px}
 .section.active{display:block}
 
-/* 6 — Plant Cards */
+/* =============================================================
+   7. PLANT CARDS (GRID)
+   ============================================================= */
 .entries-grid{display:grid;
   grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 .plant-card{background:#fff;border:1px solid var(--bg3);border-radius:8px;
@@ -134,7 +154,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   text-transform:uppercase;letter-spacing:0.1em;min-width:68px;padding-top:2px;flex-shrink:0}
 .pr-val{color:var(--ink);line-height:1.5}
 
-/* 7 — Fertilizer / Spray Table */
+/* =============================================================
+   8. FERTILIZER / SPRAY TABLE
+   ============================================================= */
 .table-wrap{overflow-x:auto}
 .fert-section-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:400;
   font-style:italic;color:var(--ink);margin:16px 0 10px;padding-bottom:6px;
@@ -162,7 +184,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   padding:14px 16px;margin-bottom:20px;font-size:var(--fs-body);line-height:1.7;color:var(--ink)}
 .callout-warn .callout-title{color:var(--a)}
 
-/* 8 — Equipment */
+/* =============================================================
+   9. EQUIPMENT LISTS
+   ============================================================= */
 .equip-section{margin-bottom:28px}
 .equip-section-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:400;
   font-style:italic;color:var(--ink);margin-bottom:10px;padding-bottom:6px;
@@ -187,7 +211,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .tool-brand{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--b);
   margin-top:2px}
 
-/* 9 — Shared utilities */
+/* =============================================================
+   10. SHARED UTILITIES (TAGS, BADGES, EMPTY STATE)
+   ============================================================= */
 .tag{font-family:var(--font-mono);font-size:var(--fs-tiny);padding:2px 6px;
   border-radius:3px;letter-spacing:0.04em;text-transform:uppercase}
 .tag-native{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
@@ -202,7 +228,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .empty-state{padding:40px;text-align:center;color:var(--ink3);
   font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:0.06em}
 
-/* 10 — Responsive */
+/* =============================================================
+   11. RESPONSIVE
+   ============================================================= */
 @media(max-width:600px){
   .entries-grid{grid-template-columns:1fr}
   .tool-grid{grid-template-columns:1fr 1fr}
@@ -220,9 +248,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .tool-link.pdf{background:var(--a3);color:var(--a);border-color:var(--a4)}
 .tool-link.pdf:hover{background:var(--a);color:#fff}
 
-/* ═══════════════════════════════════════════════════════════
-   PLANT LOOKUP — search bar + split pane
-   ═══════════════════════════════════════════════════════════ */
+/* =============================================================
+   12. PLANT LOOKUP (SEARCH, FILTERS, SPLIT-PANE RESULTS + PROFILE)
+   ============================================================= */
 
 /* Search bar */
 .plant-search-bar {
@@ -463,9 +491,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 }
 
 
-/* ============================================================
-   Pruning Guide tab — added in pruning guide update
-   ============================================================ */
+/* =============================================================
+   13. PRUNING GUIDE TAB
+   ============================================================= */
 .pg-group-card {
   background: #fff;
   border: 1px solid #dde8e2;
