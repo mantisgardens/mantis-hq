@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=33">
+  <link rel="stylesheet" href="css/owner.css?v=37">
 </head>
 <body>
 
@@ -113,7 +113,7 @@
       </div>
     </div>
     <div class="notes-info-bar">
-      Edit notes for each crew group below. Select a tab, make your changes, then press <b>Save</b> — changes are not applied until saved. Crews will see updated notes on their next morning brief load.
+      Edit notes for each crew group below. Select a tab, make your changes, then press <b>Save</b> — changes are not applied until saved. Use the &#9650;&#9660; arrows on an item to reorder it. Crews will see updated notes on their next morning brief load.
     </div>
 
     <!-- Team sub-tabs -->
@@ -252,6 +252,39 @@
   </div>
 </div>
 
+<!-- ══ NOTE EDITOR ══════════════════════════════════════════ -->
+<div class="modal-overlay" id="note-editor-modal" onclick="closeNoteEditor(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Edit Note</div>
+      <button class="modal-close" onclick="closeNoteEditor()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="ne-toolbar">
+        <button type="button" class="ne-btn" onclick="neBold()" title="Bold"><b>B</b></button>
+        <button type="button" class="ne-btn" onclick="neItalic()" title="Italic"><i>I</i></button>
+        <span class="ne-sep"></span>
+        <button type="button" class="ne-btn ne-size" onclick="neSizeDown()" title="Decrease text size">&minus;</button>
+        <button type="button" class="ne-btn ne-size" onclick="neSizeUp()" title="Increase text size">+</button>
+        <span class="ne-sep"></span>
+        <button type="button" class="ne-swatch ne-swatch-clear" onclick="neColor('')" title="Default color"></button>
+        <button type="button" class="ne-swatch" style="background:#1c1a14" onclick="neColor('#1c1a14')" title="Black"></button>
+        <button type="button" class="ne-swatch" style="background:#7a2020" onclick="neColor('#7a2020')" title="Red"></button>
+        <button type="button" class="ne-swatch" style="background:#8a5c0a" onclick="neColor('#8a5c0a')" title="Amber"></button>
+        <button type="button" class="ne-swatch" style="background:#2d5a27" onclick="neColor('#2d5a27')" title="Green"></button>
+        <button type="button" class="ne-swatch" style="background:#1a3a5c" onclick="neColor('#1a3a5c')" title="Blue"></button>
+        <button type="button" class="ne-swatch" style="background:#5c3a7a" onclick="neColor('#5c3a7a')" title="Purple"></button>
+      </div>
+      <div class="ne-canvas" id="note-editor-canvas" contenteditable="true" onmouseup="neResetActiveSpan()" onkeyup="neResetActiveSpan()"></div>
+      <div class="ne-hint">Select text, then choose a style — with nothing selected, styles apply to the whole note.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-cancel" onclick="closeNoteEditor()">Cancel</button>
+      <button class="fbtn fbtn-apply" onclick="saveNoteEditor()">Apply</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ TOAST ════════════════════════════════════════════════ -->
 <div class="toast" id="toast"></div>
 
@@ -259,6 +292,6 @@
 <script src="../config.js?v=25"></script>
   <script src="js/owner_config.js?v=25"></script>
 <script src="js/session_timeout.js?v=26"></script>
-<script src="js/owner_dashboard.js?v=29"></script>
+<script src="js/owner_dashboard.js?v=37"></script>
 </body>
 </html>
