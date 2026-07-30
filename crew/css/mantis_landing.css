@@ -3,29 +3,75 @@
    Mantis Gardens — Landing Page & Home Screen
    
    Sections:
-     1.  CSS Variables & Reset
-     2.  Screen Management  (.screen, .screen.active)
-     3.  Login Screen  (card, logo, inputs, button, error)
-     4.  Home Header  (brand, logo, sign-out button)
-     5.  Date Bar
-     6.  Home Body & Welcome Text
-     7.  Navigation Cards  (crew, manual)
-     8.  Home Stats Bar
-     9.  Responsive  (@media mobile)
+     1.  Typography (fonts & size scale) — EDIT SIZES HERE
+     2.  CSS Variables & Reset
+     3.  Screen Management  (.screen, .screen.active)
+     4.  Login Screen  (card, logo, inputs, button, error)
+     5.  Home Header  (brand, logo, sign-out button)
+     6.  Date Bar
+     7.  Home Body & Welcome Text
+     8.  Navigation Cards  (crew, manual)
+     9.  Home Stats Bar
+     10. Responsive  (@media mobile)
    ============================================================= */
 
 /* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
+
+/* =============================================================
+   1. TYPOGRAPHY — font families & size scale
+   -------------------------------------------------------------
+   Everything below is the ONLY place font sizes/families are
+   defined. Every rule further down in this file references one
+   of these variables instead of a hardcoded size, so bumping a
+   number here changes every matching element on the page at once.
+   This is the same shared scale used across the crew panel, owner
+   portal, and service manual (mantis_crew_panel.css, owner.css,
+   mantis_service_manual.css) — keep them in sync if you change one.
+
+   Sizes are in rem (1rem = the browser's default 16px), so they
+   scale together with a user's browser/OS text-size setting.
+   1rem is the smallest size used anywhere in this file — nothing
+   should go below it.
+
+   If feedback says a specific kind of text is still too small,
+   find which tier it uses in the comments below and bump just
+   that one variable.
+   ============================================================= */
 :root{
-  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  /* Font families */
+  --font-body:    "DM Sans", sans-serif;     /* everyday UI text: buttons, inputs, body copy */
+  --font-mono:    "DM Mono", monospace;       /* meta info: dates, uppercase labels */
+  --font-display: "Fraunces", serif;          /* italic serif: brand name, welcome text, titles */
+
+  /* Font size scale, smallest to largest */
+  --fs-tiny:  1rem;      /* 16px — tiny meta labels */
+  --fs-label: 1.125rem;  /* 18px — meta labels (date bar, stat labels) */
+  --fs-small: 1.25rem;   /* 20px — secondary text (login error, footer) */
+  --fs-body:  1.375rem;  /* 22px — main reading text: card descriptions */
+  --fs-sub:   1.5rem;    /* 24px — sub-headings */
+  --fs-title: 1.75rem;   /* 28px — section titles, nav card titles */
+  --fs-xl:    2rem;      /* 32px — large icon glyphs (nav card arrow) */
+  --fs-2xl:   2.25rem;   /* 36px — welcome text */
+  --fs-3xl:   2.5rem;    /* 40px — stat numbers */
+  --fs-4xl:   2.75rem;   /* 44px — reserved (unused in this file today) */
+  --fs-5xl:   3rem;      /* 48px — reserved (unused in this file today) */
+  --fs-6xl:   3.5rem;    /* 56px — nav card icon (biggest text on this page) */
+}
+
+/* =============================================================
+   2. CSS VARIABLES & RESET
+   ============================================================= */
+:root{
+  --bg:#ddd4bf;--bg2:#d0c5aa;--bg3:#c7ba9a;
   --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
   --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
   --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
   --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
   --rd:#7a2020;
 }
-body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-height:100vh}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-height:100vh}
 
 /* ── SCREENS ── */
 .screen{display:none;min-height:100vh}
@@ -57,17 +103,17 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   margin-bottom:18px;
 }
 .login-title{
-  font-family:"Fraunces",serif;font-size:24px;font-weight:300;
+  font-family:var(--font-display);font-size:var(--fs-3xl);font-weight:300;
   font-style:italic;color:#d4eacf;letter-spacing:0.02em;margin-bottom:4px;
 }
 .login-sub{
-  font-family:"DM Mono",monospace;font-size:9px;
+  font-family:var(--font-mono);font-size:var(--fs-tiny);
   color:rgba(255,255,255,0.4);letter-spacing:0.14em;
   text-transform:uppercase;margin-bottom:32px;
 }
 .login-divider{height:1px;background:rgba(255,255,255,0.12);margin-bottom:28px}
 .login-label{
-  font-family:"DM Mono",monospace;font-size:10px;
+  font-family:var(--font-mono);font-size:var(--fs-label);
   color:rgba(255,255,255,0.5);letter-spacing:0.1em;
   text-transform:uppercase;text-align:left;
   display:block;margin-bottom:8px;
@@ -77,7 +123,7 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   background:rgba(255,255,255,0.1);
   border:1px solid rgba(255,255,255,0.2);
   border-radius:6px;color:#fff;
-  font-family:"DM Mono",monospace;font-size:14px;
+  font-family:var(--font-mono);font-size:var(--fs-body);
   outline:none;transition:border-color 0.2s;
   margin-bottom:16px;
 }
@@ -88,7 +134,7 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   background:rgba(255,255,255,0.15);
   border:1px solid rgba(255,255,255,0.3);
   border-radius:6px;color:#fff;
-  font-family:"DM Mono",monospace;font-size:12px;
+  font-family:var(--font-mono);font-size:var(--fs-body);
   letter-spacing:0.1em;text-transform:uppercase;
   cursor:pointer;transition:all 0.2s;
 }
@@ -98,12 +144,12 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   background:rgba(200,50,50,0.25);
   border:1px solid rgba(200,50,50,0.4);
   border-radius:5px;padding:8px 12px;
-  font-family:"DM Mono",monospace;font-size:11px;
+  font-family:var(--font-mono);font-size:var(--fs-small);
   color:#ffb0b0;letter-spacing:0.04em;
 }
 .login-footer{
-  margin-top:28px;font-family:"DM Mono",monospace;
-  font-size:9px;color:rgba(255,255,255,0.2);
+  margin-top:28px;font-family:var(--font-mono);
+  font-size:var(--fs-tiny);color:rgba(255,255,255,0.2);
   letter-spacing:0.1em;text-transform:uppercase;
 }
 
@@ -122,16 +168,16 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   opacity:0.9;
 }
 .home-title{
-  font-family:"Fraunces",serif;font-size:18px;
+  font-family:var(--font-display);font-size:var(--fs-title);
   font-weight:300;font-style:italic;color:#d4eacf;
 }
 .home-sub{
-  font-family:"DM Mono",monospace;font-size:9px;
+  font-family:var(--font-mono);font-size:var(--fs-tiny);
   color:rgba(255,255,255,0.45);letter-spacing:0.12em;
   text-transform:uppercase;margin-top:1px;
 }
 .signout-btn{
-  font-family:"DM Mono",monospace;font-size:9px;
+  font-family:var(--font-mono);font-size:var(--fs-tiny);
   letter-spacing:0.08em;text-transform:uppercase;
   background:rgba(255,255,255,0.1);
   border:1px solid rgba(255,255,255,0.2);
@@ -145,22 +191,22 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   padding:8px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;
 }
 .date-bar-left{display:flex;flex-direction:column;gap:4px;min-width:0}
-.date-greeting{font-family:"DM Mono",monospace;font-size:11px;color:var(--ink3);letter-spacing:0.06em;white-space:nowrap}
-.date-category{font-family:"DM Mono",monospace;font-size:10px;color:var(--g2);font-weight:600;letter-spacing:0.08em;background:var(--bg3);border-radius:4px;padding:2px 7px;align-self:flex-start;white-space:nowrap}
+.date-greeting{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);letter-spacing:0.06em;white-space:nowrap}
+.date-category{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--g2);font-weight:600;letter-spacing:0.08em;background:var(--bg3);border-radius:4px;padding:2px 7px;align-self:flex-start;white-space:nowrap}
 .date-category:empty{display:none}
-.date-today{font-family:"DM Mono",monospace;font-size:11px;color:var(--g2);font-weight:500;letter-spacing:0.06em;text-align:right;white-space:nowrap}
+.date-today{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--g2);font-weight:500;letter-spacing:0.06em;text-align:right;white-space:nowrap}
 
 .home-body{
   flex:1;display:flex;flex-direction:column;
   align-items:center;padding:32px 20px 40px;
 }
 .home-welcome{
-  font-family:"Fraunces",serif;font-size:26px;
+  font-family:var(--font-display);font-size:var(--fs-4xl);
   font-weight:300;font-style:italic;color:var(--ink);
   margin-bottom:6px;text-align:center;
 }
 .home-welcome-sub{
-  font-family:"DM Mono",monospace;font-size:10px;
+  font-family:var(--font-mono);font-size:var(--fs-label);
   color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;
   margin-bottom:32px;text-align:center;
 }
@@ -176,21 +222,22 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   display:flex;flex-direction:column;
   position:relative;overflow:hidden;
   text-align:left;
+  box-shadow:0 1px 3px rgba(0,0,0,0.1);
 }
 .nav-card:hover{
   box-shadow:0 6px 20px rgba(0,0,0,0.1);
   transform:translateY(-2px);border-color:var(--g4);
 }
-.nav-card-icon{font-size:32px;margin-bottom:14px;line-height:1}
+.nav-card-icon{font-size:var(--fs-6xl);margin-bottom:14px;line-height:1}
 .nav-card-title{
-  font-family:"Fraunces",serif;font-size:18px;
+  font-family:var(--font-display);font-size:var(--fs-title);
   font-weight:400;color:var(--ink);margin-bottom:6px;
 }
 .nav-card-desc{
-  font-size:12px;color:var(--ink3);line-height:1.6;margin-bottom:16px;flex:1;
+  font-size:var(--fs-body);color:var(--ink3);line-height:1.6;margin-bottom:16px;flex:1;
 }
 .nav-card-tag{
-  font-family:"DM Mono",monospace;font-size:9px;
+  font-family:var(--font-mono);font-size:var(--fs-tiny);
   letter-spacing:0.1em;text-transform:uppercase;
   padding:3px 8px;border-radius:3px;display:inline-block;
 }
@@ -199,7 +246,7 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
 .nav-card-arrow{
   position:absolute;top:50%;right:16px;
   transform:translateY(-50%);
-  font-size:20px;color:var(--bg3);transition:all 0.2s;
+  font-size:var(--fs-xl);color:var(--bg3);transition:all 0.2s;
 }
 .nav-card:hover .nav-card-arrow{color:var(--ink3);right:12px}
 
@@ -212,11 +259,11 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
   border-radius:8px;padding:12px 16px;flex:1;min-width:120px;
 }
 .stat-num{
-  font-family:"Fraunces",serif;font-size:22px;
+  font-family:var(--font-display);font-size:var(--fs-2xl);
   font-style:italic;color:var(--g2);
 }
 .stat-label{
-  font-family:"DM Mono",monospace;font-size:9px;
+  font-family:var(--font-mono);font-size:var(--fs-tiny);
   color:var(--ink3);letter-spacing:0.1em;
   text-transform:uppercase;margin-top:2px;
 }
@@ -224,6 +271,8 @@ body{background:var(--bg);color:var(--ink);font-family:"DM Sans",sans-serif;min-
 @media(max-width:520px){
   .nav-cards{grid-template-columns:1fr}
   .login-card{padding:36px 24px 30px}
+  .date-bar{flex-direction:column;align-items:flex-start;gap:6px}
+  .date-today{text-align:left}
 }
 
 /* ── Google Sign-In ─────────────────────────────────────────── */
