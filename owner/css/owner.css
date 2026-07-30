@@ -178,11 +178,11 @@ body.login-page{
   border-radius: 3px;
   display: inline-block;
 }
-.dc-team-label.t1      { background: #e4eef8; color: #1a3a5c; }
-.dc-team-label.t2      { background: var(--g3); color: var(--g); }
-.dc-team-label.t3      { background: #efe6f5; color: #5c3a7a; }
-.dc-team-label.install { background: #fdf0e4; color: #6b3a1a; }
-.dc-team-label.mgr     { background: #fdf8ec; color: #6D4C00; }
+.dc-team-label.t1      { background: #e6f5e6; color: #217a21; }
+.dc-team-label.t2      { background: #f1e8fb; color: #7c4dbf; }
+.dc-team-label.t3      { background: #fce8f0; color: #c94f85; }
+.dc-team-label.install { background: #fdf0dc; color: #c2700a; }
+.dc-team-label.mgr     { background: #f5ede0; color: #6b4a20; }
 .dc-empty { color: var(--ink3); font-size:var(--fs-small); padding: 2px 0 4px; }
 
 /* ── Manager sub-stream label ────────────────────────────────── */
@@ -198,11 +198,11 @@ body.login-page{
 
 /* ── Job pills ───────────────────────────────────────────────── */
 .sched-job { margin-bottom: 5px; padding: 4px 7px; background: var(--bg2); border-radius: 4px; border-left: 3px solid var(--bg3); }
-.dc-t1 .sched-job      { border-left-color: #1a3a5c; background: #f0f5fb; }
-.dc-t2 .sched-job      { border-left-color: var(--g); background: var(--g3); }
-.dc-t3 .sched-job      { border-left-color: #5c3a7a; background: #f3eef7; }
-.dc-install .sched-job { border-left-color: #6b3a1a; background: #fdf5ec; }
-.dc-mgr .sched-job     { border-left-color: #8B6914; background: #fdfaf4; }
+.dc-t1 .sched-job      { border-left-color: #217a21; background: #e6f5e6; }
+.dc-t2 .sched-job      { border-left-color: #7c4dbf; background: #f1e8fb; }
+.dc-t3 .sched-job      { border-left-color: #c94f85; background: #fce8f0; }
+.dc-install .sched-job { border-left-color: #c2700a; background: #fdf0dc; }
+.dc-mgr .sched-job     { border-left-color: #6b4a20; background: #f5ede0; }
 .sched-job-client  { font-size:var(--fs-body); font-weight: 600; color: var(--ink); }
 .sched-job-meta    { font-size:var(--fs-label); color: var(--ink3); font-family:var(--font-mono); margin-top: 1px; }
 .sched-dur         { margin-left: 6px; }
