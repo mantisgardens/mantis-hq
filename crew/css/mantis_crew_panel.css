@@ -133,6 +133,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
   overflow-x:auto;
   scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
+/* Single-team view (from the landing page's team picker) — no
+   switcher needed since only one team's panel is ever shown. */
+body.team-locked .team-tabs{display:none}
 .team-tab{
   flex:0 0 auto;
   display:flex;align-items:center;justify-content:center;gap:6px;
@@ -180,18 +183,18 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:10;
 }
-.team-header.t1{background:#eef3f9}
-.team-header.t2{background:#eef4ec}
-.team-header.t3{background:#f3eef7}
-.team-header.install{background:#fdf5ec}
+.team-header.t1{background:#e6f5e6}
+.team-header.t2{background:#f1e8fb}
+.team-header.t3{background:#fce8f0}
+.team-header.install{background:#fdf0dc}
 .team-name{font-family:var(--font-display);font-size:var(--fs-body);font-weight:400;font-style:italic}
-.t1 .team-name{color:#1a3a5c}.t2 .team-name{color:var(--g)}.t3 .team-name{color:var(--team3)}.install .team-name{color:var(--t3)}
+.t1 .team-name{color:#217a21}.t2 .team-name{color:#7c4dbf}.t3 .team-name{color:#c94f85}.install .team-name{color:#c2700a}
 .team-meta{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);margin-top:1px}
 .team-hrs{font-family:var(--font-mono);font-size:var(--fs-tiny);padding:2px 7px;border-radius:8px}
-.t1 .team-hrs{background:#e4eef8;color:#1a3a5c;border:1px solid #b8d0e8}
-.t2 .team-hrs{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
-.t3 .team-hrs{background:var(--team3b);color:var(--team3);border:1px solid var(--team3s)}
-.install .team-hrs{background:var(--t3b);color:var(--t3);border:1px solid var(--t3s)}
+.t1 .team-hrs{background:#e6f5e6;color:#217a21;border:1px solid #c3e6c3}
+.t2 .team-hrs{background:#f1e8fb;color:#7c4dbf;border:1px solid #ddc8f0}
+.t3 .team-hrs{background:#fce8f0;color:#c94f85;border:1px solid #f3c3d8}
+.install .team-hrs{background:#fdf0dc;color:#c2700a;border:1px solid #f0d0a0}
 
 /* ── Morning Brief ── */
 .brief-wrap{border-bottom:2px solid var(--bg3)}
@@ -227,20 +230,32 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 /* ── Brief section cards ─────────────────────────────────────
    Each section gets its own full background + border (not just a
    top stripe) so they read as distinct cards rather than blending
-   into each other or the white brief body behind them. Colors are
-   deliberately different hues (blue / green / amber / purple) so
-   no two adjacent sections share a family. */
+   into each other or the white brief body behind them. The team
+   notes card (.bsec-team) is colored per-team below; All Crew is
+   light blue, Leads is purple, Manager is amber — kept distinct
+   from every team color so no section blends into another. */
 .bsec-team{
   background:var(--b3);border:1px solid var(--b4);
   border-top:3px solid var(--b);border-radius:6px;padding:10px;
 }
 .bsec-team .bsec-label{font-size:var(--fs-label);color:var(--b,#2980b9);border-bottom-color:var(--b4);font-weight:700;letter-spacing:0.14em}
+/* Per-team override — the daily notes card matches that team's color */
+.bsec-team-t1{background:#e6f5e6;border-color:#c3e6c3;border-top-color:#217a21}
+.bsec-team-t1 .bsec-label{color:#217a21;border-bottom-color:#c3e6c3}
+.bsec-team-t2{background:#f1e8fb;border-color:#ddc8f0;border-top-color:#7c4dbf}
+.bsec-team-t2 .bsec-label{color:#7c4dbf;border-bottom-color:#ddc8f0}
+.bsec-team-t3{background:#fce8f0;border-color:#f3c3d8;border-top-color:#c94f85}
+.bsec-team-t3 .bsec-label{color:#c94f85;border-bottom-color:#f3c3d8}
+.bsec-team-install{background:#fdf0dc;border-color:#f0d0a0;border-top-color:#c2700a}
+.bsec-team-install .bsec-label{color:#c2700a;border-bottom-color:#f0d0a0}
+.bsec-team-managers{background:#f5ede0;border-color:#e0cfa8;border-top-color:#6b4a20}
+.bsec-team-managers .bsec-label{color:#6b4a20;border-bottom-color:#e0cfa8}
 
 .bsec-allcrew{
-  background:var(--g3);border:1px solid var(--g4);
-  border-top:3px solid var(--g);border-radius:6px;padding:10px;margin-top:12px;
+  background:var(--b3);border:1px solid var(--b4);
+  border-top:3px solid var(--b);border-radius:6px;padding:10px;margin-top:12px;
 }
-.bsec-allcrew .bsec-label{font-size:var(--fs-label);color:var(--g);border-bottom-color:var(--g4);font-weight:700;letter-spacing:0.14em}
+.bsec-allcrew .bsec-label{font-size:var(--fs-label);color:var(--b);border-bottom-color:var(--b4);font-weight:700;letter-spacing:0.14em}
 
 .bsec-manager{
   background:#fdf6ec;border:1px solid #e8d9b0;
@@ -249,10 +264,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .bsec-manager .bsec-label{font-size:var(--fs-label);color:#b05f00;border-bottom-color:#e8d9b0;font-weight:700;letter-spacing:0.14em}
 
 .bsec-leads{
-  background:#efe6f5;border:1px solid #d9c3ea;
-  border-top:3px solid #5c3a7a;border-radius:6px;padding:10px;margin-top:12px;
+  background:#e3f5f5;border:1px solid #bfe3e3;
+  border-top:3px solid #1a7a7a;border-radius:6px;padding:10px;margin-top:12px;
 }
-.bsec-leads .bsec-label{font-size:var(--fs-label);color:#5c3a7a;border-bottom-color:#d9c3ea;font-weight:700;letter-spacing:0.14em}
+.bsec-leads .bsec-label{font-size:var(--fs-label);color:#1a7a7a;border-bottom-color:#bfe3e3;font-weight:700;letter-spacing:0.14em}
 
 .bsec-sublabel{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3);margin:8px 0 3px;opacity:0.8}
 .bsec-sublabel.toc-toggle{
@@ -760,9 +775,9 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
    ============================================================ */
 
 /* Panel header */
-.team-header.managers { background: #fdf8ec; border-bottom: 1px solid #e8d9b0; }
-.team-header.managers .team-name { color: #6D4C00; }
-.team-header.managers .team-meta { color: #9a7a30; }
+.team-header.managers { background: #f5ede0; border-bottom: 1px solid #e0cfa8; }
+.team-header.managers .team-name { color: #6b4a20; }
+.team-header.managers .team-meta { color: #8a6534; }
 
 /* Stream accordion */
 .mgr-stream {

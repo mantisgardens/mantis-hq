@@ -280,3 +280,50 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   display:flex;justify-content:center;
   margin:8px 0 20px;
 }
+/* =============================================================
+   11. TEAM PICKER MODAL
+   Shown when the Crew Assignments card is tapped. Team 1/2/3/Install
+   route to a locked single-team view; Managers gets the full panel.
+   Per-team accent colors match the tab colors used inside
+   mantis_crew_panel.html/css so the choice here visually previews
+   what's on the other side.
+   ============================================================= */
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(28,26,20,0.45);
+  align-items:center;justify-content:center;padding:20px;
+}
+.modal-overlay.active{display:flex}
+.team-picker-modal{
+  background:#fff;border-radius:14px;width:100%;max-width:360px;
+  box-shadow:0 12px 40px rgba(0,0,0,0.25);
+  overflow:hidden;
+}
+.team-picker-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px 14px;border-bottom:1px solid var(--bg3);
+  background:var(--bg2);
+}
+.team-picker-title{
+  font-family:var(--font-display);font-size:var(--fs-title);
+  font-weight:400;font-style:italic;color:var(--ink);
+}
+.team-picker-close{
+  background:none;border:none;cursor:pointer;
+  font-size:var(--fs-xl);color:var(--ink3);line-height:1;padding:2px 4px;
+}
+.team-picker-close:hover{color:var(--ink)}
+.team-picker-list{display:flex;flex-direction:column;gap:8px;padding:16px}
+.team-picker-item{
+  font-family:var(--font-body);font-size:var(--fs-body);font-weight:600;
+  text-align:left;cursor:pointer;
+  background:#f4f0e4;border:1px solid var(--bg3);border-radius:8px;
+  padding:13px 16px;transition:filter .15s,transform .1s;
+}
+.team-picker-item:hover{filter:brightness(0.97)}
+.team-picker-item:active{transform:scale(0.98)}
+.team-picker-item.t1      { color:#217a21; }
+.team-picker-item.t2      { color:#7c4dbf; }
+.team-picker-item.t3      { color:#c94f85; }
+.team-picker-item.install { color:#c2700a; }
+.team-picker-item.managers{ color:#6b4a20; }
