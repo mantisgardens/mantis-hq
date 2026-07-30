@@ -162,8 +162,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
   padding:7px 10px 0;
   border-bottom:2px solid var(--bg3);
   overflow-x:auto;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:var(--bg3) transparent;
 }
+.team-tabs::-webkit-scrollbar{height:4px}
+.team-tabs::-webkit-scrollbar-track{background:transparent}
+.team-tabs::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
 /* Single-team view (from the landing page's team picker) — no
    switcher needed since only one team's panel is ever shown. */
 body.team-locked .team-tabs{display:none}
