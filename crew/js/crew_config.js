@@ -10,7 +10,7 @@
    ============================================================= */
 
 // =============================================================
-// SECTION 1 — CONFIGURATION
+// CONFIGURATION
 // Edit SCRIPT_URL after each Apps Script redeployment.
 // =============================================================
 // Read from mantis_config.js — edit that file to update the URL
@@ -18,21 +18,27 @@ const SCRIPT_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT
 
 
 // =============================================================
-// SECTION 3 — APPLICATION STATE
+// APPLICATION STATE
 // All mutable state lives here. Mutate only via setSt(),
 // toggle(), or the loadAll() handlers.
 // =============================================================
-// ── State ─────────────────────────────────────────────────────
-let SCHEDULE     = {};          // populated from Google Calendar via Apps Script
 
-// =============================================================
-// SECTION 2 — SCHEDULE DATA
+// ****************************
+// ****  SCHEDULE DATA   ******
+// ****************************
 // DAYS, DAY_LABELS, and SCHEDULE are populated at runtime by
 // the Apps Script ?action=schedule call. They start empty and
 // are filled in loadAll() when the page first opens.
-// =============================================================
+let SCHEDULE     = {};          // populated from Google Calendar via Apps Script
 let DAYS         = [];          // sorted date keys e.g. ["2026-04-16", ...]
+let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
+let currentDay   = null;
+
+// ****************************
+// *******  TEAM DATA   ******* 
+// ****************************
 let activeTeam   = 't1';       // currently visible team tab
+let crewTeams    = { t1: [], t2: [], t3: [], tInstall: [], managers: [] };  // team rosters from Crew Info sheet
 
 // ── Team lock (single-team view from the landing page picker) ──
 // null            → full experience: team-tab switcher, all teams
@@ -45,9 +51,28 @@ let lockedTeam = null;
 // ({ t1, t2, t3, tInstall }) — 'install' is the only one that
 // doesn't match its tab id directly.
 const TEAM_DAY_KEY = { t1:'t1', t2:'t2', t3:'t3', install:'tInstall' };
-let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
-let currentDay   = null;
 
+// ****************************
+// *****  MANAGER DATA   ****** 
+// ****************************
+// ── isManagerUser ─────────────────────────────────────────────
+// Returns true if the logged-in crew member's category indicates
+// they are a manager. Checked at call time (not parse time) so it
+// always reads the value set after login completes.
+function isManagerUser() {
+  const cat = (sessionStorage.getItem('mg_user_category')
+            || localStorage.getItem('mg_user_category') || '').toLowerCase();
+  return cat.includes('manager');
+}
+
+// Manager schedule — fetched only for managers, stays null for others.
+let MANAGER_SCHEDULE = null;   // { days: { "YYYY-MM-DD": { ashley:[], brooke:[], mgr:[] } } }
+let mgrBriefOpen     = true;   // morning brief accordion state on manager panel
+
+
+// ****************************
+// *****  CACHE/STORAGE  ****** 
+// ****************************
 // getUserTeamSlug() reads mg_user_category from sessionStorage at call time
 // (not at parse time) so it's always evaluated after login has completed.
 // Managers get null (all panels unlocked). Unknown category also returns null
@@ -69,148 +94,5 @@ let expanded     = {}, statuses = {};
 const _briefStored = JSON.parse(sessionStorage.getItem('mg_brief_open') || 'null');
 let briefOpen = _briefStored || { t1:true, t2:true, t3:true, install:true, managers:true };
 let clientCache  = {}, sheetClients = [], morningBrief = null;
-// ── normClientName ────────────────────────────────────────────
-// Normalises a client name for comparison across two formats:
-//   DB format:       "Last, First"   →  "first last"
-//   Calendar format: "First Last"    →  "first last"
-// Lowercases, trims, collapses whitespace, and inverts
-// "Last, First" so both sides compare consistently.
-// Used wherever a calendar-derived name is matched against sheetClients.
-function normClientName(s) {
-  s = (s || '').toLowerCase().trim();
-  if (s.includes(',')) {
-    const parts = s.split(',').map(p => p.trim());
-    s = parts.slice(1).join(' ').trim() + ' ' + parts[0].trim();
-  }
-  return s.replace(/\s+/g, ' ');
-}
 
-// ── levenshtein ───────────────────────────────────────────────
-// Returns the edit distance between two strings.
-// Used by findSheetClient for typo-tolerant matching.
-function levenshtein(a, b) {
-  const m = a.length, n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i-1] === b[j-1]
-        ? dp[i-1][j-1]
-        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-    }
-  }
-  return dp[m][n];
-}
-
-// ── findSheetClient ───────────────────────────────────────────
-// Looks up a client in sheetClients by calendar name.
-// Three-tier matching:
-//   1. Exact match after normalisation (handles Last,First ↔ First Last)
-//   2. Substring containment (handles partial names)
-//   3. Fuzzy Levenshtein match on the surname only, distance ≤ 1
-//      (handles single typos like "Belloti" → "Bellotti")
-//      Matches against the text before the comma in the DB name
-//      (e.g. "Bellotti, Tim" → "bellotti") to avoid false positives
-//      from first-name collisions (jan/jon/joan etc).
-// Returns the matching sheetClients row, or null.
-function findSheetClient(calendarName) {
-  if (!calendarName || !sheetClients.length) return null;
-  const q = normClientName(calendarName);
-  if (!q) return null;
-
-  // Tier 1 & 2: exact or substring
-  const close = sheetClients.find(c => {
-    const n = normClientName(c['Name(s)'] || '');
-    return n === q || n.includes(q) || q.includes(n);
-  });
-  if (close) return close;
-
-  // Tier 2b: address match — event title looks like "2305 Laredo - lawn care".
-  // Requires exact street number; street name allows up to 2 edits and is
-  // suffix-tolerant (Rd/Road, St/Street, etc).
-  const _addrM = (calendarName || '').match(/^(\d+)\s+(.+?)(?:\s*[-–—]|$)/);
-  if (_addrM) {
-    const _evNum = _addrM[1];
-    const _evStreetRaw = _addrM[2].replace(/,.*$/, '').trim();
-    const _sfx = new Set(['st','street','str','ave','avenue','av','dr','drive',
-      'rd','road','blvd','boulevard','way','ct','court','ln','lane',
-      'cir','circle','pl','place']);
-    const _normSt = s => {
-      const w = s.toLowerCase().replace(/[^\w\s]/g,'').trim().split(/\s+/);
-      const bare = (w.length > 1 && _sfx.has(w[w.length-1])) ? w.slice(0,-1) : w;
-      return { full: w.join(' '), bare: bare.join(' ') };
-    };
-    const ev = _normSt(_evStreetRaw);
-    let bestMatch = null, bestDist = 3;
-    sheetClients.forEach(c => {
-      const dbAddr = (c['Address'] || '').trim();
-      const dbNumM = dbAddr.match(/^(\d+)\s+(.+?)(?:,|$)/);
-      if (!dbNumM || dbNumM[1] !== _evNum) return;
-      const db = _normSt(dbNumM[2]);
-      const dist = Math.min(
-        levenshtein(ev.bare, db.bare),
-        levenshtein(ev.bare, db.full),
-        levenshtein(ev.full, db.bare),
-        levenshtein(ev.full, db.full),
-      );
-      if (dist < bestDist) { bestDist = dist; bestMatch = c; }
-    });
-    if (bestMatch) return bestMatch;
-  }
-
-  // Tier 3: fuzzy match on surname only.
-  // Calendar name "Sheila Belloti" → last word "belloti"
-  // DB name "Bellotti, Tim"  → text before comma "bellotti"
-  //
-  // Strip event-title suffix from the RAW calendar name before normalising,
-  // so "Dugal, Barbara - Monthly" becomes "Dugal, Barbara" (surname intact),
-  // and "2305 Laredo - lawn care" becomes "2305 Laredo" (no name to match).
-  const rawStripped = (calendarName || '').replace(/\s*[-–—].*$/, '').trim();
-  const qStripped   = normClientName(rawStripped);
-  const qWords      = qStripped.split(' ');
-  const qSurname    = qWords[qWords.length - 1];
-  if (qSurname.length < 3) return null;  // too short to fuzzy-match safely
-
-  // Stoplist: common words that appear in event titles but are never surnames.
-  // Prevents e.g. "lawn care" → surname "care" fuzzy-matching "Hare".
-  const _t3Stoplist = new Set([
-    'care', 'lawn', 'mow', 'mowing', 'trim', 'trimming', 'clean', 'cleanup',
-    'install', 'initial', 'monthly', 'quarterly', 'annual', 'biannual',
-    'maintenance', 'maint', 'service', 'visit', 'work', 'job', 'crew',
-    'planting', 'mulch', 'irrigation', 'sprinkler', 'check', 'repair',
-    'tree', 'shrub', 'hedge', 'leaf', 'leaves', 'debris', 'blow', 'edge',
-    'weed', 'spray', 'fertilize', 'aerate', 'overseed', 'prune', 'pruning',
-    'road', 'street', 'drive', 'lane', 'avenue', 'boulevard', 'court', 'way',
-  ]);
-  if (_t3Stoplist.has(qSurname)) return null;
-
-  let bestMatch = null, bestDist = Infinity;
-  sheetClients.forEach(c => {
-    const raw = (c['Name(s)'] || '').toLowerCase().trim();
-    const dbSurname = raw.includes(',')
-      ? raw.split(',')[0].trim()          // "bellotti, tim" → "bellotti"
-      : raw.split(' ').pop();             // "tim bellotti"  → "bellotti"
-    if (!dbSurname || Math.abs(dbSurname.length - qSurname.length) > 1) return;
-    const dist = levenshtein(qSurname, dbSurname);
-    if (dist < bestDist) { bestDist = dist; bestMatch = c; }
-  });
-
-  return bestDist <= 1 ? bestMatch : null;
-}
-
-let crewTeams    = { t1: [], t2: [], t3: [], tInstall: [], managers: [] };  // team rosters from Crew Info sheet
-
-// ── isManagerUser ─────────────────────────────────────────────
-// Returns true if the logged-in crew member's category indicates
-// they are a manager. Checked at call time (not parse time) so it
-// always reads the value set after login completes.
-function isManagerUser() {
-  const cat = (sessionStorage.getItem('mg_user_category')
-            || localStorage.getItem('mg_user_category') || '').toLowerCase();
-  return cat.includes('manager');
-}
-
-// Manager schedule — fetched only for managers, stays null for others.
-let MANAGER_SCHEDULE = null;   // { days: { "YYYY-MM-DD": { ashley:[], brooke:[], mgr:[] } } }
-let mgrBriefOpen     = true;   // morning brief accordion state on manager panel
 

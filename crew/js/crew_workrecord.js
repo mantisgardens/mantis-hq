@@ -3,17 +3,17 @@
    Mantis Gardens — Work Record Form
 
    Contains:
-     12. Work record form    (openWorkRecord, closeModal, isFormEmpty)
-     13. Workers             (addWorker, getWorkersForTeam)
-     14. Materials           (addMaterial, addIrrigationRow, COMMON_MATERIALS)
-     15. Photos              (handlePhotos, removePhoto)
-     16. Form actions        (collectFormData, saveForm, submitForm,
+     1. Work record form    (openWorkRecord, closeModal, isFormEmpty)
+     2. Workers             (addWorker, getWorkersForTeam)
+     3. Materials           (addMaterial, addIrrigationRow, COMMON_MATERIALS)
+     4. Photos              (handlePhotos, removePhoto)
+     5. Form actions        (collectFormData, saveForm, submitForm,
                                clearForm, toggleChecklist)
-     16b. Safe local save    (safeLocalSave, pruneOldRecords)
+     5.b. Safe local save    (safeLocalSave, pruneOldRecords)
    ============================================================= */
 
 // =============================================================
-// SECTION 12 — WORK RECORD FORM
+// SECTION 1 — WORK RECORD FORM
 // openWorkRecord(jobId) slides up the modal for a given job.
 // The form captures workers + hours, materials used,
 // service notes (client-visible), internal notes, and photos.
@@ -144,7 +144,7 @@ function openWorkRecord(jobId) {
   // Prefer the worker's picked override (set via the ambiguous-name picker) over
   // the raw calendar client string, since that's the actual matched client.
   const _override = clientOverrides[_overrideKey(jobId)];
-  const _scNow = _override || job._sc || findSheetClient(job.client);
+  const _scNow = _override || job._sc || findClient(job.client);
   document.getElementById('wr-client-name').value = (_override && (_override['QB Customer Name'] || _override['Name(s)'])) || job.client || '';
   document.getElementById('wr-hist-id').value      = (_scNow && _scNow['Hist Data ID'])    ? _scNow['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_scNow && _scNow['Drive Folder ID']) ? _scNow['Drive Folder ID'].trim() : '';
@@ -309,7 +309,7 @@ function openMgrWorkRecord(evId, workerName) {
   // worker's picked override (set via the ambiguous-name picker) if present,
   // since that's the actual matched client rather than the raw calendar title.
   const _mgrOverride = clientOverrides[_overrideKey('mgr_' + evId)];
-  const _mgrSc = _mgrOverride || findSheetClient(ev.clientCandidate || ev.title || '');
+  const _mgrSc = _mgrOverride || findClient(ev.clientCandidate || ev.title || '');
   document.getElementById('wr-client-name').value = (_mgrOverride && (_mgrOverride['QB Customer Name'] || _mgrOverride['Name(s)'])) || ev.clientCandidate || ev.title || '';
   document.getElementById('wr-hist-id').value      = (_mgrSc && _mgrSc['Hist Data ID'])    ? _mgrSc['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_mgrSc && _mgrSc['Drive Folder ID']) ? _mgrSc['Drive Folder ID'].trim() : '';
@@ -380,10 +380,9 @@ function openMgrWorkRecord(evId, workerName) {
 // sheet and pre-populates the fert rows. Falls back to one empty row.
 
 function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
-  // Look up Hist Data ID from sheetClients.
-  // Client DB stores names as "Last, First" but calendar events use
-  // "First Last" — normClientName() handles both formats.
-  const sc = findSheetClient(clientName);
+  // Look up Hist Data ID from sheetClients via findClient() (word-score
+  // matching handles "Last, First" vs "First Last" formats, etc).
+  const sc = findClient(clientName);
   const histId   = sc && sc['Hist Data ID']    ? sc['Hist Data ID'].trim()    : '';
   const folderId = sc && sc['Drive Folder ID'] ? sc['Drive Folder ID'].trim() : '';
 
@@ -545,7 +544,7 @@ function closeModalOutside(e) {
 
 
 // =============================================================
-// SECTION 13 — WORKERS
+// SECTION 2 — WORKERS
 // addWorker(name?, hours?) appends a name+hours input row.
 // Called once on modal open, then by the "+ Add worker" button.
 // =============================================================
@@ -577,7 +576,7 @@ function addWorker(name, hours, laborType) {
 
 
 // =============================================================
-// SECTION 14 — MATERIALS & COMMON MATERIALS LIST
+// SECTION 3 — MATERIALS & COMMON MATERIALS LIST
 // COMMON_MATERIALS provides autocomplete suggestions drawn from
 // the install sheet and standard maintenance supplies.
 // addMaterial(item?, qty?, unit?) appends a material row.
@@ -889,7 +888,7 @@ function addMaterial(item, qty, unit) {
 
 
 // =============================================================
-// SECTION 15 — PHOTOS
+// SECTION 4 — PHOTOS
 // handlePhotos() reads selected files into FileReader and shows
 // thumbnails. photoFiles[] holds the File objects for upload.
 // =============================================================
@@ -996,7 +995,7 @@ function removePhoto(btn, fileName) {
 
 
 // =============================================================
-// SECTION 16 — FORM ACTIONS
+// SECTION 5 — FORM ACTIONS
 // collectFormData()  — gathers all form fields into one object
 // saveForm()         — persists to localStorage, shows badge
 // submitForm()       — validates, saves, marks job Done, closes
@@ -1433,7 +1432,7 @@ function clearForm() {
 
 
 // =============================================================
-// SECTION 16b — SAFE LOCAL SAVE
+// SECTION 5.b — SAFE LOCAL SAVE
 // Saves savedRecords to localStorage, catching quota errors.
 // Automatically prunes old submitted records if storage is full.
 // =============================================================

@@ -1,16 +1,9 @@
 /* =============================================================
    crew_history.js
    Mantis Gardens — Historical Data Panel
-
-   Contains:
-     19. Historical data panel  (openHistory, openHistoryForClient,
-                                  loadHistory, switchHistoryTab,
-                                  filterHistory, closeHistory,
-                                  populateHistoryClientList)
    ============================================================= */
 
-// SECTION 19 — HISTORICAL DATA PANEL
-// openHistory()               — opens modal, populates client list
+// HISTORICAL DATA PANEL
 // openHistoryForClient(name)  — opens modal pre-selected to client
 // loadHistory(clientName)     — fetches from Historical Data sheet
 // switchHistoryTab(tab)       — switches Notes/Fert/Labor/Photos
@@ -25,12 +18,6 @@ let _historyQuery  = '';      // current search string
 
 // ── Open / close ──────────────────────────────────────────────
 
-function openHistory() {
-  _populateHistorySelect();
-  document.getElementById('history-modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
 function openHistoryForClient(clientName, cardId) {
   // clientName arrives URL-encoded from the inline onclick handlers in
   // crew_render.js (avoids breaking on client names containing apostrophes,
@@ -41,94 +28,18 @@ function openHistoryForClient(clientName, cardId) {
   document.body.style.overflow = 'hidden';
   if (clientName) {
     // If the crew manually located this client via the picker, use that
-    // override directly — skip _matchClientName entirely.
+    // override directly — skip findClient() entirely.
     const override = (cardId && typeof clientOverrides !== 'undefined')
       ? clientOverrides[_overrideKey(cardId)]
       : null;
+    const _matched = override ? null : findClient(clientName);
     const resolvedName = override
       ? (override['Name(s)'] || clientName)
-      : (_matchClientName(clientName) || clientName);
+      : ((_matched && _matched['Name(s)']) || clientName);
     const sel = document.getElementById('history-client-select');
     if (sel) sel.value = resolvedName;
     loadHistory(resolvedName, cardId);
   }
-}
-
-function closeHistory() {
-  document.getElementById('history-modal').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function closeHistoryOutside(e) {
-  if (e.target.id === 'history-modal') closeHistory();
-}
-
-// ── Client name matching (calendar title → sheet client name) ─
-
-function _matchClientName(calName) {
-  if (!sheetClients.length) return null;
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const calNorm = norm(calName);
-
-  function findMatch(nameToCheck) {
-    const n      = norm(nameToCheck);
-    const nWords = n.split(/\s+/).filter(w => w.length > 2);
-    if (!nWords.length) return null;
-    const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === n);
-    if (exact) return exact;
-    return sheetClients.find(c => {
-      const cn      = norm(c['Name(s)'] || c['name'] || '');
-      const cnWords = cn.split(/\s+/);
-      if (n.length <= cn.length) return nWords.every(w => cnWords.includes(w));
-      const cnW = cnWords.filter(w => w.length > 2);
-      return cnW.every(w => nWords.includes(w));
-    });
-  }
-
-  const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === calNorm);
-  if (exact) return exact['Name(s)'] || exact['name'];
-
-  const contains = findMatch(calName);
-  if (contains) return contains['Name(s)'] || contains['name'];
-
-  const people = calName.split(/\s*&\s*/);
-  for (const person of people) {
-    const surname = person.trim().split(/[\s,]+/)[0];
-    if (surname && surname.length > 2) {
-      const surnameLow = surname.toLowerCase();
-      const m = sheetClients.find(c => {
-        const cn = c['Name(s)'] || c['name'] || '';
-        return cn.toLowerCase().split(/[\s,&]+/).includes(surnameLow);
-      });
-      if (m) return m['Name(s)'] || m['name'];
-    }
-  }
-
-  const calWords = calNorm.split(' ').filter(w => w.length > 2);
-  let best = null, bestScore = 0;
-  sheetClients.forEach(c => {
-    const cWords = norm(c['Name(s)'] || c['name'] || '').split(' ').filter(w => w.length > 2);
-    const overlap = calWords.filter(w => cWords.includes(w)).length;
-    if (overlap > bestScore) { bestScore = overlap; best = c['Name(s)'] || c['name']; }
-  });
-  return bestScore >= 1 ? best : null;
-}
-
-// ── Populate client dropdown ───────────────────────────────────
-
-function _populateHistorySelect() {
-  const sel = document.getElementById('history-client-select');
-  while (sel.options.length > 1) sel.remove(1);
-  sel.value = '';
-  [...sheetClients]
-    .sort((a, b) => (a['Name(s)'] || '').localeCompare(b['Name(s)'] || ''))
-    .forEach(c => {
-      const name = c['Name(s)'] || c['name'] || '';
-      if (!name) return;
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = name;
-      sel.appendChild(opt);
-    });
 }
 
 // ── Load history ───────────────────────────────────────────────
@@ -165,7 +76,7 @@ async function loadHistory(clientName, cardId) {
     const _override = (cardId && typeof clientOverrides !== 'undefined')
       ? clientOverrides[_overrideKey(cardId)]
       : null;
-    const sc = _override || findSheetClient(clientName);
+    const sc = _override || findClient(clientName);
 
     // If nothing resolves — no override and no DB match — show instant message
     // rather than firing a fetch that will return empty anyway.
@@ -473,63 +384,6 @@ function openHistory() {
   document.body.style.overflow = 'hidden';
 }
 
-// Try to find the closest sheetClient name to a calendar event title
-function _matchClientName(calName) {
-  if (!sheetClients.length) return null;
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-  const calNorm = norm(calName);
-
-  // Helper to check a name against all sheet clients using word overlap
-  function findMatch(nameToCheck) {
-    const n      = norm(nameToCheck);
-    const nWords = n.split(/\s+/).filter(w => w.length > 2);
-    if (!nWords.length) return null;
-    const exact = sheetClients.find(c => norm(c['Name(s)'] || c['name'] || '') === n);
-    if (exact) return exact;
-    return sheetClients.find(c => {
-      const cn      = norm(c['Name(s)'] || c['name'] || '');
-      const cnWords = cn.split(/\s+/);
-      if (n.length <= cn.length) {
-        return nWords.every(w => cnWords.includes(w));
-      } else {
-        const cnW = cnWords.filter(w => w.length > 2);
-        return cnW.every(w => nWords.includes(w));
-      }
-    });
-  }
-
-  const exact = sheetClients.find(c =>
-    norm(c['Name(s)'] || c['name'] || '') === calNorm
-  );
-  if (exact) return exact['Name(s)'] || exact['name'];
-
-  const contains = findMatch(calName);
-  if (contains) return contains['Name(s)'] || contains['name'];
-
-  const people = calName.split(/\s*&\s*/);
-  for (const person of people) {
-    const surname = person.trim().split(/[\s,]+/)[0];
-    if (surname && surname.length > 2) {
-      const surnameLow = surname.toLowerCase();
-      const m = sheetClients.find(c => {
-        const cn = c['Name(s)'] || c['name'] || '';
-        return cn.toLowerCase().split(/[\s,&]+/).includes(surnameLow);
-      });
-      if (m) return m['Name(s)'] || m['name'];
-    }
-  }
-
-  const calWords = calNorm.split(' ').filter(w => w.length > 2);
-  let best = null, bestScore = 0;
-  sheetClients.forEach(c => {
-    const n = c['Name(s)'] || c['name'] || '';
-    const cWords = norm(n).split(' ').filter(w => w.length > 2);
-    const overlap = calWords.filter(w => cWords.includes(w)).length;
-    if (overlap > bestScore) { bestScore = overlap; best = n; }
-  });
-  return bestScore >= 1 ? best : null;
-}
-
 function closeHistory() {
   document.getElementById('history-modal').classList.remove('open');
   document.body.style.overflow = '';
@@ -538,6 +392,8 @@ function closeHistory() {
 function closeHistoryOutside(e) {
   if (e.target.id === 'history-modal') closeHistory();
 }
+
+// ── Populate client dropdown ───────────────────────────────────
 
 function _populateHistorySelect() {
   const sel = document.getElementById('history-client-select');
@@ -556,5 +412,3 @@ function _populateHistorySelect() {
     sel.appendChild(opt);
   });
 }
-
-// ── Load history from Historical Data sheet ───────────────────

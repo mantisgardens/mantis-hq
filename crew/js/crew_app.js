@@ -1,6 +1,6 @@
 /* =============================================================
    crew_app.js
-   Mantis Gardens — App Startup & Session Management
+   Mantis Gardens — App Startup, Signout & Session Management
 
    Contains:
      - doSignOut()
@@ -11,11 +11,6 @@
    modules are defined before startup code runs.
    ============================================================= */
 
-// =============================================================
-// SECTION 11 — STARTUP
-// Sets currentDay to today then fires loadAll().
-// loadAll() is also wired to the "↺ Reload Database" button.
-// =============================================================
 // ── Sign out ─────────────────────────────────────────────────
 function doSignOut() {
   const email = sessionStorage.getItem('mg_user_email') || localStorage.getItem('mg_user_email');

@@ -3,17 +3,17 @@
    Mantis Gardens — Rendering Layer
 
    Contains:
-     5.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
-     6.  Client matching     (findClient, clientCache)
-     7.  HTML escaping       (esc)
-     8.  Morning Brief       (renderBrief, toggleBrief)
-     9.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
-     10. Tabs & main render  (buildTabs, render, toggle, setSt,
+     1.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
+     2.  Client matching     (findClient, clientCache)
+     3.  Morning Brief       (renderBrief, toggleBrief)
+     4.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
+	 5.  Manager Panel rendering 
+     6.  Tabs & main render  (buildTabs, render, toggle, setSt,
                                switchTeam, toggleJobStatus, hideJob)
    ============================================================= */
 
 // =============================================================
-// SECTION 5 — DATE HELPERS
+// SECTION 1 — DATE HELPERS
 // todayDateKey()    → "YYYY-MM-DD" for today
 // isToday(key)      → boolean
 // updateWeekLabel() → sets the header "Week of ..." text
@@ -72,14 +72,59 @@ function shiftWeek(dir) {
 
 
 // =============================================================
-// SECTION 6 — CLIENT MATCHING
+// SECTION 2 — CLIENT MATCHING
 // findClient(name) does a fuzzy word-score match between the
 // calendar event title and client names from Google Sheets.
 // clientCache is a word-indexed lookup built in loadAll().
+//
+// This is the ONE client-matching function for the whole crew app —
+// used directly here for job cards and the Managers panel, and
+// called from crew_workrecord.js (Work Record form, fertilizer
+// prefill) and crew_history.js (Historical Data panel) too. It used
+// to be three separate, inconsistent implementations; consolidated
+// so every part of the app resolves a calendar title to a client
+// the same way (including the owner's-home special case below).
 // =============================================================
+
+// ── levenshtein ───────────────────────────────────────────────
+// Returns the edit distance between two strings.
+// Used by findClient() below for typo-tolerant matching.
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// ── Owner's home — special case ─────────────────────────────────
+// The owner doesn't put his own name on his home's calendar events —
+// he titles them with the address instead ("2301 Laredo" or
+// "2301 Laredo Road"). findClient()'s normal matching tiers below
+// aren't guaranteed to catch an address-only title, so this is
+// checked explicitly, first, inside findClient().
+// Matches "2301 Laredo" with or without a street suffix (Road/Rd/etc)
+// or anything after it (e.g. "2301 Laredo Road - Monthly").
+// Returns the matching sheetClients row (by address), or null if the
+// Client Database doesn't have a row for it yet.
+const OWNER_HOME_ADDRESS_RE = /^\s*2301\s+laredo\b/i;
+function matchOwnerHomeAddress(name) {
+  if (!name || !OWNER_HOME_ADDRESS_RE.test(name)) return null;
+  if (!sheetClients || !sheetClients.length) return null;
+  return sheetClients.find(c => OWNER_HOME_ADDRESS_RE.test((c['Address'] || '').trim())) || null;
+}
+
 // ── Client matching ───────────────────────────────────────────
 function findClient(name) {
   if (!sheetClients.length) return null;
+  const _ownerHome = matchOwnerHomeAddress(name);
+  if (_ownerHome) return _ownerHome;
   const lower = name.toLowerCase();
   const words  = lower.split(/[\s,&()+\-\/\:]+/).filter(w => w.length > 1);
   const scores = new Map();
@@ -333,12 +378,69 @@ function esc(s) {
 
 
 // =============================================================
-// SECTION 8 — MORNING BRIEF RENDERING
+// SECTION 3 — MORNING BRIEF RENDERING
 // renderBrief(wrapId, team) builds the morning brief panel for each
 // team column. Uses morningBrief data (from getMorningBrief()) for
 // team-specific notes and the shared all-crew section (time off,
 // birthdays, special events). toggleBrief() flips open/closed state.
 // =============================================================
+
+// ── Note item rich-text sanitizer ───────────────────────────────
+// Morning-brief note items are written by the owner via the Note
+// Editor popup in the Owner Portal (owner_dashboard.js) as small HTML
+// fragments — bold/italic/font-size/color only, nothing else. This is
+// the same allow-list used there, applied again here before rendering
+// so a note only ever shows exactly that limited formatting, however
+// the underlying sheet cell was actually edited.
+const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
+function sanitizeNoteHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+
+  function walk(parent) {
+    let node = parent.firstChild;
+    while (node) {
+      const next = node.nextSibling;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
+          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
+            parent.removeChild(node);
+            node = next;
+            continue;
+          }
+          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+          parent.removeChild(node);
+        } else {
+          if (node.tagName === 'SPAN') {
+            const color    = node.style.color;
+            const fontSize = node.style.fontSize;
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            let style = '';
+            if (color)    style += `color:${color};`;
+            if (fontSize) style += `font-size:${fontSize};`;
+            if (style) {
+              node.setAttribute('style', style);
+              walk(node);
+            } else {
+              while (node.firstChild) parent.insertBefore(node.firstChild, node);
+              parent.removeChild(node);
+            }
+          } else {
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            walk(node);
+          }
+        }
+      } else if (node.nodeType !== Node.TEXT_NODE) {
+        parent.removeChild(node);
+      }
+      node = next;
+    }
+  }
+  walk(tmp);
+  return tmp.innerHTML.trim();
+}
+
+
 // ── Morning Brief ─────────────────────────────────────────────
 function renderBrief(wrapId, team) {
   const wrap   = document.getElementById(wrapId);
@@ -371,7 +473,7 @@ function renderBrief(wrapId, team) {
       teamNotes.forEach(sec => {
         if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
         (sec.items || []).forEach(item => {
-          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+          body += `<div class="note-item">&#8226; ${sanitizeNoteHtml(item)}</div>`;
         });
       });
       body += `</div>`;
@@ -409,7 +511,7 @@ function renderBrief(wrapId, team) {
           body += `<div class="bsec bsec-leads"><div class="bsec-label">&#128204; Leads</div>`;
           if (_colHeader) body += `<div class="bsec-sublabel">${esc(_colHeader)}</div>`;
           _colItems.forEach(item => {
-            body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+            body += `<div class="note-item">&#8226; ${sanitizeNoteHtml(item)}</div>`;
           });
           body += `</div>`;
         }
@@ -430,7 +532,7 @@ function renderBrief(wrapId, team) {
       allcrewNotes.forEach(sec => {
         if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
         (sec.items || []).forEach(item => {
-          body += `<div class="note-item">&#8226; ${esc(item)}</div>`;
+          body += `<div class="note-item">&#8226; ${sanitizeNoteHtml(item)}</div>`;
         });
       });
 
@@ -513,7 +615,7 @@ function toggleTimeOff() {
 
 
 // =============================================================
-// SECTION 9 — JOB CARD RENDERING
+// SECTION 4 — JOB CARD RENDERING
 // renderJobs() builds each job card from calendar event data,
 // optionally enriched with client sheet data (findClient).
 // Expanded cards show full client detail + action buttons.
@@ -628,7 +730,7 @@ function renderJobs(cid, jobs, teamClass) {
 
 
 // =============================================================
-// SECTION 11 — MANAGER PANEL RENDERING
+// SECTION 5 — MANAGER PANEL RENDERING
 // renderManagerPanel() builds the Managers tab content for the
 // selected day. Shows three stacked accordions (Ashley, Brooke,
 // Manager General) — stacked layout works well on phones, avoids
@@ -782,9 +884,18 @@ function toggleMgrJobStatus(evId) {
   statuses[key] = current === 'inprogress' ? 'pending' : 'inprogress';
   renderManagerPanel();
 }
-// ── switchTeam ────────────────────────────────────────────────
-// Shows the selected team panel and updates the tab highlight.
-// Works with any number of teams — just add more panels + tabs.
+
+
+// =============================================================
+// SECTION 6 — CREW WORK PANEL RENDERING
+// switchTeam(teamID) Shows the selected team panel and updates 
+// the tab highlight. Works with any number of teams — just add 
+// more panels + tabs.
+// buildTabs() generates the day tab bar from DAYS[].
+// render() is the single entry point that redraws everything —
+// tabs (for manager only), all job columns, all brief panels, and
+// the summary bar. Call it after any state change.
+// =============================================================
 
 function switchTeam(teamId) {
   activeTeam = teamId;
@@ -798,11 +909,6 @@ function switchTeam(teamId) {
   });
 }
 
-// buildTabs() generates the day tab bar from DAYS[].
-// render() is the single entry point that redraws everything —
-// tabs, all three job columns, all three brief panels, and
-// the summary bar. Call it after any state change.
-// =============================================================
 // ── Tabs & render ─────────────────────────────────────────────
 function buildTabs() {
   const el = document.getElementById('day-tabs');

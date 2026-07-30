@@ -219,7 +219,7 @@ function selectTeam(team) {
 
 
 // =============================================================
-// SECTION 6 — STARTUP
+// SECTION 6 — STARTUP VALIDATION and CACHE MANAGEMENT
 // =============================================================
 
 // Show timeout message if redirected here due to inactivity
