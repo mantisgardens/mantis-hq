@@ -359,8 +359,7 @@ function renderSchedule() {
   const teams = [
     { key: 't1',       label: 'Maintenance — Team 1', cls: 't1' },
     { key: 't2',       label: 'Maintenance — Team 2', cls: 't2' },
-    // Team 3 not yet live — re-add this line when the crew starts running:
-    // { key: 't3',       label: 'Maintenance — Team 3', cls: 't3' },
+    { key: 't3',       label: 'Maintenance — Team 3', cls: 't3' },
     { key: 'tInstall', label: 'Install Team',         cls: 'install' },
     { key: 'managers', label: 'Managers',             cls: 'mgr' },
   ];
