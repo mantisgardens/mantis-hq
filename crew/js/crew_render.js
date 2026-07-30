@@ -907,6 +907,26 @@ function switchTeam(teamId) {
   document.querySelectorAll('.team-panel').forEach(p => {
     p.classList.toggle('hidden', p.id !== 'panel-' + teamId);
   });
+  
+  // On narrow screens the tab bar scrolls horizontally and doesn't fit
+  // every tab at once — Managers, being the last tab, can easily end up
+  // selected (e.g. it's a manager's default tab on login) without ever
+  // being scrolled into view, so the bar still shows Team 1/Team 2 with
+  // no visible indication anything changed. Nudge the bar's own scroll
+  // position just enough to bring the active tab fully into view —
+  // this only touches the tab bar's horizontal scrollLeft, never the
+  // page's vertical scroll position.
+  const activeTab = document.getElementById('ttab-' + teamId);
+  const tabBar    = document.querySelector('.team-tabs');
+  if (activeTab && tabBar && getComputedStyle(tabBar).display !== 'none') {
+    const barRect = tabBar.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    if (tabRect.left < barRect.left) {
+      tabBar.scrollLeft -= (barRect.left - tabRect.left) + 12;
+    } else if (tabRect.right > barRect.right) {
+      tabBar.scrollLeft += (tabRect.right - barRect.right) + 12;
+    }
+  }
 }
 
 // ── Tabs & render ─────────────────────────────────────────────
