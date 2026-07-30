@@ -18,7 +18,7 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=50">
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=53">
 </head>
 <body>
 
@@ -44,7 +44,6 @@
   <div class="status-pill"><div class="sdot" id="sd-clients"></div><span id="sl-clients">Clients: not loaded</span></div>
   <div class="status-pill"><div class="sdot" id="sd-brief"></div><span id="sl-brief">Morning brief: not loaded</span></div>
   <div class="status-pill"><div class="sdot" id="sd-calendar"></div><span id="sl-calendar">Calendar: not loaded</span></div>
-  <button class="reload-btn" id="reload-btn" onclick="reloadAll()"><span class="reload-icon">&#8635;</span> <span id="reload-btn-label">Load all sheets</span></button>
 </div>
 
 <div class="day-tabs" id="day-tabs"></div>
@@ -113,7 +112,10 @@
   </div>
 </div>
 
-<div class="summary-bar" id="summary-bar"></div>
+<div class="summary-bar" id="summary-bar">
+  <div class="summary-stats" id="summary-stats"></div>
+  <button class="reload-btn" id="reload-btn" onclick="reloadAll()"><span class="reload-icon">&#8635;</span> <span id="reload-btn-label">Reload Database</span></button>
+</div>
 
 
 
@@ -347,11 +349,11 @@
 <script src="js/mantis_data_loader.js?v=55"></script>
 <script src="js/crew_config.js?v=47"></script>
 <script src="js/crew_api.js?v=48"></script>
-<script src="js/crew_render.js?v=61"></script>
+<script src="js/crew_render.js?v=62"></script>
 <script src="js/crew_ui.js?v=42"></script>
 <script src="js/crew_workrecord.js?v=77"></script>
 <script src="js/crew_history.js?v=55"></script>
-<script src="js/crew_app.js?v=43"></script>
+<script src="js/crew_app.js?v=44"></script>
 <script>
 // Diagnostic: detect if crew_history.js failed to load
 window.addEventListener('load', () => {
