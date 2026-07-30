@@ -14,7 +14,7 @@
 // =============================================================
 // SECTION 11 — STARTUP
 // Sets currentDay to today then fires loadAll().
-// loadAll() is also wired to the "↺ Load all sheets" button.
+// loadAll() is also wired to the "↺ Reload Database" button.
 // =============================================================
 // ── Sign out ─────────────────────────────────────────────────
 function doSignOut() {
@@ -47,7 +47,7 @@ async function clearCrewCache() {
   try { await apiFetch('clear_server_cache'); } catch(e) {}
 }
 
-// ── Full reload (wired to the "↺ Load all sheets" button) ─────
+// ── Full reload (wired to the "↺ Reload Database" button) ─────
 // Waits for the server-side cache to be cleared before reloading,
 // so the fetches inside loadAll() are guaranteed to see fresh data.
 // Disables the button, spins its icon, and swaps its label to
@@ -73,7 +73,7 @@ async function reloadAll() {
   await loadAll();
 
   if (btn) btn.classList.remove('is-loading');
-  if (label) label.textContent = 'Load all sheets';
+  if (label) label.textContent = 'Reload Database';
 }
 
 // ── Session timeout — 10 hours inactivity for crew ───────────

@@ -347,7 +347,7 @@ function renderBrief(wrapId, team) {
   let body     = '';
 
   if (!morningBrief) {
-    body = '<div class="brief-empty">Click &#8635; Load all sheets to load the morning brief.</div>';
+    body = '<div class="brief-empty">Click &#8635; Reload Database to load the morning brief.</div>';
 
   } else {
     const mb = morningBrief;
@@ -872,19 +872,14 @@ function render() {
   const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].filter(j => j.type !== 'load-in');
   const prog      = all.filter(j => statuses[j.id] === 'inprogress').length;
   const submitted = all.filter(j => savedRecords[j.id] && savedRecords[j.id].submitted).length;
-  let fh = 0;
-  [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].forEach(j => {
-    const m = j.dur.match(/([\d.]+)/); if (m) fh += parseFloat(m[1]);
-  });
 
   // Restore active team tab (re-render resets DOM)
   switchTeam(activeTeam);
 
-  document.getElementById('summary-bar').innerHTML = `
+  document.getElementById('summary-stats').innerHTML = `
     <div class="sitem"><span class="snum k">${all.length}</span>&nbsp;jobs today</div>
     <div class="sitem"><span class="snum a">${prog}</span>&nbsp;in progress</div>
-    <div class="sitem"><span class="snum b">${submitted}</span>&nbsp;submitted</div>
-    <div class="sitem" style="margin-left:auto"><span class="snum k">${fh}</span>&nbsp;field hrs</div>`;
+    <div class="sitem"><span class="snum b">${submitted}</span>&nbsp;submitted</div>`;
 
   // Scroll the active day tab into view within the tab strip.
   // We set scrollLeft on the #day-tabs container directly rather than
