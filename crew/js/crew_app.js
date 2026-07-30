@@ -89,6 +89,24 @@ if (sessionStorage.getItem('mg_auth') === '1') {
   });
 }
 
+// ── Team lock — single-team view from the landing page picker ──
+// ?team=t1|t2|t3|install locks the panel to that team: hides the
+// team-tab switcher (via the .team-locked body class, in CSS) and
+// scopes the day counts / summary stats to just that team.
+// ?team=managers or no param at all gives the full tabbed view —
+// and if the logged-in user is a manager, that view opens on the
+// Managers tab by default instead of Team 1.
+(function initTeamLock() {
+  const teamParam = new URLSearchParams(window.location.search).get('team');
+  if (teamParam && TEAM_DAY_KEY.hasOwnProperty(teamParam)) {
+    lockedTeam = teamParam;
+    activeTeam = teamParam;
+    document.body.classList.add('team-locked');
+  } else if (isManagerUser()) {
+    activeTeam = 'managers';
+  }
+})();
+
 // ── Start: load all data ──────────────────────────────────────
 // keepWarm trigger handles cold starts during business hours.
 currentDay = todayDateKey();

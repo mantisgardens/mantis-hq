@@ -194,6 +194,29 @@ function goTo(dest) {
   if (dest === 'manual') window.location.href = MANUAL_URL;
 }
 
+// ── Team picker modal ───────────────────────────────────────
+// "Crew Assignments" opens this instead of navigating straight
+// to the crew panel. Team 1/2/3/Install pass ?team=<id> so the
+// crew panel locks to just that team (no team-tab switcher —
+// just that team's morning brief + client cards). Managers gets
+// ?team=managers, which the crew panel treats as the full,
+// unlocked, all-teams tabbed view.
+function openTeamPicker(e) {
+  if (e) e.stopPropagation();
+  const el = document.getElementById('team-picker-overlay');
+  if (el) el.classList.add('active');
+}
+function closeTeamPicker() {
+  const el = document.getElementById('team-picker-overlay');
+  if (el) el.classList.remove('active');
+}
+function closeTeamPickerOutside(e) {
+  if (e.target.id === 'team-picker-overlay') closeTeamPicker();
+}
+function selectTeam(team) {
+  window.location.href = CREW_URL + '?team=' + encodeURIComponent(team);
+}
+
 
 // =============================================================
 // SECTION 6 — STARTUP

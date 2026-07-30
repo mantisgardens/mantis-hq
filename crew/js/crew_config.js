@@ -33,6 +33,18 @@ let SCHEDULE     = {};          // populated from Google Calendar via Apps Scrip
 // =============================================================
 let DAYS         = [];          // sorted date keys e.g. ["2026-04-16", ...]
 let activeTeam   = 't1';       // currently visible team tab
+
+// ── Team lock (single-team view from the landing page picker) ──
+// null            → full experience: team-tab switcher, all teams
+// 't1'/'t2'/'t3'/'install' → locked to just that team: no tab
+//                            switcher, just its brief + job cards
+// Set once at startup in crew_app.js from the ?team= URL param.
+let lockedTeam = null;
+
+// Maps a team-tab id to its key in a SCHEDULE day object
+// ({ t1, t2, t3, tInstall }) — 'install' is the only one that
+// doesn't match its tab id directly.
+const TEAM_DAY_KEY = { t1:'t1', t2:'t2', t3:'t3', install:'tInstall' };
 let DAY_LABELS   = [];          // display labels e.g. ["Thu Apr 16", ...]
 let currentDay   = null;
 

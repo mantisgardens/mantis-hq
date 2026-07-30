@@ -367,7 +367,7 @@ function renderBrief(wrapId, team) {
     else if (team === 'managers') { teamNotes = mb.manager_notes  || []; teamLabel = 'Managers'; }
 
     if (teamNotes.length) {
-      body += `<div class="bsec bsec-team"><div class="bsec-label">${esc(teamLabel)}</div>`;
+      body += `<div class="bsec bsec-team bsec-team-${team}"><div class="bsec-label">${esc(teamLabel)}</div>`;
       teamNotes.forEach(sec => {
         if (sec.title) body += `<div class="bsec-sublabel">${esc(sec.title)}</div>`;
         (sec.items || []).forEach(item => {
@@ -820,7 +820,9 @@ function buildTabs() {
 
   DAYS.forEach((d, i) => {
     const day   = SCHEDULE[d] || { t1:[], t2:[], t3:[], tInstall:[] };
-    const total = (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
+    const total = lockedTeam
+      ? (day[TEAM_DAY_KEY[lockedTeam]] || []).length
+      : (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
     const tab   = document.createElement('div');
     tab.className = `day-tab${d === currentDay ? ' active' : ''}`;
     tab.innerHTML = DAY_LABELS[i]
@@ -869,7 +871,9 @@ function render() {
     renderManagerPanel();
   }
 
-  const all   = [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].filter(j => j.type !== 'load-in');
+  const all = lockedTeam
+    ? (d[TEAM_DAY_KEY[lockedTeam]] || []).filter(j => j.type !== 'load-in')
+    : [...(d.t1||[]),...(d.t2||[]),...(d.t3||[]),...(d.tInstall||[])].filter(j => j.type !== 'load-in');
   const prog      = all.filter(j => statuses[j.id] === 'inprogress').length;
   const submitted = all.filter(j => savedRecords[j.id] && savedRecords[j.id].submitted).length;
 
