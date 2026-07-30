@@ -18,7 +18,7 @@
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=42"/>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=50">
 </head>
 <body>
 
@@ -49,29 +49,26 @@
 
 <div class="day-tabs" id="day-tabs"></div>
 <!-- Debug panel: change display:none to display:block to enable -->
-<div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:'DM Mono',monospace;font-size:11px;padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
+<div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:var(--font-mono);font-size:var(--fs-small);padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
 
 <!-- Team tab bar — one tab per crew, full-width content below -->
 <div class="team-tabs" id="team-tabs">
-  <div class="team-tab active" id="ttab-t1" onclick="switchTeam('t1')">
-    <span class="ttab-dot t1"></span>Team 1
-    <span class="ttab-hrs" id="t1-hrs">—</span>
+  <div class="team-tab t1 active" id="ttab-t1" onclick="switchTeam('t1')">
+    Team 1
   </div>
-  <div class="team-tab" id="ttab-t2" onclick="switchTeam('t2')">
-    <span class="ttab-dot t2"></span>Team 2
-    <span class="ttab-hrs" id="t2-hrs">—</span>
+  <div class="team-tab t2" id="ttab-t2" onclick="switchTeam('t2')">
+    Team 2
   </div>
-  <div class="team-tab" id="ttab-t3" onclick="switchTeam('t3')" style="display:none">
-    <span class="ttab-dot t3"></span>Team 3
-    <span class="ttab-hrs" id="t3-hrs">—</span>
+  <!-- Team 3 tab: not yet live — flip to visible (remove style) when the crew starts running -->
+  <div class="team-tab t3" id="ttab-t3" onclick="switchTeam('t3')" style="display:none">
+    Team 3
   </div>
-  <div class="team-tab" id="ttab-install" onclick="switchTeam('install')">
-    <span class="ttab-dot install"></span>Install
-    <span class="ttab-hrs" id="install-hrs">—</span>
+  <div class="team-tab install" id="ttab-install" onclick="switchTeam('install')">
+    Install
   </div>
   <!-- Managers tab: hidden for non-manager crew, shown by loadAll() role check -->
-  <div class="team-tab" id="ttab-managers" onclick="switchTeam('managers')" style="display:none">
-    <span class="ttab-dot managers"></span>Managers
+  <div class="team-tab managers" id="ttab-managers" onclick="switchTeam('managers')" style="display:none">
+    Managers
   </div>
 </div>
 
@@ -168,11 +165,11 @@
       <div class="form-section">
         <div class="form-section-label">Materials &amp; Supplies Used</div>
 
-        <!-- Sub-section 1: Fertilizer, Soil, & Sprays -->
+        <!-- Sub-section 1: Fertilizer, Spray & Bulk -->
         <div class="mat-subsection">
-          <div class="mat-subsection-label">&#127807; Fertilizer, Soil, &amp; Sprays</div>
+          <div class="mat-subsection-label">&#127807; Fertilizer, Spray, &amp; Bulk</div>
           <div class="dynamic-list" id="fert-list"></div>
-          <button class="add-row-btn" onclick="addFert()">+ Add fertilizer / spray</button>
+          <button class="add-row-btn" onclick="addFert()">+ Add fertilizer/spray/bulk</button>
         </div>
 
         <!-- Sub-section 2: Irrigation & Drainage -->
@@ -200,14 +197,14 @@
 
       <!-- Service notes (visible to client) -->
       <div class="form-section">
-        <div class="form-section-label">Service Notes <span style="color:var(--g);font-size:9px">(visible to client)</span></div>
+        <div class="form-section-label">Service Notes <span style="color:var(--g);font-size:var(--fs-tiny)">(visible to client)</span></div>
         <textarea class="form-textarea" id="wr-service-notes"
                   placeholder="Describe work completed, observations, recommendations..."></textarea>
       </div>
 
       <!-- Internal notes (not shown to client) -->
       <div class="form-section">
-        <div class="form-section-label">Internal Notes <span style="color:var(--rd);font-size:9px">(not shown to client)</span></div>
+        <div class="form-section-label">Internal Notes <span style="color:var(--rd);font-size:var(--fs-tiny)">(not shown to client)</span></div>
         <textarea class="form-textarea" id="wr-internal-notes"
                   placeholder="Internal observations, issues, follow-up needed..."></textarea>
       </div>
@@ -345,16 +342,16 @@
 <datalist id="dl-other-global"></datalist>
 
 <script src="../config.js?v=36"></script>
-<script src="js/mantis_config.js?v=46"></script>
-<script src="js/session_timeout.js?v=36"></script>
-<script src="js/mantis_data_loader.js?v=54"></script>
-<script src="js/crew_config.js?v=46"></script>
-<script src="js/crew_api.js?v=47"></script>
-<script src="js/crew_render.js?v=58"></script>
-<script src="js/crew_ui.js?v=41"></script>
-<script src="js/crew_workrecord.js?v=73"></script>
-<script src="js/crew_history.js?v=54"></script>
-<script src="js/crew_app.js?v=42"></script>
+<script src="js/mantis_config.js?v=47"></script>
+<script src="js/session_timeout.js?v=37"></script>
+<script src="js/mantis_data_loader.js?v=55"></script>
+<script src="js/crew_config.js?v=47"></script>
+<script src="js/crew_api.js?v=48"></script>
+<script src="js/crew_render.js?v=61"></script>
+<script src="js/crew_ui.js?v=42"></script>
+<script src="js/crew_workrecord.js?v=77"></script>
+<script src="js/crew_history.js?v=55"></script>
+<script src="js/crew_app.js?v=43"></script>
 <script>
 // Diagnostic: detect if crew_history.js failed to load
 window.addEventListener('load', () => {

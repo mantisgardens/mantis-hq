@@ -11,7 +11,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Mantis Gardens — Service Manual</title>
-  <link rel="stylesheet" href="css/mantis_service_manual.css?v=27"/>
+  <link rel="stylesheet" href="css/mantis_service_manual.css?v=32"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
@@ -25,7 +25,7 @@
        style="width:64px;height:64px;object-fit:contain;opacity:0.9"/>
   <div class="loading-text" style="
     color:#fff; font-family:'DM Sans',Arial,sans-serif;
-    font-size:15px; opacity:0.85; letter-spacing:0.03em;">
+    font-size:var(--fs-sub); opacity:0.85; letter-spacing:0.03em;">
     Loading service data…
   </div>
   <!-- Progress bar -->
@@ -40,7 +40,7 @@
 <div id="load-error" style="
   display:none; background:#c0392b; color:#fff;
   padding:12px 18px; font-family:Arial,sans-serif;
-  font-size:13px; text-align:center;"></div>
+  font-size:var(--fs-body); text-align:center;"></div>
 
 <!-- Header -->
 <div class="header">
@@ -165,9 +165,9 @@
 </div>
 
 <script src="../config.js?v=26"></script>
-<script src="js/mantis_config.js?v=26"></script>
-<script src="js/session_timeout.js?v=26"></script>
-<script src="js/mantis_data_loader.js?v=26"></script>
-  <script src="js/mantis_service_manual.js?v=27"></script>
+<script src="js/mantis_config.js?v=27"></script>
+<script src="js/session_timeout.js?v=27"></script>
+<script src="js/mantis_data_loader.js?v=27"></script>
+  <script src="js/mantis_service_manual.js?v=28"></script>
 </body>
 </html>
