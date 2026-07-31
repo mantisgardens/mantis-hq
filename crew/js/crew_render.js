@@ -3,17 +3,17 @@
    Mantis Gardens — Rendering Layer
 
    Contains:
-     1.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
-     2.  Client matching     (findClient, clientCache)
-     3.  Morning Brief       (renderBrief, toggleBrief)
-     4.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
-	 5.  Manager Panel rendering 
-     6.  Tabs & main render  (buildTabs, render, toggle, setSt,
+     5.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
+     6.  Client matching     (findClient, clientCache)
+     7.  HTML escaping       (esc)
+     8.  Morning Brief       (renderBrief, toggleBrief)
+     9.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
+     10. Tabs & main render  (buildTabs, render, toggle, setSt,
                                switchTeam, toggleJobStatus, hideJob)
    ============================================================= */
 
 // =============================================================
-// SECTION 1 — DATE HELPERS
+// SECTION 5 — DATE HELPERS
 // todayDateKey()    → "YYYY-MM-DD" for today
 // isToday(key)      → boolean
 // updateWeekLabel() → sets the header "Week of ..." text
@@ -72,7 +72,7 @@ function shiftWeek(dir) {
 
 
 // =============================================================
-// SECTION 2 — CLIENT MATCHING
+// SECTION 6 — CLIENT MATCHING
 // findClient(name) does a fuzzy word-score match between the
 // calendar event title and client names from Google Sheets.
 // clientCache is a word-indexed lookup built in loadAll().
@@ -376,15 +376,6 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-
-// =============================================================
-// SECTION 3 — MORNING BRIEF RENDERING
-// renderBrief(wrapId, team) builds the morning brief panel for each
-// team column. Uses morningBrief data (from getMorningBrief()) for
-// team-specific notes and the shared all-crew section (time off,
-// birthdays, special events). toggleBrief() flips open/closed state.
-// =============================================================
-
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Morning-brief note items are written by the owner via the Note
 // Editor popup in the Owner Portal (owner_dashboard.js) as small HTML
@@ -441,6 +432,13 @@ function sanitizeNoteHtml(html) {
 }
 
 
+// =============================================================
+// SECTION 8 — MORNING BRIEF RENDERING
+// renderBrief(wrapId, team) builds the morning brief panel for each
+// team column. Uses morningBrief data (from getMorningBrief()) for
+// team-specific notes and the shared all-crew section (time off,
+// birthdays, special events). toggleBrief() flips open/closed state.
+// =============================================================
 // ── Morning Brief ─────────────────────────────────────────────
 function renderBrief(wrapId, team) {
   const wrap   = document.getElementById(wrapId);
@@ -615,7 +613,7 @@ function toggleTimeOff() {
 
 
 // =============================================================
-// SECTION 4 — JOB CARD RENDERING
+// SECTION 9 — JOB CARD RENDERING
 // renderJobs() builds each job card from calendar event data,
 // optionally enriched with client sheet data (findClient).
 // Expanded cards show full client detail + action buttons.
@@ -730,7 +728,7 @@ function renderJobs(cid, jobs, teamClass) {
 
 
 // =============================================================
-// SECTION 5 — MANAGER PANEL RENDERING
+// SECTION 11 — MANAGER PANEL RENDERING
 // renderManagerPanel() builds the Managers tab content for the
 // selected day. Shows three stacked accordions (Ashley, Brooke,
 // Manager General) — stacked layout works well on phones, avoids
@@ -884,18 +882,9 @@ function toggleMgrJobStatus(evId) {
   statuses[key] = current === 'inprogress' ? 'pending' : 'inprogress';
   renderManagerPanel();
 }
-
-
-// =============================================================
-// SECTION 6 — CREW WORK PANEL RENDERING
-// switchTeam(teamID) Shows the selected team panel and updates 
-// the tab highlight. Works with any number of teams — just add 
-// more panels + tabs.
-// buildTabs() generates the day tab bar from DAYS[].
-// render() is the single entry point that redraws everything —
-// tabs (for manager only), all job columns, all brief panels, and
-// the summary bar. Call it after any state change.
-// =============================================================
+// ── switchTeam ────────────────────────────────────────────────
+// Shows the selected team panel and updates the tab highlight.
+// Works with any number of teams — just add more panels + tabs.
 
 function switchTeam(teamId) {
   activeTeam = teamId;
@@ -907,7 +896,7 @@ function switchTeam(teamId) {
   document.querySelectorAll('.team-panel').forEach(p => {
     p.classList.toggle('hidden', p.id !== 'panel-' + teamId);
   });
-  
+
   // On narrow screens the tab bar scrolls horizontally and doesn't fit
   // every tab at once — Managers, being the last tab, can easily end up
   // selected (e.g. it's a manager's default tab on login) without ever
@@ -929,6 +918,11 @@ function switchTeam(teamId) {
   }
 }
 
+// buildTabs() generates the day tab bar from DAYS[].
+// render() is the single entry point that redraws everything —
+// tabs, all three job columns, all three brief panels, and
+// the summary bar. Call it after any state change.
+// =============================================================
 // ── Tabs & render ─────────────────────────────────────────────
 function buildTabs() {
   const el = document.getElementById('day-tabs');
@@ -1048,6 +1042,27 @@ function render() {
 //                trailing-suffix / address stripping (for name lookup)
 // matchedName  = the cleaned name used for the lookup (job.client) —
 //                shown for comparison so it's clear what's cut off
+// Finds every phone-number-shaped substring in a "Phone" / "Phone
+// number(s)" cell and wraps just that part in a tappable tel: link,
+// leaving everything else — names, labels like "(Bob)" or "(cell)",
+// connector words — exactly as typed. That way crew still see which
+// number belongs to which person instead of just a bare list of
+// numbers. Matches by shape rather than splitting on delimiters, since
+// the real client sheet has these in all sorts of human-entered
+// formats: "916-555-1234, 916-555-5678", "916-555-1234 (Bob) 916-555-
+// 5678 (Sue)" with no comma at all, name prefixes/suffixes,
+// extensions, even a stray en dash instead of a hyphen.
+const PHONE_PATTERN = /\(?\d{3}\)?[-.\s\u2013\u2014]?\d{3}[-.\s\u2013\u2014]?\d{4}(?:\s*(?:x|ext\.?)\s*\d+)?/gi;
+function renderPhoneLinks(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  return esc(text).replace(PHONE_PATTERN, m => {
+    const stripped  = m.replace(/\s*(?:x|ext\.?)\s*\d+\s*$/i, '');
+    const dialable  = stripped.replace(/[^\d+]/g, '');
+    return `<a class="phone-a" href="tel:${dialable}">${m}</a>`;
+  });
+}
+
 function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   // Use an override if the user already picked one
   const resolved = clientOverrides[_overrideKey(cardId)] || (sc && !sc._ambiguous ? sc : null);
@@ -1065,7 +1080,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
         <div class="cd-hdr"><div class="live-dot"></div>Live from Google Sheets${changeLink}</div>
         ${resolved['Name(s)']               ? `<div class="drow"><span class="dlabel">Client</span><span class="dval">${esc(resolved['Name(s)'])}</span></div>` : ''}
         ${resolved['Address']               ? `<div class="drow"><span class="dlabel">Address</span><span class="dval">${esc(resolved['Address'])}</span></div>` : ''}
-        ${(resolved['Phone']||resolved['Phone number(s)']) ? `<div class="drow"><span class="dlabel">Phone</span><span class="dval"><a class="phone-a" href="tel:${esc(resolved['Phone']||resolved['Phone number(s)'])}">${esc(resolved['Phone']||resolved['Phone number(s)'])}</a></span></div>` : ''}
+        ${(resolved['Phone']||resolved['Phone number(s)']) ? `<div class="drow"><span class="dlabel">Phone</span><span class="dval">${renderPhoneLinks(resolved['Phone']||resolved['Phone number(s)'])}</span></div>` : ''}
         ${(resolved['Visit Interval']||resolved['Visit interval']) ? `<div class="drow"><span class="dlabel">Interval</span><span class="dval">${esc(resolved['Visit Interval']||resolved['Visit interval'])}</span></div>` : ''}
         ${resolved['Labor Hours']           ? `<div class="drow"><span class="dlabel">Est. hours</span><span class="dval">${esc(resolved['Labor Hours'])}</span></div>` : ''}
         ${(resolved['Scheduling Notes']||resolved['Scheduling notes']) ? `<div class="drow"><span class="dlabel">Scheduling</span><span class="dval">${esc(resolved['Scheduling Notes']||resolved['Scheduling notes'])}</span></div>` : ''}
