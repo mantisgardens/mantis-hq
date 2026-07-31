@@ -201,8 +201,19 @@ function goTo(dest) {
 // just that team's morning brief + client cards). Managers gets
 // ?team=managers, which the crew panel treats as the full,
 // unlocked, all-teams tabbed view.
+// Same category-based check used on the crew panel side (crew_config.js
+// isManagerUser()) — mg_user_category is already seeded here at login,
+// before the crew panel is ever opened.
+function isManagerUser() {
+  const cat = (sessionStorage.getItem('mg_user_category')
+            || localStorage.getItem('mg_user_category') || '').toLowerCase();
+  return cat.includes('manager');
+}
+
 function openTeamPicker(e) {
   if (e) e.stopPropagation();
+  const mgrBtn = document.getElementById('team-picker-managers');
+  if (mgrBtn) mgrBtn.style.display = isManagerUser() ? '' : 'none';
   const el = document.getElementById('team-picker-overlay');
   if (el) el.classList.add('active');
 }
@@ -219,7 +230,7 @@ function selectTeam(team) {
 
 
 // =============================================================
-// SECTION 6 — STARTUP VALIDATION and CACHE MANAGEMENT
+// SECTION 6 — STARTUP
 // =============================================================
 
 // Show timeout message if redirected here due to inactivity
