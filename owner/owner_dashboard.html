@@ -148,7 +148,7 @@
 </main>
 
 <!-- ══ ADD/EDIT CLIENT MODAL ═══════════════════════════════ -->
-<div class="modal-overlay" id="client-modal" onclick="closeClientModal(event)">
+<div class="modal-overlay" id="client-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientModal(event)">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="client-modal-title">Add Client</div>
@@ -239,7 +239,7 @@
 </div>
 
 <!-- ══ CLIENT PROFILE MODAL ════════════════════════════════ -->
-<div class="modal-overlay" id="profile-modal" onclick="closeProfileModal(event)">
+<div class="modal-overlay" id="profile-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeProfileModal(event)">
   <div class="modal modal-wide">
     <div class="modal-header">
       <div class="modal-title" id="profile-modal-title">Client Profile</div>
@@ -253,7 +253,7 @@
 </div>
 
 <!-- ══ NOTE EDITOR ══════════════════════════════════════════ -->
-<div class="modal-overlay" id="note-editor-modal" onclick="closeNoteEditor(event)">
+<div class="modal-overlay" id="note-editor-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeNoteEditor(event)">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title">Edit Note</div>
@@ -292,6 +292,6 @@
 <script src="../config.js?v=25"></script>
   <script src="js/owner_config.js?v=25"></script>
 <script src="js/session_timeout.js?v=26"></script>
-<script src="js/owner_dashboard.js?v=37"></script>
+<script src="js/owner_dashboard.js?v=38"></script>
 </body>
 </html>
