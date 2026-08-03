@@ -65,12 +65,12 @@
   --font-display: "Fraunces", serif;          /* italic serif: client/team names, section titles */
 
   /* Font size scale, smallest to largest */
-  --fs-tiny:  1rem;      /* 16px — tiny badges/tags (plant size, item count, dlabel) */
-  --fs-label: 1.125rem;  /* 18px — meta labels (day tabs, status pills, time stamps) */
-  --fs-small: 1.25rem;   /* 20px — secondary text (week label, durations, empty states) */
-  --fs-body:  1.375rem;  /* 22px — main reading text: job client names, form fields, notes */
-  --fs-sub:   1.5rem;    /* 24px — sub-headings, larger icon glyphs */
-  --fs-title: 1.75rem;   /* 28px — section/panel titles (team names, modal titles) */
+  --fs-tiny:  1rem;       /* 16px — tiny badges/tags (plant size, item count, dlabel) */
+  --fs-label: 1.0625rem;  /* 17px — meta labels (day tabs, status pills, time stamps) */
+  --fs-small: 1.125rem;   /* 18px — secondary text (week label, durations, empty states) */
+  --fs-body:  1.1875rem;  /* 19px — main reading text: job client names, form fields, notes */
+  --fs-sub:   1.3125rem;  /* 21px — sub-headings, larger icon glyphs */
+  --fs-title: 1.5rem;     /* 24px — section/panel titles (team names, modal titles) */
   --fs-xl:    2rem;      /* 32px — large icon glyphs (e.g. modal close button) */
   --fs-2xl:   2.25rem;   /* 36px — reserved for larger hero text (used on landing/manual pages) */
   --fs-3xl:   2.5rem;    /* 40px — reserved for larger hero text (used on landing/manual pages) */
@@ -276,6 +276,7 @@ body.team-locked .team-tabs{display:none}
 .bsec-team{
   background:var(--b3);border:1px solid var(--b4);
   border-top:3px solid var(--b);border-radius:6px;padding:10px;
+  box-shadow:0 1px 3px rgba(28,26,20,0.07);
 }
 .bsec-team .bsec-label{font-size:var(--fs-label);color:var(--b,#2980b9);border-bottom-color:var(--b4);font-weight:700;letter-spacing:0.14em}
 /* Per-team override — the daily notes card matches that team's color */
@@ -293,18 +294,21 @@ body.team-locked .team-tabs{display:none}
 .bsec-allcrew{
   background:var(--b3);border:1px solid var(--b4);
   border-top:3px solid var(--b);border-radius:6px;padding:10px;margin-top:12px;
+  box-shadow:0 1px 3px rgba(28,26,20,0.07);
 }
 .bsec-allcrew .bsec-label{font-size:var(--fs-label);color:var(--b);border-bottom-color:var(--b4);font-weight:700;letter-spacing:0.14em}
 
 .bsec-manager{
   background:#fdf6ec;border:1px solid #e8d9b0;
   border-top:3px solid #e07b00;border-radius:6px;padding:10px;margin-top:12px;
+  box-shadow:0 1px 3px rgba(28,26,20,0.07);
 }
 .bsec-manager .bsec-label{font-size:var(--fs-label);color:#b05f00;border-bottom-color:#e8d9b0;font-weight:700;letter-spacing:0.14em}
 
 .bsec-leads{
   background:#e3f5f5;border:1px solid #bfe3e3;
   border-top:3px solid #1a7a7a;border-radius:6px;padding:10px;margin-top:12px;
+  box-shadow:0 1px 3px rgba(28,26,20,0.07);
 }
 .bsec-leads .bsec-label{font-size:var(--fs-label);color:#1a7a7a;border-bottom-color:#bfe3e3;font-weight:700;letter-spacing:0.14em}
 
@@ -346,10 +350,10 @@ body.team-locked .team-tabs{display:none}
 .jobs-list{padding:10px;display:flex;flex-direction:column;gap:7px}
 .job-card{background:#fff;border:1px solid var(--bg3);border-radius:5px;overflow:hidden;cursor:pointer;transition:box-shadow 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
 .job-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.07)}
-.job-card.t1-card{border-left:3px solid #1a3a5c}
-.job-card.t2-card{border-left:3px solid var(--g)}
-.job-card.t3-card{border-left:3px solid var(--team3)}
-.job-card.install-card{border-left:3px solid var(--t3)}
+.job-card.t1-card{border-left:3px solid #217a21}
+.job-card.t2-card{border-left:3px solid #7c4dbf}
+.job-card.t3-card{border-left:3px solid #c94f85}
+.job-card.install-card{border-left:3px solid #c2700a}
 .job-card.load-in{border-left:3px solid #aaa;opacity:0.75}
 .job-top{padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
 .jtc{min-width:46px;text-align:right}
