@@ -482,7 +482,7 @@ function renderClients(query) {
     const notes  = c['General Service Notes'] || '';
     const cid    = c['Client ID'] || '';
 
-    return `<div class="client-row" onclick="openProfile('${esc(cid)}')">
+    return `<div class="client-row ${active?'is-active':'is-inactive'}" onclick="openProfile('${esc(cid)}')">
       <div class="client-row-main">
         <div class="client-row-name">${esc(name)}</div>
         <div class="client-row-meta">
