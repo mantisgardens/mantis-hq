@@ -44,9 +44,12 @@
    defined. Every rule further down in this file references one
    of these variables instead of a hardcoded size, so bumping a
    number here changes every matching element on the page at once.
-   This scale matches the crew portal's (mantis_crew_panel.css) so
-   text reads consistently across both apps — keep them in sync if
-   you change one.
+
+   This scale USED TO match the crew portal's (mantis_crew_panel.css)
+   1:1, but the owner found the everyday reading tiers (label/small/
+   body/sub/title) too large here specifically, so they were dialed
+   back a notch — the two files' scales are now intentionally
+   different. The crew portal's own scale is untouched.
 
    Sizes are in rem (1rem = the browser's default 16px), so they
    scale together with a user's browser/OS text-size setting.
@@ -65,17 +68,22 @@
 
   /* Font size scale, smallest to largest */
   --fs-tiny:  1rem;      /* 16px — tiny badges (today-badge, record-id) */
-  --fs-label: 1.125rem;  /* 18px — meta labels (record date, doc type, sign-out) */
-  --fs-small: 1.25rem;   /* 20px — secondary text (nav tabs, login sub, profile labels) */
-  --fs-body:  1.375rem;  /* 22px — main reading text: client rows, form fields, notes */
-  --fs-sub:   1.5rem;    /* 24px — sub-headings */
-  --fs-title: 1.75rem;   /* 28px — section/panel/modal titles */
+  --fs-label: 1.0625rem; /* 17px — meta labels (record date, doc type, sign-out) */
+  --fs-small: 1.125rem;  /* 18px — secondary text (nav tabs, login sub, profile labels) */
+  --fs-body:  1.1875rem; /* 19px — main reading text: client rows, form fields, notes */
+  --fs-sub:   1.3125rem; /* 21px — sub-headings */
+  --fs-title: 1.5rem;    /* 24px — section/panel/modal titles */
   --fs-xl:    2rem;      /* 32px — large icon glyphs (reserved; unused in this file today) */
   --fs-2xl:   2.25rem;   /* 36px — reserved for larger hero text (used on landing/manual pages) */
   --fs-3xl:   2.5rem;    /* 40px — reserved for larger hero text (used on landing/manual pages) */
   --fs-4xl:   2.75rem;   /* 44px — reserved for larger hero text (used on landing/manual pages) */
   --fs-5xl:   3rem;      /* 48px — biggest text on the page (login title) */
   --fs-6xl:   3.5rem;    /* 56px — biggest tier in the shared scale (used on landing/manual pages) */
+
+  /* Card elevation — one subtle shadow used consistently on card-like
+     surfaces (client rows, day-cards, notes sections, modals) instead
+     of the flat 1px-border-only look this file used to have everywhere. */
+  --shadow-card: 0 1px 3px rgba(28,26,20,0.08);
 }
 
 /* =============================================================
@@ -235,7 +243,7 @@ body.login-page{
 .dc-stream-label:first-child { margin-top: 0; }
 
 /* ── Job pills ───────────────────────────────────────────────── */
-.sched-job { margin-bottom: 5px; padding: 4px 7px; background: var(--bg2); border-radius: 4px; border-left: 3px solid var(--bg3); }
+.sched-job { margin-bottom: 5px; padding: 4px 7px; background: var(--bg2); border-radius: 4px; border-left: 3px solid var(--bg3); box-shadow: 0 1px 2px rgba(28,26,20,0.06); }
 .dc-t1 .sched-job      { border-left-color: #217a21; background: #e6f5e6; }
 .dc-t2 .sched-job      { border-left-color: #7c4dbf; background: #f1e8fb; }
 .dc-t3 .sched-job      { border-left-color: #c94f85; background: #fce8f0; }
@@ -249,8 +257,9 @@ body.login-page{
    9. CLIENT LIST
    ============================================================= */
 .client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
-.client-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-.client-row:hover{border-color:var(--g);background:var(--g3)}
+.client-row{background:#fff;border:1px solid var(--bg3);border-left:3px solid var(--bg3);border-radius:6px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
+.client-row.is-active{border-left-color:var(--g)}
+.client-row:hover{border-color:var(--g);border-left-color:var(--g);background:var(--g3);box-shadow:0 2px 6px rgba(28,26,20,0.1)}
 .client-row-main{flex:1;min-width:0}
 .client-row-name{font-weight:600;font-size:var(--fs-body);color:var(--ink);margin-bottom:3px}
 .client-row-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-body);color:var(--ink3);margin-bottom:3px}
@@ -306,7 +315,7 @@ body.login-page{
 .notes-tab{padding:7px 18px;border:1.5px solid var(--bg3);border-bottom:none;border-radius:6px 6px 0 0;font-size:var(--fs-body);font-family:inherit;background:#fff;color:var(--ink2);cursor:pointer;transition:all .12s;position:relative;bottom:-1px;flex-shrink:0;white-space:nowrap}
 .notes-tab.active{background:#fff;border-color:var(--g);color:var(--g);font-weight:600;border-bottom-color:#fff}
 .notes-editor{padding:16px;display:flex;flex-direction:column;gap:0}
-.notes-section{background:#fff;border:1.5px solid var(--bg3);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.notes-section{background:#fff;border:1.5px solid var(--bg3);border-left:3px solid var(--g4);border-radius:6px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
 .notes-section-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--bg3)}
 .notes-title-input{flex:1;border:none;background:transparent;font-size:var(--fs-body);font-weight:700;font-family:inherit;color:var(--ink);outline:none;padding:2px 0}
 .notes-title-input::placeholder{color:var(--ink3);font-weight:400}
@@ -340,7 +349,7 @@ body.login-page{
 .notes-add-section:hover{border-color:var(--g);color:var(--g)}
 .fbtn-save.unsaved{background:var(--rd,#c0392b);border-color:var(--rd,#c0392b)}
 .leads-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:16px}
-.leads-column{background:#fff;border:1.5px solid var(--bg3);border-radius:8px;overflow:hidden}
+.leads-column{background:#fff;border:1.5px solid var(--bg3);border-left:3px solid var(--g4);border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
 .leads-column-header{background:var(--g);color:#fff;font-weight:700;font-size:var(--fs-body);padding:8px 12px}
 .leads-items{padding:6px 12px 2px}
 .leads-items .notes-item-input{width:100%}
@@ -355,7 +364,7 @@ body.login-page{
 .profile-val{flex:1;font-size:var(--fs-body);color:var(--ink);line-height:1.5}
 .profile-section-title{font-family:var(--font-display);font-size:var(--fs-sub);font-style:italic;color:var(--ink);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bg3)}
 .profile-records{display:flex;flex-direction:column;gap:8px}
-.profile-record{padding:10px 12px;background:var(--bg2);border-radius:6px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.profile-record{padding:10px 12px;background:var(--bg2);border-left:3px solid var(--g4);border-radius:4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
 .pr-date{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3)}
 .pr-team{font-size:var(--fs-body);color:var(--ink3)}
 .pr-workers{font-size:var(--fs-body);font-weight:600;color:var(--ink)}
