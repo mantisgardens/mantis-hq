@@ -547,8 +547,9 @@ function openProfile(clientId) {
 }
 
 function closeProfileModal(e) {
-  if (e && e.target !== document.getElementById('profile-modal')) return;
-  document.getElementById('profile-modal').classList.remove('open');
+  const el = document.getElementById('profile-modal');
+  if (e && !_isOverlaySelfClick(e, el)) return;
+  el.classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -587,8 +588,9 @@ function editCurrentClient() {
 }
 
 function closeClientModal(e) {
-  if (e && e.target !== document.getElementById('client-modal')) return;
-  document.getElementById('client-modal').classList.remove('open');
+  const el = document.getElementById('client-modal');
+  if (e && !_isOverlaySelfClick(e, el)) return;
+  el.classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -828,9 +830,29 @@ function _openNoteEditorModal(item) {
   canvas.focus();
 }
 
+// Selecting text by dragging from inside a modal's content and
+// releasing the mouse over the dark backdrop makes the browser's
+// resulting "click" event resolve to the overlay itself (the click
+// target is the nearest common ancestor of the mousedown and mouseup
+// points) — which used to trigger "click outside to close" on every
+// modal in this file and silently discard whatever was being edited,
+// even though the owner never intended to close anything. Tracking
+// where the mousedown actually started, separately from where the
+// click resolves to, fixes it: only close if BOTH happened directly
+// on the backdrop, not just wherever the click event's target ended up.
+// Shared across all modals since only one is ever open at a time.
+let _modalMouseDownOnOverlay = false;
+function _modalOverlayMouseDown(e) {
+  _modalMouseDownOnOverlay = (e.target === e.currentTarget);
+}
+function _isOverlaySelfClick(e, overlayEl) {
+  return e.target === overlayEl && _modalMouseDownOnOverlay;
+}
+
 function closeNoteEditor(e) {
-  if (e && e.target !== document.getElementById('note-editor-modal')) return;
-  document.getElementById('note-editor-modal').classList.remove('open');
+  const el = document.getElementById('note-editor-modal');
+  if (e && !_isOverlaySelfClick(e, el)) return;
+  el.classList.remove('open');
   document.body.style.overflow = '';
   _neTarget = null;
 }
