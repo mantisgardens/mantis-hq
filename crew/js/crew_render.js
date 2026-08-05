@@ -1062,6 +1062,17 @@ function renderPhoneLinks(raw) {
   });
 }
 
+// One-click Google Maps link for the client's address — opens the
+// Maps app on mobile if installed, else the web version. The
+// "?api=1&query=" search-URL form needs no API key and works with a
+// raw human-typed address string (no need to geocode it ourselves).
+function renderAddressLink(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(text);
+  return `<a class="addr-a" href="${mapsUrl}" target="_blank" rel="noopener">${esc(text)}</a>`;
+}
+
 function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   // Use an override if the user already picked one
   const resolved = clientOverrides[_overrideKey(cardId)] || (sc && !sc._ambiguous ? sc : null);
@@ -1078,7 +1089,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
       <div class="client-detail">
         <div class="cd-hdr"><div class="live-dot"></div>Live from Google Sheets${changeLink}</div>
         ${resolved['Name(s)']               ? `<div class="drow"><span class="dlabel">Client</span><span class="dval">${esc(resolved['Name(s)'])}</span></div>` : ''}
-        ${resolved['Address']               ? `<div class="drow"><span class="dlabel">Address</span><span class="dval">${esc(resolved['Address'])}</span></div>` : ''}
+        ${resolved['Address']               ? `<div class="drow"><span class="dlabel">Address</span><span class="dval">${renderAddressLink(resolved['Address'])}</span></div>` : ''}
         ${(resolved['Phone']||resolved['Phone number(s)']) ? `<div class="drow"><span class="dlabel">Phone</span><span class="dval">${renderPhoneLinks(resolved['Phone']||resolved['Phone number(s)'])}</span></div>` : ''}
         ${(resolved['Visit Interval']||resolved['Visit interval']) ? `<div class="drow"><span class="dlabel">Interval</span><span class="dval">${esc(resolved['Visit Interval']||resolved['Visit interval'])}</span></div>` : ''}
         ${resolved['Labor Hours']           ? `<div class="drow"><span class="dlabel">Est. hours</span><span class="dval">${esc(resolved['Labor Hours'])}</span></div>` : ''}
