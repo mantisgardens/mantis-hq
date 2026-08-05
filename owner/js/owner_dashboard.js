@@ -74,6 +74,34 @@ function clearOwnerCache() {
     .forEach(k => sessionStorage.removeItem(k));
 }
 
+// ── "Still warming up" banner ────────────────────────────────────
+// Same treatment as the crew panel's equivalent (crew_api.js) — the
+// owner dashboard's schedule/manager_schedule sections are now
+// cache-only too (they share getSchedule()/getManagerSchedule() with
+// the crew side, see getOwnerLoadAll() in OwnerPortal.gs), so a cold
+// cache here returns a valid-but-empty placeholder marked warming:true
+// instead of live data. Should be rare and short-lived — the
+// prewarmCache trigger refreshes the cache every 5 minutes.
+function showWarmingBanner() {
+  let banner = document.getElementById('warming-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'warming-banner';
+    banner.className = 'offline-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  banner.innerHTML =
+    `<span class="offline-icon">&#8987;</span>` +
+    `<span>Data is still warming up — this refreshes automatically every few minutes.</span>` +
+    `<span class="offline-retry" onclick="loadAll(true)">Reload now</span>`;
+}
+
+function clearWarmingBanner() {
+  const b = document.getElementById('warming-banner');
+  if (b) b.remove();
+}
+
 // ── Token refresh ─────────────────────────────────────────────
 // Google ID tokens expire after 1 hour. The owner portal session
 // is 2 hours, so tokens will expire mid-session. When ownerFetch/
@@ -83,33 +111,62 @@ function clearOwnerCache() {
 // fails (rare) does it fall back to redirecting to the login page.
 // The GIS script is loaded async on this page specifically to
 // support this — it is separate from the session timeout.
+//
+// google.accounts.id.initialize() is only ever called ONCE per page
+// life now (see _ensureOwnerGisInit()) even though a refresh can
+// happen several times over a 2-hour session — this used to call
+// initialize() fresh on every single refresh. Re-initializing while
+// an earlier FedCM request might still be settling aborts it
+// ("FedCM get() rejects with AbortError"), and enough of those trip
+// Chrome's "FedCM was disabled...based on previous user action"
+// cooldown for the site — which then makes the next sign-in fall back
+// to GIS's much slower iframe-relay flow (the crew login page hit
+// this exact bug; see gisInitialize() in mantis_landing.js). Since
+// GIS's callback is fixed at initialize() time, the one stable
+// callback registered here just dispatches to whichever
+// _refreshOwnerToken() call is currently pending, instead of each
+// call installing (and re-initializing for) its own callback.
 let _tokenRefreshPromise = null;
+let _ownerGisInitDone    = false;
+let _pendingTokenResolve = null;
+let _pendingTokenReject  = null;
+
+function _ensureOwnerGisInit() {
+  if (_ownerGisInitDone) return;
+  google.accounts.id.initialize({
+    client_id:   (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '',
+    auto_select: true,
+    callback: (response) => {
+      const resolve = _pendingTokenResolve, reject = _pendingTokenReject;
+      _pendingTokenResolve = _pendingTokenReject = null;
+      _tokenRefreshPromise = null;
+      if (response && response.credential) {
+        sessionStorage.setItem('owner_id_token', response.credential);
+        if (resolve) resolve(response.credential);
+      } else {
+        _handleTokenExpiry();
+        if (reject) reject(new Error('No credential returned'));
+      }
+    },
+  });
+  _ownerGisInitDone = true;
+}
 
 function _refreshOwnerToken() {
   if (_tokenRefreshPromise) return _tokenRefreshPromise;
   _tokenRefreshPromise = new Promise((resolve, reject) => {
     const tryRefresh = () => {
       if (typeof google === 'undefined' || !google.accounts) {
+        _tokenRefreshPromise = null;
         reject(new Error('GIS not available'));
         return;
       }
-      google.accounts.id.initialize({
-        client_id:   (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '',
-        auto_select: true,
-        callback:    (response) => {
-          _tokenRefreshPromise = null;
-          if (response && response.credential) {
-            sessionStorage.setItem('owner_id_token', response.credential);
-            resolve(response.credential);
-          } else {
-            _tokenRefreshPromise = null;
-            _handleTokenExpiry();
-            reject(new Error('No credential returned'));
-          }
-        },
-      });
+      _pendingTokenResolve = resolve;
+      _pendingTokenReject  = reject;
+      _ensureOwnerGisInit();
       google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          _pendingTokenResolve = _pendingTokenReject = null;
           _tokenRefreshPromise = null;
           _handleTokenExpiry();
           reject(new Error('Silent refresh not possible'));
@@ -482,7 +539,7 @@ function renderClients(query) {
     const notes  = c['General Service Notes'] || '';
     const cid    = c['Client ID'] || '';
 
-    return `<div class="client-row ${active?'is-active':'is-inactive'}" onclick="openProfile('${esc(cid)}')">
+    return `<div class="client-row" onclick="openProfile('${esc(cid)}')">
       <div class="client-row-main">
         <div class="client-row-name">${esc(name)}</div>
         <div class="client-row-meta">
@@ -501,6 +558,32 @@ function renderClients(query) {
 
 function filterClients(q) {
   renderClients(q);
+}
+
+// One-click Google Maps link for a client's address — same approach as
+// the crew panel's renderAddressLink() (crew_render.js). The
+// "?api=1&query=" search-URL form needs no API key and works with a
+// raw human-typed address string, no geocoding needed.
+function renderAddressLink(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(text);
+  return `<a class="addr-a" href="${mapsUrl}" target="_blank" rel="noopener">${esc(text)}</a>`;
+}
+
+// Tap-to-call phone links — same pattern/regex as the crew panel's
+// renderPhoneLinks() (crew_render.js), since the client Phone field is
+// just as human-entered here: multiple numbers, name labels,
+// extensions, en dashes instead of hyphens, etc.
+const PHONE_PATTERN = /\(?\d{3}\)?[-.\s–—]?\d{3}[-.\s–—]?\d{4}(?:\s*(?:x|ext\.?)\s*\d+)?/gi;
+function renderPhoneLinks(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  return esc(text).replace(PHONE_PATTERN, m => {
+    const stripped = m.replace(/\s*(?:x|ext\.?)\s*\d+\s*$/i, '');
+    const dialable = stripped.replace(/[^\d+]/g, '');
+    return `<a class="phone-a" href="tel:${dialable}">${m}</a>`;
+  });
 }
 
 // ── Client Profile Modal ───────────────────────────────────
@@ -529,11 +612,18 @@ function openProfile(clientId) {
   let body = `<div class="profile-fields">`;
   fields.forEach(([label, val]) => {
     if (!val && label !== 'Email') return;
-    const display = label === 'Email'
-      ? (val
-          ? `<a href="mailto:${esc(val)}" style="color:var(--g)">${esc(val)}</a>`
-          : `<span style="color:var(--ink3);font-style:italic">not on file</span>`)
-      : esc(val);
+    let display;
+    if (label === 'Email') {
+      display = val
+        ? `<a href="mailto:${esc(val)}" style="color:var(--g)">${esc(val)}</a>`
+        : `<span style="color:var(--ink3);font-style:italic">not on file</span>`;
+    } else if (label === 'Address') {
+      display = renderAddressLink(val);
+    } else if (label === 'Phone') {
+      display = renderPhoneLinks(val);
+    } else {
+      display = esc(val);
+    }
     body += `<div class="profile-row">
       <span class="profile-label">${esc(label)}</span>
       <span class="profile-val">${display}</span>
@@ -547,9 +637,8 @@ function openProfile(clientId) {
 }
 
 function closeProfileModal(e) {
-  const el = document.getElementById('profile-modal');
-  if (e && !_isOverlaySelfClick(e, el)) return;
-  el.classList.remove('open');
+  if (e && e.target !== document.getElementById('profile-modal')) return;
+  document.getElementById('profile-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -588,9 +677,8 @@ function editCurrentClient() {
 }
 
 function closeClientModal(e) {
-  const el = document.getElementById('client-modal');
-  if (e && !_isOverlaySelfClick(e, el)) return;
-  el.classList.remove('open');
+  if (e && e.target !== document.getElementById('client-modal')) return;
+  document.getElementById('client-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
 
@@ -830,29 +918,9 @@ function _openNoteEditorModal(item) {
   canvas.focus();
 }
 
-// Selecting text by dragging from inside a modal's content and
-// releasing the mouse over the dark backdrop makes the browser's
-// resulting "click" event resolve to the overlay itself (the click
-// target is the nearest common ancestor of the mousedown and mouseup
-// points) — which used to trigger "click outside to close" on every
-// modal in this file and silently discard whatever was being edited,
-// even though the owner never intended to close anything. Tracking
-// where the mousedown actually started, separately from where the
-// click resolves to, fixes it: only close if BOTH happened directly
-// on the backdrop, not just wherever the click event's target ended up.
-// Shared across all modals since only one is ever open at a time.
-let _modalMouseDownOnOverlay = false;
-function _modalOverlayMouseDown(e) {
-  _modalMouseDownOnOverlay = (e.target === e.currentTarget);
-}
-function _isOverlaySelfClick(e, overlayEl) {
-  return e.target === overlayEl && _modalMouseDownOnOverlay;
-}
-
 function closeNoteEditor(e) {
-  const el = document.getElementById('note-editor-modal');
-  if (e && !_isOverlaySelfClick(e, el)) return;
-  el.classList.remove('open');
+  if (e && e.target !== document.getElementById('note-editor-modal')) return;
+  document.getElementById('note-editor-modal').classList.remove('open');
   document.body.style.overflow = '';
   _neTarget = null;
 }
