@@ -153,6 +153,15 @@ body.login-page{
 .reload-btn:hover{background:var(--g2);color:#fff}
 .reload-btn:disabled{opacity:.4;cursor:not-allowed}
 
+/* "Still warming up" banner — same treatment as the crew panel's
+   equivalent (mantis_crew_panel.css), shown when a cache-only load
+   hits a cold cache. See showWarmingBanner() in owner_dashboard.js. */
+.offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--a);letter-spacing:0.04em}
+.offline-icon{font-size:var(--fs-body);flex-shrink:0}
+.offline-banner span:nth-child(2){flex:1}
+.offline-retry{cursor:pointer;text-decoration:underline;font-weight:600;white-space:nowrap}
+.offline-retry:hover{color:var(--ink)}
+
 /* =============================================================
    7. CONTENT & TABS
    ============================================================= */
@@ -362,6 +371,8 @@ body.login-page{
 .profile-row:last-child{border-bottom:none}
 .profile-label{width:160px;min-width:160px;font-size:var(--fs-small);font-weight:600;color:var(--ink3);text-transform:uppercase;font-family:var(--font-mono);padding-top:1px}
 .profile-val{flex:1;font-size:var(--fs-body);color:var(--ink);line-height:1.5}
+.addr-a{color:var(--g2);text-decoration:underline;text-underline-offset:2px}
+.phone-a{color:var(--g2);text-decoration:none}
 .profile-section-title{font-family:var(--font-display);font-size:var(--fs-sub);font-style:italic;color:var(--ink);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bg3)}
 .profile-records{display:flex;flex-direction:column;gap:8px}
 .profile-record{padding:10px 12px;background:var(--bg2);border-left:3px solid var(--g4);border-radius:4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
