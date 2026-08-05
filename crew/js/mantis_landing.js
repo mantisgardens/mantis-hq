@@ -43,13 +43,36 @@ function hideLoginError() {
 // SECTION 3 — GOOGLE SIGN-IN
 // =============================================================
 
+// ── gisInitialize ────────────────────────────────────────────
+// Calling google.accounts.id.initialize() more than once per page life
+// is what was producing the console warning "initialize() is called
+// multiple times" — and it's not just cosmetic: re-initializing while
+// a FedCM credential request from the first initialize() may still be
+// in flight aborts that request ("FedCM get() rejects with AbortError"),
+// and repeated aborted FedCM requests are exactly what trips Chrome's
+// "FedCM was disabled...based on previous user action" cooldown for the
+// site. Once that cooldown kicks in, the next sign-in has to fall all
+// the way back to GIS's slower iframe-relay flow (COOP postMessage
+// warnings come from that fallback) instead of the fast FedCM path —
+// which is the ~20 second delay before login is allowed.
+// This guard makes initialize() genuinely idempotent: only the first
+// call in a page's life actually calls the GIS API; later callers
+// (e.g. doSignOut() re-rendering the button) just skip straight to
+// whatever they needed init for.
+let _gisInitDone = false;
+function gisInitialize(config) {
+  if (_gisInitDone) return;
+  google.accounts.id.initialize(config);
+  _gisInitDone = true;
+}
+
 function initGoogleSignIn() {
   if (!CLIENT_ID) {
     console.error('GOOGLE_CLIENT_ID not set in mantis_config.js');
     return;
   }
 
-  google.accounts.id.initialize({
+  gisInitialize({
     client_id:   CLIENT_ID,
     callback:    handleCredential,
     auto_select: false,
@@ -148,14 +171,16 @@ function doSignOut() {
   show('login');
   hideLoginError();
   if (typeof google !== 'undefined' && google.accounts) {
-    // Re-initialize with auto_select:false so GIS doesn't immediately fire
-    // the callback with a cached credential before the user taps the button.
+    // disableAutoSelect() is enough to prevent auto sign-in with a
+    // cached credential before the user taps the button — no need to
+    // re-initialize (GIS was already initialized either by the
+    // persisted-session silent-refresh on load, or by initGoogleSignIn()
+    // on first cold load; by the time doSignOut() is reachable at all,
+    // one of those has already run). Re-initializing here used to be
+    // the guaranteed second initialize() call every sign-out→sign-in
+    // cycle triggered — see gisInitialize()'s comment in Section 3 for
+    // why that broke the next sign-in for ~20 seconds.
     google.accounts.id.disableAutoSelect();
-    google.accounts.id.initialize({
-      client_id:   CLIENT_ID,
-      callback:    handleCredential,
-      auto_select: false,
-    });
     google.accounts.id.renderButton(
       document.getElementById('google-signin-btn'),
       { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
@@ -263,10 +288,11 @@ if (_hasPersistedSession) {
   show('home');
 
   // Initialize GIS once and do a silent prompt to get a fresh ID token.
-  // We do NOT call initGoogleSignIn() here — that would double-initialize.
+  // We do NOT call initGoogleSignIn() here — gisInitialize()'s guard
+  // makes that safe even if it ever did (see Section 3).
   window.addEventListener('load', () => {
     if (typeof google === 'undefined' || !google.accounts) return;
-    google.accounts.id.initialize({
+    gisInitialize({
       client_id:   CLIENT_ID,
       callback:    function(resp) {
         if (resp && resp.credential) {

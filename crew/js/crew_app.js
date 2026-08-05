@@ -103,6 +103,7 @@ if (sessionStorage.getItem('mg_auth') === '1') {
 })();
 
 // ── Start: load all data ──────────────────────────────────────
+// This happens every time the page (mantis_crew_panel.html) loads
 // keepWarm trigger handles cold starts during business hours.
 currentDay = todayDateKey();
 loadAll();

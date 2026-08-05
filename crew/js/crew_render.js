@@ -3,17 +3,16 @@
    Mantis Gardens — Rendering Layer
 
    Contains:
-     5.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
-     6.  Client matching     (findClient, clientCache)
-     7.  HTML escaping       (esc)
-     8.  Morning Brief       (renderBrief, toggleBrief)
-     9.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
-     10. Tabs & main render  (buildTabs, render, toggle, setSt,
+     1.  Date helpers        (todayDateKey, isToday, updateWeekLabel, shiftWeek)
+     2.  Client matching     (findClient, clientCache)
+     3.  Morning Brief       (renderBrief, toggleBrief)
+     4.  Job card rendering  (renderJobs, typeTag, statusIcon, calcHrs)
+     5.  Manager Tabs & main render  (buildTabs, render, toggle, setSt,
                                switchTeam, toggleJobStatus, hideJob)
    ============================================================= */
 
 // =============================================================
-// SECTION 5 — DATE HELPERS
+// SECTION 1 — DATE HELPERS
 // todayDateKey()    → "YYYY-MM-DD" for today
 // isToday(key)      → boolean
 // updateWeekLabel() → sets the header "Week of ..." text
@@ -72,7 +71,7 @@ function shiftWeek(dir) {
 
 
 // =============================================================
-// SECTION 6 — CLIENT MATCHING
+// SECTION 2 — CLIENT MATCHING
 // findClient(name) does a fuzzy word-score match between the
 // calendar event title and client names from Google Sheets.
 // clientCache is a word-indexed lookup built in loadAll().
@@ -433,7 +432,7 @@ function sanitizeNoteHtml(html) {
 
 
 // =============================================================
-// SECTION 8 — MORNING BRIEF RENDERING
+// SECTION 3 — MORNING BRIEF RENDERING
 // renderBrief(wrapId, team) builds the morning brief panel for each
 // team column. Uses morningBrief data (from getMorningBrief()) for
 // team-specific notes and the shared all-crew section (time off,
@@ -613,7 +612,7 @@ function toggleTimeOff() {
 
 
 // =============================================================
-// SECTION 9 — JOB CARD RENDERING
+// SECTION 4 — JOB CARD RENDERING
 // renderJobs() builds each job card from calendar event data,
 // optionally enriched with client sheet data (findClient).
 // Expanded cards show full client detail + action buttons.
@@ -728,7 +727,7 @@ function renderJobs(cid, jobs, teamClass) {
 
 
 // =============================================================
-// SECTION 11 — MANAGER PANEL RENDERING
+// SECTION 5 — MANAGER TABS & MAIN RENDERING 
 // renderManagerPanel() builds the Managers tab content for the
 // selected day. Shows three stacked accordions (Ashley, Brooke,
 // Manager General) — stacked layout works well on phones, avoids

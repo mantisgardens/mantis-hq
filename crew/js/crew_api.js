@@ -86,6 +86,41 @@ function clearOfflineBanner() {
   if (b) b.remove();
 }
 
+// ── Slow-load banner ─────────────────────────────────────────────
+// An Apps Script cold start (container spin-up after the deployment
+// has sat idle) plus a cold CacheService entry can make the very
+// first load after a long gap — e.g. logging back in after being
+// timed out by session_timeout.js — take noticeably longer than
+// normal, with nothing on screen to explain why. If the request is
+// still running after SLOW_LOAD_MS, show a reassuring note so it
+// reads as "this is normal, just wait" instead of looking hung.
+// Cleared the moment the request actually finishes, however long
+// it took, and never gets a chance to appear at all on a fast load
+// since the timer is cancelled first.
+const SLOW_LOAD_MS = 6000;
+let _slowLoadTimer = null;
+
+function showSlowLoadBanner() {
+  let banner = document.getElementById('slow-load-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'slow-load-banner';
+    banner.className = 'offline-banner slow-load-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  banner.innerHTML =
+    `<span class="offline-icon">&#8987;</span>` +
+    `<span>Still loading — this can take longer than usual the first time after being away for a while or after a reload of Mantis database.</span>`;
+}
+
+function clearSlowLoadBanner() {
+  clearTimeout(_slowLoadTimer);
+  _slowLoadTimer = null;
+  const b = document.getElementById('slow-load-banner');
+  if (b) b.remove();
+}
+
 // apiFetch() wraps all calls to the Apps Script web app.
 // Main interaction method to Apps Script code.
 async function apiFetch(action, extra) {
@@ -157,9 +192,11 @@ async function loadAll() {
   // ── Single combined fetch ──────────────────────────────────
   // Ask for manager_schedule only when it'll actually be used.
   let bundle = null, bundleErr = null;
+  _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
     bundle = await apiFetch('crew_load_all', _isManager ? '&mgr=1' : '');
   } catch(e) { bundleErr = e; }
+  clearSlowLoadBanner();
 
   // Reconstruct the per-section {status, value|reason} shape the rest
   // of this function expects. A section-level {error: '...'} from the
