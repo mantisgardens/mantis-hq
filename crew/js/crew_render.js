@@ -430,6 +430,60 @@ function sanitizeNoteHtml(html) {
   return tmp.innerHTML.trim();
 }
 
+// ── Calendar description sanitizer ───────────────────────────────
+// Google Calendar's own description editor supports basic rich text —
+// bold/italic/underline, line breaks, and hyperlinks — and event
+// descriptions were previously HTML-escaped before display, so that
+// markup showed up as literal "<br>", "<a href=...>" text instead of
+// actually rendering. This allow-lists a slightly wider set than
+// sanitizeNoteHtml() above (adds A, since calendar notes routinely
+// include reference links the owner/managers pasted in, e.g. "here's
+// the plant info page") — everything else (scripts, styles, arbitrary
+// tags/attributes) is stripped exactly the same way. Links get their
+// href re-validated to http(s) only — blocks javascript:/data: URIs —
+// and forced to open in a new tab.
+const CAL_NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','BR','A','DIV','P']);
+function sanitizeCalNotesHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+
+  function walk(parent) {
+    let node = parent.firstChild;
+    while (node) {
+      const next = node.nextSibling;
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        if (!CAL_NOTE_ALLOWED_TAGS.has(node.tagName)) {
+          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
+            parent.removeChild(node);
+            node = next;
+            continue;
+          }
+          // Disallowed element — unwrap it, keep its text/children
+          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+          parent.removeChild(node);
+        } else if (node.tagName === 'A') {
+          const href = node.getAttribute('href') || '';
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          if (/^https?:\/\//i.test(href.trim())) {
+            node.setAttribute('href', href.trim());
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer');
+          }
+          walk(node);
+        } else {
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          walk(node);
+        }
+      } else if (node.nodeType !== Node.TEXT_NODE) {
+        parent.removeChild(node); // comments, etc.
+      }
+      node = next;
+    }
+  }
+  walk(tmp);
+  return tmp.innerHTML.trim();
+}
+
 
 // =============================================================
 // SECTION 3 — MORNING BRIEF RENDERING
@@ -1127,7 +1181,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
   }
 
   if (description && description.trim()) {
-    html += `<div class="drow"><span class="dlabel">Cal notes</span><span class="dval note">${esc(description)}</span></div>`;
+    html += `<div class="drow"><span class="dlabel">Cal notes</span><span class="dval note">${sanitizeCalNotesHtml(description)}</span></div>`;
   }
 
   return html;
