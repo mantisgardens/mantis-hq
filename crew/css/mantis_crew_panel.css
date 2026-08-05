@@ -387,6 +387,7 @@ body.team-locked .team-tabs{display:none}
 .dval.warn{background:var(--a3);border:1px solid var(--a4);padding:4px 8px;border-radius:4px;color:var(--a)}
 .dval.note{background:var(--g3);border:1px solid var(--g4);padding:4px 8px;border-radius:4px;color:var(--g)}
 .phone-a{color:var(--g2);font-family:var(--font-mono);font-size:var(--fs-label);text-decoration:none}
+.addr-a{color:var(--g2);text-decoration:underline;text-underline-offset:2px}
 .action-row{display:flex;gap:5px;margin-top:2px;flex-wrap:wrap}
 .abtn{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.05em;border-radius:3px;padding:4px 9px;cursor:pointer;border:1px solid;text-transform:uppercase;transition:all 0.15s}
 .abtn-done{background:var(--g3);color:var(--g);border-color:var(--g4)}.abtn-done:hover{background:var(--g2);color:#fff}
