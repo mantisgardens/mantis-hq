@@ -129,8 +129,7 @@ function handleCredential(response) {
     // the email is in the APPROVED_USERS Script Property.
     // The client never sees the approved list.
     const idToken = encodeURIComponent(response.credential);
-    fetch(`${SCRIPT_URL}?action=ping&id_token=${idToken}`)
-      .then(r => r.json())
+    fetchJsonWithRetry(`${SCRIPT_URL}?action=ping&id_token=${idToken}`)
       .then(json => {
         if (btn) btn.style.opacity = '1';
         if (json.error) {
@@ -191,15 +190,19 @@ function doSignOut() {
   show('login');
   hideLoginError();
   if (typeof google !== 'undefined' && google.accounts) {
-    // disableAutoSelect() is enough to prevent auto sign-in with a
-    // cached credential before the user taps the button — no need to
-    // re-initialize (GIS was already initialized either by the
-    // persisted-session silent-refresh on load, or by initGoogleSignIn()
-    // on first cold load; by the time doSignOut() is reachable at all,
-    // one of those has already run). Re-initializing here used to be
-    // the guaranteed second initialize() call every sign-out→sign-in
-    // cycle triggered — see gisInitialize()'s comment in Section 3 for
-    // why that broke the next sign-in for ~20 seconds.
+    // gisInitialize() is idempotent (see Section 3) — a no-op if
+    // initGoogleSignIn() already ran on this page load, or the one call
+    // that actually initializes GIS if we got here straight from a
+    // persisted session (which no longer initializes GIS itself on
+    // load — see the comment in the startup section). Either way this
+    // is safe: it's still at most one real initialize() call per page
+    // life. disableAutoSelect() prevents auto sign-in with a cached
+    // credential before the user taps the button.
+    gisInitialize({
+      client_id:   CLIENT_ID,
+      callback:    handleCredential,
+      auto_select: false,
+    });
     google.accounts.id.disableAutoSelect();
     google.accounts.id.renderButton(
       document.getElementById('google-signin-btn'),
@@ -307,23 +310,22 @@ if (_hasPersistedSession) {
   setupHome(_persistedName, _persistedCategory);
   show('home');
 
-  // Initialize GIS once and do a silent prompt to get a fresh ID token.
-  // We do NOT call initGoogleSignIn() here — gisInitialize()'s guard
-  // makes that safe even if it ever did (see Section 3).
-  window.addEventListener('load', () => {
-    if (typeof google === 'undefined' || !google.accounts) return;
-    gisInitialize({
-      client_id:   CLIENT_ID,
-      callback:    function(resp) {
-        if (resp && resp.credential) {
-          sessionStorage.setItem('mg_id_token', resp.credential);
-        }
-      },
-      auto_select: true,
-    });
-    // Silent prompt only — no UI shown to the user
-    google.accounts.id.prompt();
-  });
+  // Deliberately NOT calling google.accounts.id.prompt() here anymore.
+  // This used to silently refresh mg_id_token on every single page
+  // load/reopen that had a persisted session — but that's exactly the
+  // kind of automatic, non-user-initiated FedCM request Chrome's abuse
+  // prevention watches for, and firing it on every reopen (crew opening
+  // the tab repeatedly through the day, or just reloading while testing)
+  // was enough to trip the "FedCM was disabled...based on previous user
+  // action" cooldown — which then also blocked the *next* real
+  // interactive sign-in attempt, not just this silent one.
+  // It isn't actually load-bearing: 'ping' (the only crew action that
+  // checks id_token server-side, besides clear_server_cache) always
+  // uses the token from the live interactive credential response in
+  // handleCredential(), never this background refresh, and
+  // clearCrewCache() already swallows a clear_server_cache auth failure
+  // silently (see crew_app.js) — so a stale/missing mg_id_token here
+  // has no visible effect on a returning crew member.
 
 } else {
   // No valid persisted session — clear stale localStorage and show login
