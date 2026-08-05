@@ -87,6 +87,26 @@ function initGoogleSignIn() {
   // racing with cleared storage state after sign-out.
 }
 
+// ── fetchJsonWithRetry ──────────────────────────────────────────
+// Apps Script Web Apps intermittently fail the redirect they use to
+// serve /exec responses (a 302 to script.googleusercontent.com/macros/
+// echo, which occasionally 404s with an HTML page instead of the real
+// JSON — a known Google-side serving glitch, not something this app's
+// code controls). A single retry after a short delay clears it in
+// practice, so a transient blip doesn't surface as a failed login.
+function fetchJsonWithRetry(url, retries) {
+  retries = retries === undefined ? 1 : retries;
+  return fetch(url)
+    .then(r => r.json())
+    .catch(err => {
+      if (retries > 0) {
+        return new Promise(resolve => setTimeout(resolve, 700))
+          .then(() => fetchJsonWithRetry(url, retries - 1));
+      }
+      throw err;
+    });
+}
+
 // Called by Google after successful sign-in with a JWT credential
 function handleCredential(response) {
   try {
