@@ -19,6 +19,17 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- Tell browsers not to cache this page shell itself — otherwise a
+       bookmarked/home-screen-icon visit could keep loading stale
+       <script src="...?v=OLD"> references even after those version
+       numbers are bumped, since the cache-busting only works once this
+       HTML document is actually re-fetched. Not a 100% guarantee (a
+       real Cache-Control header from the host, which we can't set on
+       GitHub Pages, generally wins over a meta tag if they conflict),
+       but helps in most real-world mobile browsers at no cost. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Portal</title>
   <link rel="stylesheet" href="css/mantis_landing.css?v=28"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
@@ -115,6 +126,6 @@
 <script src="../config.js?v=22"></script>
 <script src="js/mantis_config.js?v=22"></script>
 <script src="js/session_timeout.js?v=22"></script>
-<script src="js/mantis_landing.js?v=25"></script>
+<script src="js/mantis_landing.js?v=29"></script>
 </body>
 </html>
