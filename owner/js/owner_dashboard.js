@@ -245,7 +245,14 @@ async function ownerFetch(action, extra) {
     }
   }
 
-  if (ttl) {
+  // Don't cache a "still warming up" result — see the matching note in
+  // crew_api.js's apiFetch(). Known-stale placeholder data; caching it
+  // would just delay picking up the real data once the server-side
+  // cache populates a moment later.
+  const isWarmingResult = data && typeof data === 'object' &&
+    ['schedule','manager_schedule'].some(k => data[k] && data[k].warming);
+
+  if (ttl && !isWarmingResult) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
     } catch(e) {}
@@ -286,7 +293,12 @@ function setStatus(id, state, msg) {
   if (label) label.textContent = msg;
 }
 
-async function loadAll() {
+// forceFresh=true (used by the reload button) calls ownerLoadAllFresh
+// instead of the normal ownerLoadAll — see Utilities.gs's doGet for
+// what that changes server-side (forces a live schedule/manager_schedule
+// refresh instead of reading the cache-only default). Same shape either
+// way; everything below behaves identically.
+async function loadAll(forceFresh) {
   document.querySelector('.reload-btn').disabled = true;
   setStatus('clients',  'loading', 'Clients: loading…');
   setStatus('schedule', 'loading', 'Schedule: loading…');
@@ -303,15 +315,31 @@ async function loadAll() {
   // three sections into a single response.
   let bundle = null, bundleErr = null;
   try {
-    bundle = await ownerFetch('ownerLoadAll');
+    bundle = await ownerFetch(forceFresh ? 'ownerLoadAllFresh' : 'ownerLoadAll');
   } catch(e) { bundleErr = e; }
 
+  // A "still warming up" placeholder (val.warming === true) is treated
+  // as 'rejected' here too — see the matching note in crew_api.js's
+  // loadAll() for the full reasoning. This dashboard has no 24-hour
+  // offline cache to accidentally corrupt like the crew panel does,
+  // but without this it would still show a misleading "Schedule:
+  // loaded" status for an empty placeholder instead of an honest
+  // "still warming up."
   function toResult(section) {
     if (bundleErr) return { status: 'rejected', reason: bundleErr };
     const val = bundle ? bundle[section] : undefined;
     if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    if (val && val.warming) return { status: 'rejected', reason: new Error('Still warming up') };
     return { status: 'fulfilled', value: val === undefined ? null : val };
   }
+
+  // ── "Still warming up" banner ────────────────────────────────────
+  // Read directly off the raw bundle (not the results built from
+  // toResult() above, which now folds warming into 'rejected') —
+  // this just needs to know whether ANY section was warming.
+  const isWarming = !bundleErr && bundle &&
+    ['schedule','manager_schedule'].some(k => bundle[k] && bundle[k].warming);
+  if (isWarming) showWarmingBanner(); else clearWarmingBanner();
 
   const clientsRes     = toResult('clients');
   const scheduleRes    = toResult('schedule');
