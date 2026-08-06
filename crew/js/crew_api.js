@@ -149,6 +149,30 @@ function clearWarmingBanner() {
   if (b) b.remove();
 }
 
+// ── fetchWithTimeout ──────────────────────────────────────────────
+// Plain fetch() has NO built-in timeout — if a request stalls mid-
+// flight (a dropped or degraded connection, common on job-site cell
+// signal), the promise just sits pending forever. A real report
+// showed exactly that: the app stuck on "still loading" indefinitely,
+// resolved instantly by reloading the page — proving the backend
+// wasn't the problem, a specific network round trip just silently
+// died. AbortController forces a stalled request to actually fail
+// after TIMEOUT_MS, which lets fetchJsonWithRetry()'s existing retry
+// logic below treat it exactly like any other failure instead of
+// hanging forever with no recovery but a manual reload.
+// 30s, not something shorter — the Apps Script Executions log has shown
+// legitimate (successful, non-error) executions taking up to ~27s, most
+// likely Web App cold-start latency (a fresh container spinning up)
+// rather than the actual function logic being slow. A tighter timeout
+// risks aborting a request that was about to succeed on its own,
+// turning a slow-but-fine load into an unnecessary retry.
+const FETCH_TIMEOUT_MS = 30000;
+function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // ── fetchJsonWithRetry ──────────────────────────────────────────
 // Apps Script Web Apps intermittently fail the redirect they use to
 // serve /exec responses (a 302 to script.googleusercontent.com/macros/
@@ -159,7 +183,7 @@ function clearWarmingBanner() {
 async function fetchJsonWithRetry(url, retries) {
   retries = retries === undefined ? 1 : retries;
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch(err) {
@@ -224,6 +248,118 @@ function setStatus(id, state, msg) {
   document.getElementById(`sd-${id}`).className =
     `sdot ${state === 'live' ? 'live' : state === 'loading' ? 'loading' : state === 'error' ? 'error' : ''}`;
   document.getElementById(`sl-${id}`).textContent = msg;
+}
+
+// ── Apply-data helpers ──────────────────────────────────────────
+// Each takes a raw section payload — same shape whether it came from a
+// fresh network response or the 24-hour offline snapshot (useOffline()
+// below, used only when the network call actually fails) — and updates
+// the corresponding global state (+ status pill, when opts.live is
+// set). Pulled out of loadAll()'s inline per-section handling just to
+// keep that function shorter; each section's data-shape logic lives in
+// exactly one place either way.
+function applyClientsData(data, opts) {
+  opts = opts || {};
+  sheetClients = data.clients || [];
+  clientCache  = {};
+  sheetClients.forEach(c => {
+    const name = (c['Name(s)'] || '').toLowerCase();
+    // Index by all words including short ones like "Rae"
+    name.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1)
+      .forEach(w => {
+        if (!clientCache[w]) clientCache[w] = [];
+        clientCache[w].push(c);
+      });
+    // Also index by last name (first word before comma) with a "last:" prefix
+    // for stronger matching — avoids false positives from common words
+    const lastName = name.split(',')[0].trim().split(/[\s\-]+/)[0];
+    if (lastName && lastName.length > 1) {
+      const key = 'last:' + lastName;
+      if (!clientCache[key]) clientCache[key] = [];
+      clientCache[key].push(c);
+    }
+  });
+  if (opts.live) setStatus('clients', 'live', `Clients: ${sheetClients.length} active loaded`);
+}
+
+function applyScheduleData(data, opts) {
+  opts = opts || {};
+  SCHEDULE  = data.days || {};
+
+  // Build sorted day list
+  DAYS      = Object.keys(SCHEDULE).sort();
+  DAY_LABELS = DAYS.map(d => {
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  });
+
+  // Snap to today if in the window.
+  // On Sunday, jump straight to next Monday so last week isn't prominent.
+  // Otherwise snap to the nearest future day, else the first available day.
+  const todayKey = todayDateKey();
+  const isSunday = new Date().getDay() === 0;
+  if (!isSunday && DAYS.includes(todayKey)) {
+    currentDay = todayKey;
+  } else if (isSunday) {
+    // Find the Monday immediately following today
+    const nextMonday = new Date();
+    nextMonday.setDate(nextMonday.getDate() + 1);  // Sunday + 1 = Monday
+    const nextMondayKey = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth()+1).padStart(2,'0')}-${String(nextMonday.getDate()).padStart(2,'0')}`;
+    const future = DAYS.find(d => d >= nextMondayKey);
+    currentDay = future || DAYS[0] || null;
+  } else {
+    // Find nearest day >= today
+    const future = DAYS.find(d => d >= todayKey);
+    currentDay = future || DAYS[0] || null;
+  }
+
+  if (opts.live) {
+    const total = DAYS.reduce((sum, d) => {
+      const day = SCHEDULE[d] || {};
+      return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
+    }, 0);
+    setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
+    // If no days came back, show a helpful message in the status bar
+    if (!DAYS.length) {
+      setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
+    }
+  }
+  updateWeekLabel();
+}
+
+function applyMorningBriefData(data, opts) {
+  opts = opts || {};
+  morningBrief = data;
+  if (opts.live) {
+    const ac  = morningBrief.all_crew || {};
+    const dbg = morningBrief._debug || {};
+    const parts = [];
+    if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
+    if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
+    if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
+    if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
+    const detail = parts.length ? ' — ' + parts.join(', ') : '';
+    setStatus('brief', 'live', `Morning brief: loaded${detail}`);
+  }
+}
+
+function applyCrewTeamsData(data) {
+  crewTeams = data;
+  // Rebuild crew datalist now that we have names
+  const dl = document.getElementById('dl-crew-global');
+  if (dl) {
+    dl.innerHTML = '';
+    const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[]), ...(crewTeams.tInstall||[])];
+    allNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    });
+  }
+}
+
+function applyManagerScheduleData(data) {
+  MANAGER_SCHEDULE = data;
 }
 
 // loadAll() fires ONE combined request (action=crew_load_all) so the
@@ -328,28 +464,7 @@ async function loadAll(forceFresh) {
 
   if (clientsData) {
     if (results[0].status === 'fulfilled') persistSave('active_clients', clientsData);
-    sheetClients = clientsData.clients || [];
-    clientCache  = {};
-    sheetClients.forEach(c => {
-      const name = (c['Name(s)'] || '').toLowerCase();
-      // Index by all words including short ones like "Rae"
-      name.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1)
-        .forEach(w => {
-          if (!clientCache[w]) clientCache[w] = [];
-          clientCache[w].push(c);
-        });
-      // Also index by last name (first word before comma) with a "last:" prefix
-      // for stronger matching — avoids false positives from common words
-      const lastName = name.split(',')[0].trim().split(/[\s\-]+/)[0];
-      if (lastName && lastName.length > 1) {
-        const key = 'last:' + lastName;
-        if (!clientCache[key]) clientCache[key] = [];
-        clientCache[key].push(c);
-      }
-    });
-    if (results[0].status === 'fulfilled') {
-      setStatus('clients', 'live', `Clients: ${sheetClients.length} active loaded`);
-    }
+    applyClientsData(clientsData, { live: results[0].status === 'fulfilled' });
   }
 
   // ── Calendar / Schedule ──
@@ -364,47 +479,7 @@ async function loadAll(forceFresh) {
       persistClear('schedule');
       persistSave('schedule', calData);
     }
-    SCHEDULE  = calData.days || {};
-
-    // Build sorted day list
-    DAYS      = Object.keys(SCHEDULE).sort();
-    DAY_LABELS = DAYS.map(d => {
-      const dt = new Date(d + 'T12:00:00');
-      return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
-    });
-
-    // Snap to today if in the window.
-    // On Sunday, jump straight to next Monday so last week isn't prominent.
-    // Otherwise snap to the nearest future day, else the first available day.
-    const todayKey = todayDateKey();
-    const isSunday = new Date().getDay() === 0;
-    if (!isSunday && DAYS.includes(todayKey)) {
-      currentDay = todayKey;
-    } else if (isSunday) {
-      // Find the Monday immediately following today
-      const nextMonday = new Date();
-      nextMonday.setDate(nextMonday.getDate() + 1);  // Sunday + 1 = Monday
-      const nextMondayKey = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth()+1).padStart(2,'0')}-${String(nextMonday.getDate()).padStart(2,'0')}`;
-      const future = DAYS.find(d => d >= nextMondayKey);
-      currentDay = future || DAYS[0] || null;
-    } else {
-      // Find nearest day >= today
-      const future = DAYS.find(d => d >= todayKey);
-      currentDay = future || DAYS[0] || null;
-    }
-
-    const total = DAYS.reduce((sum, d) => {
-      const day = SCHEDULE[d] || {};
-      return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
-    }, 0);
-    if (results[1].status === 'fulfilled') {
-      setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
-      // If no days came back, show a helpful message in the status bar
-      if (!DAYS.length) {
-        setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
-      }
-    }
-    updateWeekLabel();
+    applyScheduleData(calData, { live: results[1].status === 'fulfilled' });
   } else {
     SCHEDULE   = {};
     DAYS       = [];
@@ -419,18 +494,7 @@ async function loadAll(forceFresh) {
 
   if (briefData) {
     if (results[2].status === 'fulfilled') persistSave('morning_brief', briefData);
-    morningBrief = briefData;
-    if (results[2].status === 'fulfilled') {
-      const ac  = morningBrief.all_crew || {};
-      const dbg = morningBrief._debug || {};
-      const parts = [];
-      if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
-      if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
-      if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
-      if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
-      const detail = parts.length ? ' — ' + parts.join(', ') : '';
-      setStatus('brief', 'live', `Morning brief: loaded${detail}`);
-    }
+    applyMorningBriefData(briefData, { live: results[2].status === 'fulfilled' });
   }
 
   // ── Crew teams (silent — no status pill) ──
@@ -440,18 +504,7 @@ async function loadAll(forceFresh) {
 
   if (teamsData) {
     if (results[3] && results[3].status === 'fulfilled') persistSave('crew_teams', teamsData);
-    crewTeams = teamsData;
-    // Rebuild crew datalist now that we have names
-    const dl = document.getElementById('dl-crew-global');
-    if (dl) {
-      dl.innerHTML = '';
-      const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[]), ...(crewTeams.tInstall||[])];
-      allNames.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        dl.appendChild(opt);
-      });
-    }
+    applyCrewTeamsData(teamsData);
   }
 
   // ── Manager schedule (managers only) ─────────────────────
@@ -463,7 +516,7 @@ async function loadAll(forceFresh) {
 
     if (mgrData) {
       if (mgrResult.status === 'fulfilled') persistSave('manager_schedule', mgrData);
-      MANAGER_SCHEDULE = mgrData;
+      applyManagerScheduleData(mgrData);
     }
   }
 
