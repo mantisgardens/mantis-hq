@@ -78,6 +78,33 @@ function hideLoadingOverlay() {
   if (el) el.style.display = 'none';
 }
 
+// Apps Script Web Apps intermittently fail the redirect they use to
+// serve /exec responses (a 302 to script.googleusercontent.com/macros/
+// echo, which occasionally 404s with an HTML page instead of the real
+// JSON — a known Google-side serving glitch, not something this app's
+// code controls). A single retry after a short delay clears it in
+// practice. Same pattern as fetchJsonWithRetry() in crew_api.js —
+// named differently here (not sharing that one) since this file is
+// also loaded standalone on mantis_service_manual.html, without
+// crew_api.js, and loads *before* crew_api.js on the crew panel page
+// where both are present — relying on either file's copy silently
+// winning there would be fragile.
+function fetchServiceJsonWithRetry(url, retries) {
+  retries = retries === undefined ? 1 : retries;
+  return fetch(url)
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    })
+    .catch(err => {
+      if (retries > 0) {
+        return new Promise(resolve => setTimeout(resolve, 700))
+          .then(() => fetchServiceJsonWithRetry(url, retries - 1));
+      }
+      throw err;
+    });
+}
+
 // ── Main loader ───────────────────────────────────────────────
 // forceFresh=true (used by the "Reload now" link shown when the
 // backend cache is cold) skips the client-side cache and calls the
@@ -117,13 +144,11 @@ function loadServiceData(forceFresh) {
     Promise.all([
       smCached
         ? Promise.resolve(smCached)
-        : fetch(`${SCRIPT_URL_SM}?action=${smAction}${auth}`)
-            .then(r => r.json())
+        : fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${smAction}${auth}`)
             .then(json => { if (json.error) throw new Error(json.error); return json; }),
       plantCached
         ? Promise.resolve(plantCached)
-        : fetch(`${SCRIPT_URL_SM}?action=${plantAction}${auth}`)
-            .then(r => r.json())
+        : fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${plantAction}${auth}`)
             .then(json => { if (json.error) throw new Error(json.error); return json; }),
     ])
     .then(([smData, plantData]) => {
