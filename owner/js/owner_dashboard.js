@@ -102,6 +102,37 @@ function clearWarmingBanner() {
   if (b) b.remove();
 }
 
+// ── Slow-load banner ─────────────────────────────────────────────
+// Same treatment as the crew panel's equivalent (crew_api.js). A load
+// that's still going after SLOW_LOAD_MS — an Apps Script cold start, or
+// _fetchJsonWithRetry() working through its retries after a transient
+// serving glitch — gets a reassuring note instead of just sitting
+// there looking frozen with no feedback at all, which is what a real
+// report described happening here.
+const SLOW_LOAD_MS = 6000;
+let _slowLoadTimer = null;
+
+function showSlowLoadBanner() {
+  let banner = document.getElementById('slow-load-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'slow-load-banner';
+    banner.className = 'offline-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  banner.innerHTML =
+    `<span class="offline-icon">&#8987;</span>` +
+    `<span>Still loading — this can take longer than usual occasionally. Hang tight.</span>`;
+}
+
+function clearSlowLoadBanner() {
+  clearTimeout(_slowLoadTimer);
+  _slowLoadTimer = null;
+  const b = document.getElementById('slow-load-banner');
+  if (b) b.remove();
+}
+
 // ── Token refresh ─────────────────────────────────────────────
 // Google ID tokens expire after 1 hour. The owner portal session
 // is 2 hours, so tokens will expire mid-session. When ownerFetch/
@@ -210,18 +241,43 @@ function _isTokenError(err) {
          msg.includes('HTTP 400')      || msg.includes('HTTP 401');
 }
 
+// Plain fetch() has NO built-in timeout — if a request stalls mid-
+// flight (a dropped or degraded connection), the promise just sits
+// pending forever, with no recovery but a manual page reload. A real
+// report on the crew panel showed exactly that pattern (stuck on
+// "still loading" indefinitely, resolved instantly by reloading —
+// proving the backend wasn't the problem). AbortController forces a
+// stalled request to actually fail after FETCH_TIMEOUT_MS, so
+// _fetchJsonWithRetry() below treats it like any other failure.
+// 30s — see the matching comment in crew_api.js. Apps Script Web App
+// cold starts (a fresh container spinning up) have been observed
+// legitimately taking up to ~27s; too tight a timeout would abort a
+// load that was about to succeed on its own.
+const FETCH_TIMEOUT_MS = 30000;
+function _fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);
+  return fetch(url, { ...(options || {}), signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // Apps Script Web Apps intermittently fail the redirect they use to
 // serve /exec responses (a 302 to script.googleusercontent.com/macros/
 // echo, which occasionally 404s with an HTML page instead of the real
 // JSON — a known Google-side serving glitch, not something this app's
-// code controls). A single retry after a short delay clears it in
-// practice. Same pattern as fetchJsonWithRetry() in crew_api.js, just
-// also accepting fetch options so it covers ownerPost()'s POST
+// code controls). Same pattern as fetchJsonWithRetry() in crew_api.js,
+// just also accepting fetch options so it covers ownerPost()'s POST
 // requests too, not only GETs.
+//
+// 2 retries (not 1) — a real report showed this failing twice in a
+// row on ownerLoadAll before recovering, meaning a single retry isn't
+// always enough. Each retry re-runs the full live query, so this is a
+// real tradeoff (worst case now 3x the load instead of 2x on a genuine
+// failure) — accepted since the alternative is the owner dashboard
+// visibly failing to load.
 async function _fetchJsonWithRetry(url, options, retries) {
-  retries = retries === undefined ? 1 : retries;
+  retries = retries === undefined ? 2 : retries;
   try {
-    const res = await fetch(url, options);
+    const res = await _fetchWithTimeout(url, options);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch(err) {
@@ -333,9 +389,11 @@ async function loadAll(forceFresh) {
   // request — the backend verifies the token once and bundles all
   // three sections into a single response.
   let bundle = null, bundleErr = null;
+  _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
     bundle = await ownerFetch(forceFresh ? 'ownerLoadAllFresh' : 'ownerLoadAll');
   } catch(e) { bundleErr = e; }
+  clearSlowLoadBanner();
 
   // A "still warming up" placeholder (val.warming === true) is treated
   // as 'rejected' here too — see the matching note in crew_api.js's
@@ -1527,4 +1585,13 @@ function showToast(msg) {
 // =============================================================
 // SECTION 10 — STARTUP
 // =============================================================
-loadAll();
+// Small settle delay before the first fetch — unlike the crew login
+// page (which shows a home screen and waits for an explicit tap
+// before ever loading data), this page goes straight from a Google
+// sign-in redirect landing here to firing loadAll() as the very next
+// thing that happens, with no pause at all. Reported flakiness was
+// worse on desktop Chrome than on phone; this doesn't prove the
+// adjacency of "just finished a Google sign-in redirect" and "already
+// hitting Google's infrastructure again" is the cause, but it's cheap
+// to test and easy to remove if it doesn't help.
+setTimeout(loadAll, 400);
