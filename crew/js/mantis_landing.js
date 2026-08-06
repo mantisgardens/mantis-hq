@@ -87,16 +87,47 @@ function initGoogleSignIn() {
   // racing with cleared storage state after sign-out.
 }
 
+// Plain fetch() has NO built-in timeout — if a request stalls mid-
+// flight (a dropped or degraded connection), the promise just sits
+// pending forever, with no recovery but a manual page reload. A real
+// report on the crew panel's data loading showed exactly this pattern
+// (stuck indefinitely, resolved instantly by reloading — proving the
+// backend wasn't the problem). AbortController forces a stalled
+// request to actually fail after FETCH_TIMEOUT_MS, so
+// fetchJsonWithRetry() below treats it like any other failure instead
+// of leaving the login button hanging forever.
+// 7s — see the matching comment in crew_api.js. A HAR capture of a
+// real slow load showed the actual failure mode: the initial /exec
+// request always gets its redirect back in 1-2s, but the follow-up
+// fetch of the redirect target (script.googleusercontent.com/macros/
+// echo) can hang completely dead until aborted — at which point the
+// existing retry below succeeds in under a second. No legitimate
+// slow-but-progressing case was found for a long timeout to protect;
+// 30s was just making every dead connection sit that much longer
+// before the retry (which reliably works) got a chance.
+const FETCH_TIMEOUT_MS = 7000;
+function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 // ── fetchJsonWithRetry ──────────────────────────────────────────
 // Apps Script Web Apps intermittently fail the redirect they use to
 // serve /exec responses (a 302 to script.googleusercontent.com/macros/
 // echo, which occasionally 404s with an HTML page instead of the real
-// JSON — a known Google-side serving glitch, not something this app's
-// code controls). A single retry after a short delay clears it in
-// practice, so a transient blip doesn't surface as a failed login.
+// JSON, or just hangs at zero bytes until FETCH_TIMEOUT_MS aborts it)
+// — a known Google-side serving glitch, not something this app's code
+// controls.
+//
+// 2 retries (not 1) — see the matching comment in crew_api.js's
+// fetchJsonWithRetry(): a HAR capture showed this exact stall hitting
+// twice in a row before a third attempt succeeded, so a single retry
+// isn't always enough to keep a transient blip from surfacing as a
+// failed login.
 function fetchJsonWithRetry(url, retries) {
-  retries = retries === undefined ? 1 : retries;
-  return fetch(url)
+  retries = retries === undefined ? 2 : retries;
+  return fetchWithTimeout(url)
     .then(r => r.json())
     .catch(err => {
       if (retries > 0) {

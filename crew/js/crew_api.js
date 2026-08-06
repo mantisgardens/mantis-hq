@@ -160,13 +160,25 @@ function clearWarmingBanner() {
 // after TIMEOUT_MS, which lets fetchJsonWithRetry()'s existing retry
 // logic below treat it exactly like any other failure instead of
 // hanging forever with no recovery but a manual reload.
-// 30s, not something shorter — the Apps Script Executions log has shown
-// legitimate (successful, non-error) executions taking up to ~27s, most
-// likely Web App cold-start latency (a fresh container spinning up)
-// rather than the actual function logic being slow. A tighter timeout
-// risks aborting a request that was about to succeed on its own,
-// turning a slow-but-fine load into an unnecessary retry.
-const FETCH_TIMEOUT_MS = 30000;
+// 7s — NOT 30s. A HAR capture of a real slow load showed the actual
+// failure mode precisely: the initial /exec request always gets its
+// 302 redirect back in 1-2s, but the browser's follow-up fetch of the
+// redirect target (script.googleusercontent.com/macros/echo) can hang
+// completely — zero bytes, no error — until something aborts it. Once
+// aborted, fetchJsonWithRetry's existing retry succeeds in under a
+// second every time (220ms and 168ms in that capture; every legitimate
+// response across every test has landed under ~2s). There is no
+// legitimate slow-but-progressing case here for a long timeout to
+// protect — a stalled echo fetch sits at literally zero progress for
+// its entire duration, it doesn't trickle in slowly. 30s used to be
+// based on an assumption that Apps Script cold starts could
+// legitimately take up to ~27s; that turned out not to be the actual
+// bottleneck (ping and real doGet executions have consistently
+// measured under a few seconds). 7s gives comfortable margin over
+// every observed real response while cutting how long a dead
+// connection is allowed to sit before the retry (which reliably
+// works) gets a chance.
+const FETCH_TIMEOUT_MS = 7000;
 function fetchWithTimeout(url, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);
@@ -177,11 +189,22 @@ function fetchWithTimeout(url, timeoutMs) {
 // Apps Script Web Apps intermittently fail the redirect they use to
 // serve /exec responses (a 302 to script.googleusercontent.com/macros/
 // echo, which occasionally 404s with an HTML page instead of the real
-// JSON — a known Google-side serving glitch, not something this app's
-// code controls). A single retry after a short delay clears it in
-// practice, so a transient blip doesn't surface as a failed data load.
+// JSON, or — per a HAR capture of a real failure — just hangs at zero
+// bytes until FETCH_TIMEOUT_MS aborts it) — a known Google-side serving
+// glitch, not something this app's code controls.
+//
+// 2 retries (not 1) — same reasoning as owner_dashboard.js's
+// _fetchJsonWithRetry: a HAR capture on this side showed the same
+// stall hitting twice in a row (initial attempt AND the first retry
+// both aborted at the timeout) before a third attempt succeeded
+// cleanly in under a second, meaning a single retry isn't always
+// enough here either. Each retry re-runs the full request, so this is
+// a real tradeoff (worst case now 3x the load instead of 2x on a
+// genuine failure) — accepted since the alternative is falling back to
+// the stale offline cache and making the crew member notice and
+// manually retry.
 async function fetchJsonWithRetry(url, retries) {
-  retries = retries === undefined ? 1 : retries;
+  retries = retries === undefined ? 2 : retries;
   try {
     const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
