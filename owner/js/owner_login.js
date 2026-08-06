@@ -19,10 +19,23 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
 }
 
 // Token expiry — redirected from dashboard after 1hr token expiry.
-// GIS auto_select:true + prompt() below will silently re-authenticate
-// and redirect straight back to the dashboard if the Google session
-// is still active (typical case — no visible login needed).
-// Just clear the flag; no user-visible message needed.
+// Just clear the flag; no user-visible message needed. (This used to
+// also rely on a silent google.accounts.id.prompt() call below to
+// auto-recover without the owner seeing a login screen at all — but
+// owner_dashboard.js's _refreshOwnerToken() already attempts exactly
+// that same silent refresh directly on the dashboard before ever
+// redirecting here, so by the time someone lands on this page for
+// this reason, that path has already been tried and failed. A second
+// automatic prompt() attempt here was mostly redundant for that case,
+// while being exactly the kind of automatic, non-user-initiated FedCM
+// request that Chrome's abuse prevention watches for — firing it on
+// every single page load (this page has no persisted-session skip the
+// way the crew login page does, so it ran every time) was enough to
+// trip the "FedCM was disabled...based on previous user action"
+// cooldown, which then also blocked the next real interactive sign-in
+// attempt. See gisInitialize()'s comment in mantis_landing.js for the
+// full story — this is the same bug, just in the owner login page,
+// which hadn't been touched when that one was fixed.
 if (sessionStorage.getItem('owner_token_expired') === '1') {
   sessionStorage.removeItem('owner_token_expired');
 }
@@ -44,7 +57,9 @@ function initGoogleSignIn() {
     document.getElementById('google-signin-btn'),
     { theme:'filled_blue', size:'large', width:260, text:'signin_with', shape:'rectangular' }
   );
-  google.accounts.id.prompt();
+  // Deliberately no google.accounts.id.prompt() call here anymore —
+  // see the comment above. The rendered button still gives a normal,
+  // explicit, user-initiated sign-in with no FedCM cooldown risk.
 }
 
 function handleCredential(response) {
