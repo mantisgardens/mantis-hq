@@ -249,11 +249,16 @@ function _isTokenError(err) {
 // proving the backend wasn't the problem). AbortController forces a
 // stalled request to actually fail after FETCH_TIMEOUT_MS, so
 // _fetchJsonWithRetry() below treats it like any other failure.
-// 30s — see the matching comment in crew_api.js. Apps Script Web App
-// cold starts (a fresh container spinning up) have been observed
-// legitimately taking up to ~27s; too tight a timeout would abort a
-// load that was about to succeed on its own.
-const FETCH_TIMEOUT_MS = 30000;
+// 7s — see the matching comment in crew_api.js. A HAR capture of a
+// real slow load showed the actual failure mode: the initial /exec
+// request always gets its redirect back in 1-2s, but the follow-up
+// fetch of the redirect target (script.googleusercontent.com/macros/
+// echo) can hang completely dead until aborted — at which point the
+// existing retry below succeeds in under a second. There's no
+// legitimate slow-but-progressing case a long timeout is protecting
+// against here, so 30s was just making every dead connection sit that
+// much longer before the retry (which reliably works) got a chance.
+const FETCH_TIMEOUT_MS = 7000;
 function _fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);

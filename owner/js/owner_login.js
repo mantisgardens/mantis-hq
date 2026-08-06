@@ -6,6 +6,51 @@
 const CLIENT_ID  = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '';
 const SCRIPT_URL = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_URL       : '';
 
+// Plain fetch() has NO built-in timeout — if a request stalls mid-
+// flight (a dropped or degraded connection), the promise just sits
+// pending forever, with no recovery but a manual page reload. This was
+// the one remaining login entry point without this protection — see
+// the matching comment in mantis_landing.js (the crew login page) for
+// the full history: a HAR capture of a real slow load showed the
+// actual failure mode is the browser's follow-up fetch of the /exec
+// redirect target (script.googleusercontent.com/macros/echo) hanging
+// completely dead until something aborts it, with the existing
+// retry-after-abort succeeding in under a second every time.
+// AbortController forces that stall to actually fail after
+// FETCH_TIMEOUT_MS so fetchJsonWithRetry() below can recover from it
+// instead of leaving the sign-in button dimmed forever.
+const FETCH_TIMEOUT_MS = 7000;
+function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs === undefined ? FETCH_TIMEOUT_MS : timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+// Apps Script Web Apps intermittently fail the redirect they use to
+// serve /exec responses (a 302 to script.googleusercontent.com/macros/
+// echo, which occasionally 404s with an HTML page instead of the real
+// JSON, or just hangs at zero bytes until FETCH_TIMEOUT_MS aborts it)
+// — a known Google-side serving glitch, not something this app's code
+// controls.
+//
+// 2 retries (not 1) — see the matching comment in crew_api.js's
+// fetchJsonWithRetry(): a HAR capture showed this exact stall hitting
+// twice in a row before a third attempt succeeded, so a single retry
+// isn't always enough to keep a transient blip from surfacing as a
+// failed login.
+function fetchJsonWithRetry(url, retries) {
+  retries = retries === undefined ? 2 : retries;
+  return fetchWithTimeout(url)
+    .then(r => r.json())
+    .catch(err => {
+      if (retries > 0) {
+        return new Promise(resolve => setTimeout(resolve, 700))
+          .then(() => fetchJsonWithRetry(url, retries - 1));
+      }
+      throw err;
+    });
+}
+
 // Show timeout message if redirected here due to inactivity
 if (sessionStorage.getItem('mg_timeout') === '1') {
   sessionStorage.removeItem('mg_timeout');
@@ -74,8 +119,7 @@ function handleCredential(response) {
 
     // Verify with server — owner check happens in Apps Script
     const idToken = encodeURIComponent(response.credential);
-    fetch(`${SCRIPT_URL}?action=ownerPing&id_token=${idToken}`)
-      .then(r => r.json())
+    fetchJsonWithRetry(`${SCRIPT_URL}?action=ownerPing&id_token=${idToken}`)
       .then(json => {
         if (btn) btn.style.opacity = '1';
         if (json.error) {
