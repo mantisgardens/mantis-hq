@@ -17,6 +17,11 @@
   <meta charset="utf-8"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- See index.html for why these are here — avoids a stale cached
+       page shell serving old ?v= script references. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Panel</title>
   <link rel="stylesheet" href="css/mantis_crew_panel.css?v=63">
 </head>
@@ -346,9 +351,9 @@
 <script src="../config.js?v=36"></script>
 <script src="js/mantis_config.js?v=47"></script>
 <script src="js/session_timeout.js?v=37"></script>
-<script src="js/mantis_data_loader.js?v=56"></script>
+<script src="js/mantis_data_loader.js?v=59"></script>
 <script src="js/crew_config.js?v=51"></script>
-<script src="js/crew_api.js?v=52"></script>
+<script src="js/crew_api.js?v=57"></script>
 <script src="js/crew_render.js?v=75"></script>
 <script src="js/crew_ui.js?v=42"></script>
 <script src="js/crew_workrecord.js?v=79"></script>
