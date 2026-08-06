@@ -79,19 +79,26 @@ function hideLoadingOverlay() {
 }
 
 // ── Main loader ───────────────────────────────────────────────
-function loadServiceData() {
+// forceFresh=true (used by the "Reload now" link shown when the
+// backend cache is cold) skips the client-side cache and calls the
+// *Fresh actions, which force a live server-side refresh — same
+// cache-only + forceLive pattern used everywhere else in this app
+// (see the "Cache-only mode" note in Schedule.gs's getSchedule()).
+// Resolves with { warming } so initServiceManual() can tell a
+// legitimately-empty-right-now cold cache apart from a normal load.
+function loadServiceData(forceFresh) {
   return new Promise((resolve, reject) => {
 
     // v10 = Labor Rates hint rows filtered out
     const smKey        = 'sm_data_v11_'   + SCRIPT_URL_SM.slice(-12);
     const plantKey     = 'plant_data_v7_' + SCRIPT_URL_SM.slice(-12);
-    const smCached    = getCached(smKey);
-    const plantCached = getCached(plantKey);
+    const smCached    = !forceFresh && getCached(smKey);
+    const plantCached = !forceFresh && getCached(plantKey);
 
     if (smCached && plantCached) {
       applyServiceManualData(smCached);
       applyPlantData(plantCached);
-      resolve();
+      resolve({ warming: false });
       return;
     }
 
@@ -100,7 +107,9 @@ function loadServiceData() {
       return;
     }
 
-    const auth = getAuthParam();
+    const auth        = getAuthParam();
+    const smAction     = forceFresh ? 'getServiceManualDataFresh' : 'getServiceManualData';
+    const plantAction  = forceFresh ? 'getPlantDatabaseFresh'     : 'getPlantDatabase';
 
     setLoadingProgress(20);
 
@@ -108,12 +117,12 @@ function loadServiceData() {
     Promise.all([
       smCached
         ? Promise.resolve(smCached)
-        : fetch(`${SCRIPT_URL_SM}?action=getServiceManualData${auth}`)
+        : fetch(`${SCRIPT_URL_SM}?action=${smAction}${auth}`)
             .then(r => r.json())
             .then(json => { if (json.error) throw new Error(json.error); return json; }),
       plantCached
         ? Promise.resolve(plantCached)
-        : fetch(`${SCRIPT_URL_SM}?action=getPlantDatabase${auth}`)
+        : fetch(`${SCRIPT_URL_SM}?action=${plantAction}${auth}`)
             .then(r => r.json())
             .then(json => { if (json.error) throw new Error(json.error); return json; }),
     ])
@@ -121,12 +130,40 @@ function loadServiceData() {
       setLoadingProgress(80);
       applyServiceManualData(smData);
       applyPlantData(plantData);
-      if (!smCached)    setCached(smKey,    smData);
-      if (!plantCached) setCached(plantKey, plantData);
+
+      // Don't cache a "still warming up" placeholder client-side — see
+      // the matching note in crew_api.js's apiFetch(). It's known-stale
+      // data; caching it would just delay picking up the real data on
+      // the next visit within this session's 30-minute client cache.
+      const warming = !!(smData.warming || plantData.warming);
+      if (!warming) {
+        if (!smCached)    setCached(smKey,    smData);
+        if (!plantCached) setCached(plantKey, plantData);
+      }
       setLoadingProgress(100);
-      resolve();
+      resolve({ warming });
     })
     .catch(reject);
+  });
+}
+
+// ── loadServiceDataReady ────────────────────────────────────────
+// Wraps loadServiceData() for callers that just need
+// FERT_PRODUCTS/PLANTS/etc. actually populated (e.g. crew_workrecord.js
+// building the Work Record form's product dropdowns) and don't want to
+// separately handle the { warming } cache-only placeholder as distinct
+// from a real network failure. A cold cache is retried once with
+// forceFresh (forcing a live fetch) before being treated as a failure
+// — same "retry once" shape those callers already use for actual fetch
+// errors, just extended to cover this case too so a crew member never
+// silently sees empty dropdowns that quietly rendered from placeholder
+// data instead of erroring or retrying.
+function loadServiceDataReady() {
+  return loadServiceData().then(({ warming }) => {
+    if (!warming) return;
+    return loadServiceData(true).then(({ warming: stillWarming }) => {
+      if (stillWarming) throw new Error('Service data still warming after forced refresh');
+    });
   });
 }
 
@@ -154,12 +191,35 @@ function applyPlantData(data) {
 }
 
 // ── Startup ───────────────────────────────────────────────────
-function initServiceManual() {
-  showLoadingOverlay('Loading service data…');
+// forceFresh=true is passed by the "Reload now" link the warming state
+// below renders — forces a live refresh instead of waiting for the
+// next scheduled prewarm.
+function initServiceManual(forceFresh) {
+  showLoadingOverlay(forceFresh ? 'Refreshing service data…' : 'Loading service data…');
   setLoadingProgress(10);
+  const errEl = document.getElementById('load-error');
+  if (errEl) errEl.style.display = 'none';
 
-  loadServiceData()
-    .then(() => {
+  loadServiceData(forceFresh)
+    .then(({ warming }) => {
+      if (warming) {
+        // Cache was cold and this wasn't itself a forced fetch — the
+        // data really is empty right now, not just slow. Unlike an
+        // empty day on the crew schedule (a normal, legitimate state),
+        // there's no legitimate "0 plants" state for this page, so
+        // showing the empty result would just look broken. Keep the
+        // loading overlay up with an explanation and a manual retry
+        // instead — same "still warming up" idea as showWarmingBanner()
+        // in crew_api.js, just surfaced in this page's own overlay
+        // rather than a banner.
+        const txt = document.querySelector('#loading-overlay .loading-text');
+        if (txt) {
+          txt.innerHTML = 'Still warming up — this refreshes automatically every few minutes.<br>' +
+            '<a href="#" style="color:#7ec8a0;text-decoration:underline" ' +
+            'onclick="initServiceManual(true);return false;">Reload now</a>';
+        }
+        return;
+      }
       hideLoadingOverlay();
       if (typeof renderPlants === 'function') renderPlants();
       if (typeof renderFert   === 'function') renderFert();
@@ -169,7 +229,6 @@ function initServiceManual() {
     .catch(err => {
       hideLoadingOverlay();
       console.error('Data load failed:', err);
-      const el = document.getElementById('load-error');
-      if (el) { el.textContent = 'Data load failed: ' + err.message; el.style.display = 'block'; }
+      if (errEl) { errEl.textContent = 'Data load failed: ' + err.message; errEl.style.display = 'block'; }
     });
 }

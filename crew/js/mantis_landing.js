@@ -320,12 +320,10 @@ if (_hasPersistedSession) {
   // action" cooldown — which then also blocked the *next* real
   // interactive sign-in attempt, not just this silent one.
   // It isn't actually load-bearing: 'ping' (the only crew action that
-  // checks id_token server-side, besides clear_server_cache) always
-  // uses the token from the live interactive credential response in
-  // handleCredential(), never this background refresh, and
-  // clearCrewCache() already swallows a clear_server_cache auth failure
-  // silently (see crew_app.js) — so a stale/missing mg_id_token here
-  // has no visible effect on a returning crew member.
+  // checks id_token server-side) always uses the token from the live
+  // interactive credential response in handleCredential(), never this
+  // background refresh — so a stale/missing mg_id_token here has no
+  // visible effect on a returning crew member.
 
 } else {
   // No valid persisted session — clear stale localStorage and show login

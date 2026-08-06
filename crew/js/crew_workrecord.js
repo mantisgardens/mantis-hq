@@ -217,14 +217,15 @@ function openWorkRecord(jobId) {
     addOtherMaterial();
   };
 
-  if (needsLoad && typeof loadServiceData === 'function') {
-    loadServiceData()
+  if (needsLoad && typeof loadServiceDataReady === 'function') {
+    loadServiceDataReady()
       .then(() => buildForm())
       .catch(() => {
         // First attempt failed — wait 2 seconds and retry once before giving up.
-        // This handles Apps Script cold-start timeouts which are common on first load.
+        // This handles Apps Script cold-start timeouts which are common on first load,
+        // and (via loadServiceDataReady()) a cache that's still cold/warming.
         setTimeout(() => {
-          loadServiceData()
+          loadServiceDataReady()
             .then(() => buildForm())
             .catch(() => {
               // Both attempts failed — show a reload prompt in the fert/materials area
@@ -360,10 +361,10 @@ function openMgrWorkRecord(evId, workerName) {
   };
 
   const needsLoad = typeof FERT_PRODUCTS === 'undefined' || !FERT_PRODUCTS.length;
-  if (needsLoad && typeof loadServiceData === 'function') {
-    loadServiceData().then(buildForm).catch(() => {
+  if (needsLoad && typeof loadServiceDataReady === 'function') {
+    loadServiceDataReady().then(buildForm).catch(() => {
       setTimeout(() => {
-        loadServiceData().then(buildForm).catch(buildForm);
+        loadServiceDataReady().then(buildForm).catch(buildForm);
       }, 2000);
     });
   } else {

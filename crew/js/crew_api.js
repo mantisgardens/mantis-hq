@@ -121,6 +121,56 @@ function clearSlowLoadBanner() {
   if (b) b.remove();
 }
 
+// ── "Still warming up" banner ────────────────────────────────────
+// Shown when the backend returned valid-but-empty placeholder data
+// because its cache was cold and this request didn't force a live
+// fetch (see the matching "Cache-only mode" note in Schedule.gs's
+// getSchedule()). Should be rare and short-lived — the prewarmCache
+// trigger refreshes the cache every 5 minutes — but worth explaining
+// rather than leaving a crew member wondering why their schedule
+// looks empty.
+function showWarmingBanner() {
+  let banner = document.getElementById('warming-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'warming-banner';
+    banner.className = 'offline-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  banner.innerHTML =
+    `<span class="offline-icon">&#8987;</span>` +
+    `<span>Data is still warming up — this refreshes automatically every few minutes.</span>` +
+    `<span class="offline-retry" onclick="reloadAll()">Reload now</span>`;
+}
+
+function clearWarmingBanner() {
+  const b = document.getElementById('warming-banner');
+  if (b) b.remove();
+}
+
+// ── fetchJsonWithRetry ──────────────────────────────────────────
+// Apps Script Web Apps intermittently fail the redirect they use to
+// serve /exec responses (a 302 to script.googleusercontent.com/macros/
+// echo, which occasionally 404s with an HTML page instead of the real
+// JSON — a known Google-side serving glitch, not something this app's
+// code controls). A single retry after a short delay clears it in
+// practice, so a transient blip doesn't surface as a failed data load.
+async function fetchJsonWithRetry(url, retries) {
+  retries = retries === undefined ? 1 : retries;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch(err) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 700));
+      return fetchJsonWithRetry(url, retries - 1);
+    }
+    throw err;
+  }
+}
+
 // apiFetch() wraps all calls to the Apps Script web app.
 // Main interaction method to Apps Script code.
 async function apiFetch(action, extra) {
@@ -143,13 +193,22 @@ async function apiFetch(action, extra) {
   const idToken = sessionStorage.getItem('mg_id_token') || '';
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
-  const res  = await fetch(`${SCRIPT_URL}?action=${action}${authParam}${extra}&_=${Date.now()}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const data = await fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}${authParam}${extra}&_=${Date.now()}`);
   if (data.error) throw new Error(data.error);
 
+  // Don't cache a "still warming up" result — see Schedule.gs's
+  // getSchedule() and loadAll() below for what that means. It's
+  // known-stale placeholder data; caching it client-side would just
+  // delay picking up the real data once the server-side cache
+  // populates a moment later (up to this action's own TTL, e.g. 3
+  // minutes for crew_load_all — comparable to the ~5 minute prewarm
+  // trigger interval, so skipping this would meaningfully extend how
+  // long a placeholder could linger instead of showing real data).
+  const isWarmingResult = data && typeof data === 'object' &&
+    ['active_clients','schedule','morning_brief','crew_teams'].some(k => data[k] && data[k].warming);
+
   // Store in cache
-  if (ttl) {
+  if (ttl && !isWarmingResult) {
     try {
       sessionStorage.setItem(
         `mg_cache_${action}${extra}`,
@@ -174,8 +233,13 @@ function setStatus(id, state, msg) {
 // crew_teams / manager_schedule) and we reconstruct the same
 // {status, value|reason} shape Promise.allSettled used to give us, so
 // none of the per-section handling below had to change.
-// Loads all data (calendars, sheets)
-async function loadAll() {
+// Loads all data (calendars, sheets). forceFresh=true (used by the
+// "Reload Database" button) calls crew_load_all_fresh instead of the
+// normal crew_load_all — see Utilities.gs's doGet for what that
+// changes server-side. Every other line below behaves identically
+// either way; the two actions return the same shape, just one always
+// forces a live fetch and the other reads the cache as-is.
+async function loadAll(forceFresh) {
   document.getElementById('reload-btn').disabled = true;
   // Re-show status pills during reload so crew can see progress
   document.querySelectorAll('.status-pill').forEach(p => p.style.display = '');
@@ -194,7 +258,7 @@ async function loadAll() {
   let bundle = null, bundleErr = null;
   _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
-    bundle = await apiFetch('crew_load_all', _isManager ? '&mgr=1' : '');
+    bundle = await apiFetch(forceFresh ? 'crew_load_all_fresh' : 'crew_load_all', _isManager ? '&mgr=1' : '');
   } catch(e) { bundleErr = e; }
   clearSlowLoadBanner();
 
@@ -202,12 +266,38 @@ async function loadAll() {
   // of this function expects. A section-level {error: '...'} from the
   // backend (one sheet/calendar failed) or a hard network failure
   // (bundleErr) both surface as 'rejected', same as before.
+  //
+  // A "still warming up" placeholder (val.warming === true — a cold
+  // cache under the cache-only architecture, see getSchedule()'s
+  // "Cache-only mode" comment in Schedule.gs) is ALSO treated as
+  // 'rejected' here, deliberately — not because it's an error, but so
+  // it automatically routes through the exact same per-section
+  // fallback logic below as a real failure: fall back to the 24-hour
+  // offline snapshot (persistLoad) if one exists, and — critically —
+  // skip persistSave() for it. An earlier version of this let a
+  // warming result fall through as 'fulfilled', which overwrote
+  // sheetClients/SCHEDULE/morningBrief/crewTeams/MANAGER_SCHEDULE with
+  // empty data on every warming event, AND persisted that empty
+  // placeholder into the 24-hour offline cache — silently destroying a
+  // crew member's last good offline snapshot. If they then actually
+  // lost signal, the "offline" fallback would have shown nothing
+  // instead of their last real data, defeating the whole point of it.
   function toResult(section) {
     if (bundleErr) return { status: 'rejected', reason: bundleErr };
     const val = bundle ? bundle[section] : undefined;
     if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    if (val && val.warming) return { status: 'rejected', reason: new Error('Still warming up') };
     return { status: 'fulfilled', value: val === undefined ? null : val };
   }
+
+  // ── "Still warming up" banner ──────────────────────────────────
+  // Read directly off the raw bundle (not the results[] built from
+  // toResult() below) since toResult() already folds warming sections
+  // into 'rejected' for the fallback logic — this just needs to know
+  // whether ANY section was warming, to show the explanatory banner.
+  const isWarming = !bundleErr && bundle && ['active_clients','schedule','morning_brief','crew_teams']
+    .some(k => bundle[k] && bundle[k].warming);
+  if (isWarming) showWarmingBanner(); else clearWarmingBanner();
 
   const results = [
     toResult('active_clients'),

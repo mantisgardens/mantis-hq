@@ -28,27 +28,20 @@ function doSignOut() {
   window.location.href = 'index.html';
 }
 
-// ── Cache clear (called by the reload button) ─────────────────
-// Async and awaited by the button handler so loadAll() doesn't fire
-// its schedule/manager_schedule fetches until the server-side cache
-// has actually been cleared — otherwise those requests can race ahead
-// of the clear and still return stale cached data.
-async function clearCrewCache() {
-  // Clear client-side sessionStorage cache
-  Object.keys(sessionStorage)
-    .filter(k => k.startsWith('mg_cache_'))
-    .forEach(k => sessionStorage.removeItem(k));
-  // Also bust server-side CacheService so force-reload gets truly fresh data
-  try { await apiFetch('clear_server_cache'); } catch(e) {}
-}
-
 // ── Full reload (wired to the "↺ Reload Database" button) ─────
-// Waits for the server-side cache to be cleared before reloading,
-// so the fetches inside loadAll() are guaranteed to see fresh data.
+// Calls loadAll(true), which uses the crew_load_all_fresh action —
+// this forces a live refresh of everything server-side (bypassing the
+// cache-only default every other request uses) and returns the fresh
+// data in this one round trip. Replaces the old two-step "clear the
+// server cache, then reload" flow, which doesn't make sense anymore:
+// clearing the cache and then calling the normal crew_load_all would
+// just return a "warming up" placeholder instead of forcing a fetch,
+// now that ordinary requests never fall back to a live fetch
+// themselves — see Schedule.gs's getSchedule() for why.
 // Disables the button, spins its icon, and swaps its label to
-// "Refreshing..." immediately on click — the cache-clear + fetch
-// round-trip takes a few seconds, and without a clear in-progress
-// state it looks like the click did nothing.
+// "Refreshing..." immediately on click — the round trip takes a few
+// seconds, and without a clear in-progress state it looks like the
+// click did nothing.
 async function reloadAll() {
   const btn   = document.getElementById('reload-btn');
   const label = document.getElementById('reload-btn-label');
@@ -59,13 +52,7 @@ async function reloadAll() {
   }
   if (label) label.textContent = 'Refreshing…';
 
-  document.querySelectorAll('.status-pill').forEach(p => p.style.display = '');
-  setStatus('clients',  'loading', 'Clients: loading...');
-  setStatus('brief',    'loading', 'Morning brief: loading...');
-  setStatus('calendar', 'loading', 'Calendar: loading...');
-
-  await clearCrewCache();
-  await loadAll();
+  await loadAll(true);
 
   if (btn) btn.classList.remove('is-loading');
   if (label) label.textContent = 'Reload Database';
