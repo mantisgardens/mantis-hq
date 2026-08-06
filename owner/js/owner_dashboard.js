@@ -210,6 +210,29 @@ function _isTokenError(err) {
          msg.includes('HTTP 400')      || msg.includes('HTTP 401');
 }
 
+// Apps Script Web Apps intermittently fail the redirect they use to
+// serve /exec responses (a 302 to script.googleusercontent.com/macros/
+// echo, which occasionally 404s with an HTML page instead of the real
+// JSON — a known Google-side serving glitch, not something this app's
+// code controls). A single retry after a short delay clears it in
+// practice. Same pattern as fetchJsonWithRetry() in crew_api.js, just
+// also accepting fetch options so it covers ownerPost()'s POST
+// requests too, not only GETs.
+async function _fetchJsonWithRetry(url, options, retries) {
+  retries = retries === undefined ? 1 : retries;
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch(err) {
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, 700));
+      return _fetchJsonWithRetry(url, options, retries - 1);
+    }
+    throw err;
+  }
+}
+
 async function ownerFetch(action, extra) {
   extra = extra || '';
   const cacheKey = `oc_cache_${action}${extra}`;
@@ -226,9 +249,7 @@ async function ownerFetch(action, extra) {
 
   async function _fetch() {
     const idToken = encodeURIComponent(getIdToken());
-    const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}${extra}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}&id_token=${idToken}${extra}`);
     if (data.error) throw new Error(data.error);
     return data;
   }
@@ -263,13 +284,11 @@ async function ownerFetch(action, extra) {
 async function ownerPost(action, payload) {
   async function _post() {
     const idToken = encodeURIComponent(getIdToken());
-    const res = await fetch(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
+    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
     if (data.error) throw new Error(data.error);
     return data;
   }
