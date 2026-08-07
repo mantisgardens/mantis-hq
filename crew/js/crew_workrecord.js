@@ -34,7 +34,18 @@ let savedRecords   = JSON.parse(localStorage.getItem('mg_work_records') || '{}')
 // Falls back to a hardcoded list if the spreadsheet hasn't loaded yet.
 function getFertNames() {
   if (typeof FERT_PRODUCTS !== 'undefined' && FERT_PRODUCTS.length) {
-    return FERT_PRODUCTS.map(f => f.abbrev ? `${f.name} (${f.abbrev})` : f.name);
+    // The service manual's Abbrev column uses "—" (em dash) as its "no
+    // abbreviation" placeholder for products that don't have a short
+    // code (mostly soils/planting mixes) — treat that the same as no
+    // abbrev at all. Missed case: it's a real, non-empty string, so it
+    // used to get appended as "(—)" here, and the QB-Name resolution
+    // below only strips short uppercase-letter abbreviations like
+    // "(MC)" — not "(—)" — so the unresolved literal name (with the
+    // stray "(—)" still attached) went straight to the invoice and
+    // failed to match anything in QB. Real example: "GreenAll potting
+    // soil - 2 cf (—)" on a submitted work record, vs. the QB Name
+    // "GreenAll Organic Potting Soil - 2 cf" it should have resolved to.
+    return FERT_PRODUCTS.map(f => (f.abbrev && f.abbrev !== '—') ? `${f.name} (${f.abbrev})` : f.name);
   }
   return [
     "Urban Farms Liquid Fertilizer (UF)",
@@ -1031,9 +1042,14 @@ function collectFormData() {
                            row.querySelectorAll('input')[0];
         item = firstInput ? firstInput.value.trim() : '';
       }
-      // Strip abbreviation suffix added by getFertNames() — e.g. "MaxiCrop Kelp (MC)"
+      // Strip abbreviation suffix added by getFertNames() — e.g. "MaxiCrop Kelp (MC)".
+      // Also strips a stray "(—)" specifically — belt-and-suspenders
+      // alongside the fix in getFertNames() itself, in case a stale
+      // cached copy of FERT_PRODUCTS (sessionStorage) still produces
+      // the old "(—)" suffix for a session that hasn't refreshed yet.
       if (isFertList && item) {
         item = item.replace(/\s*\([A-Z]{1,4}\)\s*$/, '').trim();  // strip short abbrevs only e.g. (MC)
+        item = item.replace(/\s*\(—\)\s*$/, '').trim();           // strip the "no abbrev" placeholder
         // Resolve to QB Name from FERT_PRODUCTS so invoice line items match QB exactly
         const prods = (typeof FERT_PRODUCTS !== 'undefined') ? FERT_PRODUCTS : [];
         const match = prods.find(p =>
