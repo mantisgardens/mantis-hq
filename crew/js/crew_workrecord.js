@@ -1253,6 +1253,10 @@ function submitForm() {
       const batchData = {
         client: data.client, date: data.date,
         cachedFolderId: data.cachedFolderId, histId: data.histId,
+        // Set below once the main submitWorkRecord response comes back —
+        // lets the server target the exact Ready to Invoice row for the
+        // Photo Link column instead of searching for it after the fact.
+        invoiceRowNum: data.invoiceRowNum || null,
         photos,
       };
       return fetch(`${SCRIPT_URL}?action=submitWorkRecordPhotos${authParam}`, {
@@ -1303,6 +1307,9 @@ function submitForm() {
       })
       .then(json => {
         if (json.error) throw new Error(json.error);
+        // Captured for the photo-batch follow-up call(s) below — see
+        // batchData's comment in submitPhotoBatch above.
+        data.invoiceRowNum = json.invoiceRowNum || null;
         // Warn crew if the server saved the record but couldn't find the Drive folder
         if (json.warning) {
           hideSubmitProgress();
