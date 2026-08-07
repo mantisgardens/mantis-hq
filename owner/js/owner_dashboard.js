@@ -362,6 +362,11 @@ async function fetchOwnerLoadAllWithFallback() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!data || typeof data !== 'object') throw new Error('Malformed static cache payload');
+    // Visible confirmation the static path actually served this load —
+    // useful while we're still verifying this in the field. Remove
+    // once confident, or gate behind a debug flag if it turns out to
+    // be more noise than signal for daily owner use.
+    if (typeof showToast === 'function') showToast('Loaded from GitHub cache');
     return data;
   } catch(err) {
     console.warn('Static cache fetch failed, falling back to live request:', err.message);
