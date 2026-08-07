@@ -267,6 +267,49 @@ async function apiFetch(action, extra) {
   return data;
 }
 
+// ── fetchCrewLoadAllWithFallback ──────────────────────────────
+// Apps Script's own serving path (script.google.com → redirect to
+// script.googleusercontent.com/macros/echo) is the one that's been
+// stalling — see the FETCH_TIMEOUT_MS comment above for the full HAR
+// evidence. This bypasses that path entirely for the ordinary
+// (non-forceFresh) load: Apps Script event-driven-publishes a static
+// snapshot of crew_load_all's data as a plain JSON file into this same
+// repo (see requestCachePublish_() in Utilities.gs), served by GitHub
+// Pages from the same origin as this page — so fetch() never touches
+// script.google.com at all for this call, and never hits the redirect
+// that's been the actual source of every stall we've captured.
+//
+// Falls back to the normal apiFetch('crew_load_all', ...) path (with
+// its own timeout/retry) on ANY failure — missing file, stale/failed
+// deploy, network error, doesn't matter. Returns the exact same bundle
+// shape either way, so nothing downstream in loadAll() needs to know
+// or care which path actually supplied the data. That makes this
+// strictly additive: when the static file is there, it's fast; when
+// it isn't (or is failing) for whatever reason, behavior is identical
+// to before this existed.
+//
+// A short timeout (well under FETCH_TIMEOUT_MS) is deliberate — a
+// same-origin static file on GitHub Pages' CDN should resolve in well
+// under a second when it's working at all; there's no legitimate slow
+// case here to wait out, only "works fast" or "doesn't work," so this
+// should fail over to the live path quickly rather than eating into
+// the crew member's wait before the real fallback even starts.
+const STATIC_CACHE_URL      = 'data/crew_load_all.json';
+const STATIC_CACHE_TIMEOUT_MS = 4000;
+
+async function fetchCrewLoadAllWithFallback(extra) {
+  try {
+    const res = await fetchWithTimeout(`${STATIC_CACHE_URL}?_=${Date.now()}`, STATIC_CACHE_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || typeof data !== 'object') throw new Error('Malformed static cache payload');
+    return data;
+  } catch(err) {
+    console.warn('Static cache fetch failed, falling back to live request:', err.message);
+    return apiFetch('crew_load_all', extra);
+  }
+}
+
 function setStatus(id, state, msg) {
   document.getElementById(`sd-${id}`).className =
     `sdot ${state === 'live' ? 'live' : state === 'loading' ? 'loading' : state === 'error' ? 'error' : ''}`;
@@ -414,10 +457,18 @@ async function loadAll(forceFresh) {
 
   // ── Single combined fetch ──────────────────────────────────
   // Ask for manager_schedule only when it'll actually be used.
+  // forceFresh (the "Reload Database" button) always goes through the
+  // live apiFetch path, since it's explicitly asking for a fresh
+  // Calendar/Sheets read — the static file can't serve that. The
+  // normal load tries the static cache file first; see
+  // fetchCrewLoadAllWithFallback()'s comment for why.
   let bundle = null, bundleErr = null;
   _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
-    bundle = await apiFetch(forceFresh ? 'crew_load_all_fresh' : 'crew_load_all', _isManager ? '&mgr=1' : '');
+    const mgrExtra = _isManager ? '&mgr=1' : '';
+    bundle = forceFresh
+      ? await apiFetch('crew_load_all_fresh', mgrExtra)
+      : await fetchCrewLoadAllWithFallback(mgrExtra);
   } catch(e) { bundleErr = e; }
   clearSlowLoadBanner();
 

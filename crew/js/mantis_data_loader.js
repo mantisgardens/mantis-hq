@@ -140,6 +140,25 @@ function fetchServiceJsonWithRetry(url, retries) {
     });
 }
 
+// ── fetchStaticServiceJson_ ────────────────────────────────────
+// Same idea as crew_api.js's fetchCrewLoadAllWithFallback() — see
+// that comment for the full reasoning. Apps Script event-driven-
+// publishes Service Manual/Plant Database snapshots as static JSON
+// files into this same repo (see requestServiceManualPublish_() in
+// Utilities.gs), served by GitHub Pages from the same origin as this
+// page, bypassing the script.google.com redirect entirely. A short
+// timeout — a same-origin static file should resolve in well under a
+// second when it's working at all, no legitimate slow case to wait
+// out here.
+const STATIC_SM_TIMEOUT_MS = 4000;
+function fetchStaticServiceJson_(path) {
+  return fetchServiceWithTimeout(`${path}?_=${Date.now()}`, STATIC_SM_TIMEOUT_MS)
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    });
+}
+
 // ── Main loader ───────────────────────────────────────────────
 // forceFresh=true (used by the "Reload now" link shown when the
 // backend cache is cold) skips the client-side cache and calls the
@@ -173,19 +192,35 @@ function loadServiceData(forceFresh) {
     const smAction     = forceFresh ? 'getServiceManualDataFresh' : 'getServiceManualData';
     const plantAction  = forceFresh ? 'getPlantDatabaseFresh'     : 'getPlantDatabase';
 
+    // forceFresh always goes through the live action — it's explicitly
+    // asking for a fresh Sheets read, which the static file can't
+    // serve. The normal load tries the static cache file first, same
+    // as crew_api.js's loadAll() does for crew_load_all.
+    function fetchLive(action) {
+      return fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${action}${auth}`)
+        .then(json => { if (json.error) throw new Error(json.error); return json; });
+    }
+    function loadSm() {
+      if (smCached) return Promise.resolve(smCached);
+      if (forceFresh) return fetchLive(smAction);
+      return fetchStaticServiceJson_('data/service_manual_data.json').catch(err => {
+        console.warn('Static service manual cache fetch failed, falling back to live request:', err.message);
+        return fetchLive(smAction);
+      });
+    }
+    function loadPlant() {
+      if (plantCached) return Promise.resolve(plantCached);
+      if (forceFresh) return fetchLive(plantAction);
+      return fetchStaticServiceJson_('data/plant_database.json').catch(err => {
+        console.warn('Static plant database cache fetch failed, falling back to live request:', err.message);
+        return fetchLive(plantAction);
+      });
+    }
+
     setLoadingProgress(20);
 
     // Fetch both datasets in parallel
-    Promise.all([
-      smCached
-        ? Promise.resolve(smCached)
-        : fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${smAction}${auth}`)
-            .then(json => { if (json.error) throw new Error(json.error); return json; }),
-      plantCached
-        ? Promise.resolve(plantCached)
-        : fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${plantAction}${auth}`)
-            .then(json => { if (json.error) throw new Error(json.error); return json; }),
-    ])
+    Promise.all([loadSm(), loadPlant()])
     .then(([smData, plantData]) => {
       setLoadingProgress(80);
       applyServiceManualData(smData);

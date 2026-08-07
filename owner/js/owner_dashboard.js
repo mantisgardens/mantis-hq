@@ -342,6 +342,33 @@ async function ownerFetch(action, extra) {
   return data;
 }
 
+// ── fetchOwnerLoadAllWithFallback ─────────────────────────────
+// Same idea as crew_api.js's fetchCrewLoadAllWithFallback() — see
+// that comment for the full reasoning. Apps Script event-driven-
+// publishes a static snapshot of ownerLoadAll's data as a plain JSON
+// file into this same repo (see requestCachePublish_() in
+// Utilities.gs), served by GitHub Pages from the same origin as this
+// page, bypassing script.google.com's redirect entirely for the
+// ordinary (non-forceFresh) load. Falls back to the normal
+// ownerFetch('ownerLoadAll') path on any failure, returning the exact
+// same bundle shape either way — strictly additive, never worse than
+// before this existed.
+const STATIC_OWNER_CACHE_URL      = 'data/owner_load_all.json';
+const STATIC_OWNER_CACHE_TIMEOUT_MS = 4000;
+
+async function fetchOwnerLoadAllWithFallback() {
+  try {
+    const res = await _fetchWithTimeout(`${STATIC_OWNER_CACHE_URL}?_=${Date.now()}`, null, STATIC_OWNER_CACHE_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || typeof data !== 'object') throw new Error('Malformed static cache payload');
+    return data;
+  } catch(err) {
+    console.warn('Static cache fetch failed, falling back to live request:', err.message);
+    return ownerFetch('ownerLoadAll');
+  }
+}
+
 async function ownerPost(action, payload) {
   async function _post() {
     const idToken = encodeURIComponent(getIdToken());
@@ -393,10 +420,17 @@ async function loadAll(forceFresh) {
   // Google ID token against Google's tokeninfo endpoint. Now it's one
   // request — the backend verifies the token once and bundles all
   // three sections into a single response.
+  // forceFresh (the reload button) always goes through the live
+  // ownerFetch path, since it's explicitly asking for a fresh
+  // Calendar/Sheets read — the static file can't serve that. The
+  // normal load tries the static cache file first; see
+  // fetchOwnerLoadAllWithFallback()'s comment for why.
   let bundle = null, bundleErr = null;
   _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
-    bundle = await ownerFetch(forceFresh ? 'ownerLoadAllFresh' : 'ownerLoadAll');
+    bundle = forceFresh
+      ? await ownerFetch('ownerLoadAllFresh')
+      : await fetchOwnerLoadAllWithFallback();
   } catch(e) { bundleErr = e; }
   clearSlowLoadBanner();
 
