@@ -1037,6 +1037,21 @@ function collectFormData() {
     if (name) workers.push({ name, hours, laborType });
   });
 
+  // Items the crew entered that don't match anything in the loaded
+  // Service Manual lists (FERT_PRODUCTS/IRRIGATION_ITEMS/OTHER_MATERIALS/
+  // WORK_RECORD_PLANTS) — free-typed text that never resolved to a known
+  // product. This is a different, EARLIER checkpoint than the "not found
+  // in QuickBooks" warning at invoice-creation time (QuickBooks.gs):
+  // that one catches items that ARE in the Service Manual but don't
+  // correctly match a real QB Product/Service; this one catches items
+  // that aren't even in the Service Manual to begin with. Surfaced so
+  // appendInvoiceRow() (WorkRecords.gs) can flag the Ready to Invoice
+  // row immediately on submission — before the financial manager ever
+  // gets to invoice creation — per the owner's ask: know to add the
+  // item to inventory first, instead of removing it from an already-
+  // generated invoice and adding it after the fact.
+  const unmatchedItems = [];
+
   function collectRows(listId) {
     const isFertList = listId === 'fert-list';
     const rows = [];
@@ -1069,6 +1084,7 @@ function collectFormData() {
           (p.abbrev && item.toLowerCase() === p.abbrev.toLowerCase())
         );
         if (match && match.qbName) item = match.qbName;
+        else if (!match) unmatchedItems.push(item);
       }
       // For irrigation and other materials, resolve to QB name if available
       if (!isFertList && item) {
@@ -1081,6 +1097,7 @@ function collectFormData() {
           (m.qbName && m.qbName.toLowerCase() === item.toLowerCase())
         );
         if (match && match.qbName) item = match.qbName;
+        else if (!match) unmatchedItems.push(item);
       }
       const qtyEl  = row.querySelector('input[placeholder="Qty"]');
       const unitEl = row.querySelector('input[placeholder="Unit"]');
@@ -1091,14 +1108,23 @@ function collectFormData() {
     return rows;
   }
 
-  // Plants list (item=name, qty, size)
+  // Plants list (item=name, qty, size). Plant name IS the QB name (no
+  // separate resolution step, per design — see WORK_RECORD_PLANTS in
+  // mantis_data_loader.js), so "unmatched" here just means the typed
+  // name doesn't appear in the loaded plant list at all.
   const plants = [];
   document.querySelectorAll('#plants-list .dynamic-row').forEach(row => {
     const inputs = row.querySelectorAll('input');
     const name   = inputs[0] ? inputs[0].value.trim() : '';
     const qty    = inputs[1] ? inputs[1].value.trim() : '';
     const size   = inputs[2] ? inputs[2].value.trim() : '';
-    if (name) plants.push({ name, qty, size });
+    if (name) {
+      plants.push({ name, qty, size });
+      const plantList = (typeof WORK_RECORD_PLANTS !== 'undefined') ? WORK_RECORD_PLANTS : [];
+      if (plantList.length && !plantList.some(p => p.name && p.name.toLowerCase() === name.toLowerCase())) {
+        unmatchedItems.push(name);
+      }
+    }
   });
 
   const fertilizers     = collectRows('fert-list');
@@ -1125,6 +1151,7 @@ function collectFormData() {
     irrigationItems,
     plants,
     otherMaterials,
+    unmatchedItems,
     serviceNotes:   document.getElementById('wr-service-notes').value.trim(),
     internalNotes:  document.getElementById('wr-internal-notes').value.trim(),
     photoCount:     photoFiles.length,
