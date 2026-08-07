@@ -147,8 +147,16 @@ function openWorkRecord(jobId) {
   document.getElementById('modal-title').textContent  = 'Work Record';
   document.getElementById('modal-client').textContent = job.client + (job.addr ? '  ·  ' + job.addr : '');
   document.getElementById('wr-team').value        = teamName;
-  document.getElementById('wr-date-start').value  = currentDay;
-  document.getElementById('wr-date-end').value    = '';
+  // Restore the saved Service Start/End from an unsubmitted draft, if one
+  // exists, instead of always resetting to today's day tab — otherwise
+  // reopening a multi-day-in-progress job (e.g. started 7/31, resumed
+  // 8/3) silently loses the original start date the crew already
+  // recorded, on top of always blanking the end date regardless of any
+  // saved draft.
+  const _draftForDates = savedRecords[jobId];
+  const _hasDraftDates = _draftForDates && !_draftForDates.submitted;
+  document.getElementById('wr-date-start').value  = (_hasDraftDates && _draftForDates.date) || currentDay;
+  document.getElementById('wr-date-end').value    = (_hasDraftDates && _draftForDates.dateEnd) || '';
 
   // Write client identity into hidden fields — these are the authoritative source
   // for collectFormData, independent of JS state at submit time.
@@ -314,8 +322,12 @@ function openMgrWorkRecord(evId, workerName) {
   document.getElementById('modal-title').textContent  = 'Work Record';
   document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + ev.description.split('\n')[0] : '');
   document.getElementById('wr-team').value        = 'Managers';
-  document.getElementById('wr-date-start').value  = currentDay;
-  document.getElementById('wr-date-end').value    = '';
+  // See the matching fix/comment in openWorkRecord() above — restore the
+  // saved draft's Service Start/End instead of always resetting them.
+  const _mgrDraftForDates = savedRecords['mgr_' + evId];
+  const _hasMgrDraftDates = _mgrDraftForDates && !_mgrDraftForDates.submitted;
+  document.getElementById('wr-date-start').value  = (_hasMgrDraftDates && _mgrDraftForDates.date) || currentDay;
+  document.getElementById('wr-date-end').value    = (_hasMgrDraftDates && _mgrDraftForDates.dateEnd) || '';
 
   // Manager events use clientCandidate for folder lookup — but prefer the
   // worker's picked override (set via the ambiguous-name picker) if present,

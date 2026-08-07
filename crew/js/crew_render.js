@@ -763,7 +763,7 @@ function renderJobs(cid, jobs, teamClass) {
             ${_showWR ? `<button class="abtn" id="wr-btn-${j.id}"
                     style="background:var(--b3);color:var(--b);border-color:var(--b4)"
                     onclick="openWorkRecord('${j.id}');event.stopPropagation()">
-              &#128203; Create Work Record
+              &#128203; Create Work Record${(typeof savedRecords !== 'undefined' && savedRecords[j.id] && !savedRecords[j.id].submitted) ? '<span class="saved-badge">saved</span>' : ''}
             </button>` : ''}
             <button class="abtn abtn-hide" onclick="hideJob('${j.id}');event.stopPropagation()">&#8722; Minimize</button>
           </div>` : ''}
@@ -870,7 +870,7 @@ function renderManagerPanel() {
             ${stream.workerName ? `<button class="abtn" id="wr-btn-mgr_${ev.id}"
                     style="background:var(--b3);color:var(--b);border-color:var(--b4)"
                     onclick="openMgrWorkRecord('${ev.id}','${workerNameEsc}');event.stopPropagation()">
-              &#128203; Create Work Record
+              &#128203; Create Work Record${(typeof savedRecords !== 'undefined' && savedRecords['mgr_' + ev.id] && !savedRecords['mgr_' + ev.id].submitted) ? '<span class="saved-badge">saved</span>' : ''}
             </button>` : ''}
             <button class="abtn abtn-hide" onclick="toggleMgrCard('${ev.id}');event.stopPropagation()">&#8722; Minimize</button>
           </div>` : `
