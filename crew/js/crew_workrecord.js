@@ -1195,21 +1195,26 @@ function saveForm() {
 }
 
 // ── Submit ────────────────────────────────────────────────────
-// Reverted to the original, known-working implementation (2026-08-09) —
-// two attempts at adding a submit-side timeout (first via
-// AbortController/signal, then via Promise.race()) both made things
-// worse in the field instead of better: the first caused an outright
-// "Failed to fetch" on every submission (a suspected WebKit bug with
-// AbortSignal + the redirect Apps Script's /exec always issues), and
-// the second timed out on every submission with nothing ever reaching
-// Ready to Invoice, which points at something beyond just the client
-// JS (worth investigating server-side separately, with less time
-// pressure, rather than continuing to iterate live against a path
-// crew actually depend on). The pre-submit confirmation dialog is
-// removed too, since re-adding it cleanly on top of this baseline is
-// simple later if still wanted — better to restore the exact
-// known-good state now than assemble a new combination untested.
+// Note: a submit-side timeout was tried here twice (AbortController/
+// signal, then Promise.race()) and deliberately left back out — the
+// real cause of the "Saving…" hangs turned out to be server-side
+// (Apps Script's "Too many simultaneous invocations: Spreadsheets"
+// error, fixed via retry-with-backoff in WorkRecords.gs/Utilities.gs),
+// not a client-side hang a timeout could meaningfully help with. The
+// confirmation dialog below is unrelated to that — verified separately
+// as not the cause (it resolves normally; the actual stall always
+// happened after it, during the network call).
 function submitForm() {
+  // Submit (unlike Save) closes the modal and marks the record
+  // submitted, so reopening it always shows a blank form (see the
+  // draft-restore skip for submitted records in openWorkRecord()/
+  // openMgrWorkRecord()). Both buttons used to show the same "Saving…"
+  // wording with nothing to distinguish the more final action, so a
+  // crew member could hit Submit by mistake with no warning.
+  if (!confirm('Submit the work record? This will reset the form, including all inputs.')) {
+    return;
+  }
+
   const data = collectFormData();
 
   // Validate minimum
@@ -1240,7 +1245,7 @@ function submitForm() {
   // Disable submit button and show progress indicator
   const submitBtn = document.getElementById('wr-submit-btn');
   if (submitBtn) { submitBtn.disabled = true; }
-  showSubmitProgress('Saving record…', 20);
+  showSubmitProgress('Submitting Record', 20);
 
   data.submitted   = true;
   data.submittedAt = new Date().toISOString();
