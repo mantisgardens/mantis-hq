@@ -1081,7 +1081,8 @@ function collectFormData() {
         const prods = (typeof FERT_PRODUCTS !== 'undefined') ? FERT_PRODUCTS : [];
         const match = prods.find(p =>
           p.name.toLowerCase() === item.toLowerCase() ||
-          (p.abbrev && item.toLowerCase() === p.abbrev.toLowerCase())
+          (p.abbrev && item.toLowerCase() === p.abbrev.toLowerCase()) ||
+          (p.qbName && item.toLowerCase() === p.qbName.toLowerCase())
         );
         if (match && match.qbName) item = match.qbName;
         else if (!match) unmatchedItems.push(item);
