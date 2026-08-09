@@ -1179,6 +1179,17 @@ function saveForm() {
 
 // ── Submit ────────────────────────────────────────────────────
 function submitForm() {
+  // Confirm first, before collecting/validating anything — Submit (unlike
+  // Save) closes the modal and marks the record submitted, so reopening
+  // it always shows a blank form (see the draft-restore skip for
+  // submitted records in openWorkRecord()/openMgrWorkRecord()). Both
+  // buttons used to show the same "Saving…" wording with nothing to
+  // distinguish the more final action, so a crew member could hit
+  // Submit by mistake with no warning.
+  if (!confirm('Submit the work record? This will reset the form, including all inputs.')) {
+    return;
+  }
+
   const data = collectFormData();
 
   // Validate minimum
