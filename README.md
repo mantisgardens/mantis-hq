@@ -19,7 +19,7 @@ Both apps are hosted on GitHub Pages at:
 
 ```javascript
 const MANTIS_SHARED = {
-  SCRIPT_URL: "PASTE_YOUR_NEW_EXEC_URL_HERE",
+  SCRIPT_URL: "PASTE_YOUR_NEW_EXEC_URL_HERE", 
   ...
 };
 ```
