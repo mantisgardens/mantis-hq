@@ -178,6 +178,15 @@ function openWorkRecord(jobId) {
   // guess at here.
   const _scName = (_scNow && !_scNow._ambiguous) ? (_scNow['QB Customer Name'] || _scNow['Name(s)']) : null;
   document.getElementById('wr-client-name').value = _scName || job.client || '';
+  // The Mantis Client Database's own Client ID (e.g. "MG-001") — NOT
+  // QuickBooks' customer ID, which is a separate thing resolved later,
+  // only at invoice-generation time, from whichever Client DB row this
+  // ID points to. Only set when the match is confident (same guard as
+  // _scName above) — appendInvoiceRow() (WorkRecords.gs) prefers an
+  // exact lookup by this ID over name-based fuzzy matching when it's
+  // present, falling back to fuzzy matching only when it's blank (a
+  // genuinely new/unmatched client, where there's nothing to look up).
+  document.getElementById('wr-client-id').value    = (_scNow && !_scNow._ambiguous && _scNow['Client ID']) ? _scNow['Client ID'].trim() : '';
   document.getElementById('wr-hist-id').value      = (_scNow && _scNow['Hist Data ID'])    ? _scNow['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_scNow && _scNow['Drive Folder ID']) ? _scNow['Drive Folder ID'].trim() : '';
 
@@ -352,6 +361,9 @@ function openMgrWorkRecord(evId, workerName) {
   // pending the crew resolving it via the ambiguous-name picker.
   const _mgrScName = (_mgrSc && !_mgrSc._ambiguous) ? (_mgrSc['QB Customer Name'] || _mgrSc['Name(s)']) : null;
   document.getElementById('wr-client-name').value = _mgrScName || ev.clientCandidate || ev.title || '';
+  // See the matching comment in openWorkRecord() above — Mantis's own
+  // Client ID, not QuickBooks', only set when the match is confident.
+  document.getElementById('wr-client-id').value    = (_mgrSc && !_mgrSc._ambiguous && _mgrSc['Client ID']) ? _mgrSc['Client ID'].trim() : '';
   document.getElementById('wr-hist-id').value      = (_mgrSc && _mgrSc['Hist Data ID'])    ? _mgrSc['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_mgrSc && _mgrSc['Drive Folder ID']) ? _mgrSc['Drive Folder ID'].trim() : '';
 
@@ -1154,12 +1166,14 @@ function collectFormData() {
   // changes, re-renders, and any other JS state drift between open and submit.
   // Fall back to currentJobData only as a last resort.
   const _domClient   = document.getElementById('wr-client-name').value  || (currentJobData ? currentJobData.client : '');
+  const _domClientId = document.getElementById('wr-client-id').value;
   const _domHistId   = document.getElementById('wr-hist-id').value;
   const _domFolderId = document.getElementById('wr-folder-id').value;
 
   return {
     jobId:          currentJobId,
     client:         _domClient,
+    clientId:       _domClientId,
     addr:           currentJobData ? currentJobData.addr : '',
     team:           document.getElementById('wr-team').value,
     date:           document.getElementById('wr-date-start').value,
