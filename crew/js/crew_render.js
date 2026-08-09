@@ -140,7 +140,10 @@ function findClient(name) {
   // Requires exact number match; street name comparison is lenient about
   // suffixes (St/Street/Rd/Road etc) and allows up to 2 Levenshtein edits.
   if (!scores.size) {
-    const _addrM = name.match(/^(\d+)\s+(.+?)(?:\s*[-–—]|$)/);
+    // \s+ (not \s*) before the dash — a dash with no space in front of it
+    // is a mid-word hyphen (e.g. a street name like "Cross-Creek Lane"),
+    // not a "- suffix" delimiter, and shouldn't cut the match short there.
+    const _addrM = name.match(/^(\d+)\s+(.+?)(?:\s+[-–—]|$)/);
     if (_addrM) {
       const _evNum = _addrM[1];
       const _evStreetRaw = _addrM[2].replace(/,.*$/, '').trim();
@@ -196,7 +199,11 @@ function findClient(name) {
     // then extract the surname:
     //   "Last, First - suffix"  → text before comma → "last"
     //   "First Last - suffix"   → last word → "last"
-    const stripped    = name.replace(/\s*[-\u2013\u2014].*$/, '').trim();
+    // \s+ (not \s*) before the dash \u2014 same fix as the address-fallback
+    // regex above and appendInvoiceRow()'s rawClientName in WorkRecords.gs:
+    // a mid-word hyphen (e.g. "manifold re-build") has no space in front
+    // of it and shouldn't be treated as a "- suffix" delimiter either.
+    const stripped    = name.replace(/\s+[-\u2013\u2014].*$/, '').trim();
     const surnameCand = (stripped.indexOf(',') !== -1)
       ? stripped.split(',')[0].trim().toLowerCase()
       : (stripped.split(/\s+/).filter(w => w.length > 1).pop() || '').toLowerCase();
