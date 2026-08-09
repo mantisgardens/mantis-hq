@@ -1186,7 +1186,7 @@ function saveForm() {
   const dataForStorage2 = Object.assign({}, data, { photos: [] });
   savedRecords[currentJobId] = dataForStorage2;
   safeLocalSave();
-  showToast('Record saved ✓');
+  showToast('Saving Record');
   // Update badge on the job card button
   const btn = document.getElementById('wr-btn-' + currentJobId);
   if (btn && !btn.querySelector('.saved-badge')) {
@@ -1237,7 +1237,7 @@ function submitForm() {
   // Disable submit button and show progress indicator
   const submitBtn = document.getElementById('wr-submit-btn');
   if (submitBtn) { submitBtn.disabled = true; }
-  showSubmitProgress('Saving record…', 20);
+  showSubmitProgress('Submitting Record', 20);
 
   data.submitted   = true;
   data.submittedAt = new Date().toISOString();
@@ -1325,12 +1325,27 @@ function submitForm() {
       return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
     }
 
+    // Same AbortController/timeout pattern as fetchWithTimeout() in
+    // crew_api.js (built after a real HAR capture proved Apps Script's
+    // serving path can hang indefinitely at zero bytes) — this POST
+    // never got that treatment, so a stalled doPost() left the progress
+    // bar stuck forever with no recovery path. Longer than the 7s read
+    // timeout since this is a real write (Doc + multiple sheet updates
+    // server-side, not just a cache read) and false-timeouts here are
+    // worse than there — see the catch block below for why this
+    // deliberately doesn't auto-retry.
+    const SUBMIT_TIMEOUT_MS = 25000;
+    const submitAbort = new AbortController();
+    const submitTimer = setTimeout(() => submitAbort.abort(), SUBMIT_TIMEOUT_MS);
+
     fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(data),
+      signal:  submitAbort.signal,
     })
       .then(r => {
+        clearTimeout(submitTimer);
         showSubmitProgress('Saving documents…', 45);
         return r.json();
       })
@@ -1388,10 +1403,27 @@ function submitForm() {
         console.error('Submit error:', err);
         hideSubmitProgress();
         if (currentJobId) setSt(currentJobId, 'done');
-        showToast('Saved locally — sync failed: ' + err.message);
-        setTimeout(() => closeModal(), 2500);
+        // A timeout (AbortError) doesn't mean the server never got the
+        // request — Apps Script may well still be processing it after
+        // the client gave up waiting. That's different from a genuine
+        // network failure (request never reached the server at all), so
+        // it gets its own message rather than assuming it's safe to just
+        // submit again — doing that blindly risks a duplicate Ready to
+        // Invoice row / duplicate Drive doc if the original actually
+        // went through. The record itself is never at risk either way —
+        // it's already in localStorage (see savedRecords write above,
+        // before this fetch even fires).
+        const timedOut = err.name === 'AbortError';
+        showToast(
+          timedOut
+            ? 'Submission timed out — it may have still gone through. Check Ready to Invoice before submitting again.'
+            : 'Saved locally — sync failed: ' + err.message,
+          timedOut ? 8000 : undefined
+        );
+        setTimeout(() => closeModal(), timedOut ? 8000 : 2500);
       })
       .finally(() => {
+        clearTimeout(submitTimer);
         if (submitBtn) { submitBtn.disabled = false; }
       });
   } else {
