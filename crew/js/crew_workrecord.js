@@ -1325,27 +1325,51 @@ function submitForm() {
       return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
     }
 
-    // Same AbortController/timeout pattern as fetchWithTimeout() in
-    // crew_api.js (built after a real HAR capture proved Apps Script's
-    // serving path can hang indefinitely at zero bytes) — this POST
-    // never got that treatment, so a stalled doPost() left the progress
-    // bar stuck forever with no recovery path. Longer than the 7s read
-    // timeout since this is a real write (Doc + multiple sheet updates
-    // server-side, not just a cache read) and false-timeouts here are
-    // worse than there — see the catch block below for why this
-    // deliberately doesn't auto-retry.
+    // Timeout protection for this POST — this endpoint never had any
+    // (unlike the read path's fetchWithTimeout() in crew_api.js, built
+    // after a real HAR capture proved Apps Script's serving path can
+    // hang indefinitely at zero bytes), so a stalled doPost() left the
+    // progress bar stuck forever with no recovery path.
+    //
+    // Deliberately NOT using AbortController/signal here (a first
+    // attempt at this did) — Apps Script's /exec endpoint always
+    // responds via a redirect to script.googleusercontent.com, and
+    // there's a known class of WebKit/mobile-Safari bug where a fetch()
+    // with an AbortSignal attached can throw "Failed to fetch" outright
+    // while following a cross-origin redirect, even when the timer never
+    // actually fires — which is exactly what broke a real submission
+    // right after that version shipped. Promise.race() against a plain
+    // timer gets the same "stop waiting after N seconds" behavior
+    // without touching fetch's own signal handling. The underlying
+    // request isn't actually cancelled either way — Apps Script keeps
+    // executing server-side regardless of what the client does — so
+    // there was never a real reason to abort it client-side in the
+    // first place. Longer than the 7s read timeout since this is a real
+    // write (Doc + multiple sheet updates server-side, not just a cache
+    // read) and false-timeouts here are worse than there — see the
+    // catch block below for why this deliberately doesn't auto-retry.
     const SUBMIT_TIMEOUT_MS = 25000;
-    const submitAbort = new AbortController();
-    const submitTimer = setTimeout(() => submitAbort.abort(), SUBMIT_TIMEOUT_MS);
+    const submitTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        const err  = new Error('Submission timed out');
+        err.name = 'TimeoutError';
+        reject(err);
+      }, SUBMIT_TIMEOUT_MS);
+    });
 
-    fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
+    const submitFetch = fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(data),
-      signal:  submitAbort.signal,
-    })
+    });
+    // If this loses the race (timed out) but the underlying request
+    // eventually settles anyway, nothing else is listening to it — swallow
+    // a late rejection here so it doesn't surface as an unhandled promise
+    // rejection in the console.
+    submitFetch.catch(() => {});
+
+    Promise.race([submitFetch, submitTimeoutPromise])
       .then(r => {
-        clearTimeout(submitTimer);
         showSubmitProgress('Saving documents…', 45);
         return r.json();
       })
@@ -1403,9 +1427,11 @@ function submitForm() {
         console.error('Submit error:', err);
         hideSubmitProgress();
         if (currentJobId) setSt(currentJobId, 'done');
-        // A timeout (AbortError) doesn't mean the server never got the
-        // request — Apps Script may well still be processing it after
-        // the client gave up waiting. That's different from a genuine
+        // A timeout (TimeoutError, from submitTimeoutPromise above)
+        // doesn't mean the server never got the request — Apps Script
+        // may well still be processing it after the client gave up
+        // waiting (the underlying fetch is never actually cancelled,
+        // just no longer waited on). That's different from a genuine
         // network failure (request never reached the server at all), so
         // it gets its own message rather than assuming it's safe to just
         // submit again — doing that blindly risks a duplicate Ready to
@@ -1413,7 +1439,7 @@ function submitForm() {
         // went through. The record itself is never at risk either way —
         // it's already in localStorage (see savedRecords write above,
         // before this fetch even fires).
-        const timedOut = err.name === 'AbortError';
+        const timedOut = err.name === 'TimeoutError';
         showToast(
           timedOut
             ? 'Submission timed out — it may have still gone through. Check Ready to Invoice before submitting again.'
@@ -1423,7 +1449,6 @@ function submitForm() {
         setTimeout(() => closeModal(), timedOut ? 8000 : 2500);
       })
       .finally(() => {
-        clearTimeout(submitTimer);
         if (submitBtn) { submitBtn.disabled = false; }
       });
   } else {
