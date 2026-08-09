@@ -164,7 +164,20 @@ function openWorkRecord(jobId) {
   // the raw calendar client string, since that's the actual matched client.
   const _override = clientOverrides[_overrideKey(jobId)];
   const _scNow = _override || job._sc || findClient(job.client);
-  document.getElementById('wr-client-name').value = (_override && (_override['QB Customer Name'] || _override['Name(s)'])) || job.client || '';
+  // Default the client-name field to the resolved DB match, not just the
+  // raw calendar text — findClient() already does token-based matching
+  // (order-independent, e.g. "Clark Kent" against a DB entry stored
+  // "Kent, Clark"), so relying on raw text here just meant the same
+  // resolution had to happen all over again downstream in
+  // appendInvoiceRow()/_findOrCreateQBCustomer() (WorkRecords.gs/
+  // QuickBooks.gs), or failed outright if the calendar title didn't
+  // parse the way those simpler string checks expected. Ambiguous
+  // matches (_ambiguous) are deliberately excluded — that's a real
+  // "could be either client" case for the crew to resolve via the
+  // ambiguous-name picker (which sets _override), not something to
+  // guess at here.
+  const _scName = (_scNow && !_scNow._ambiguous) ? (_scNow['QB Customer Name'] || _scNow['Name(s)']) : null;
+  document.getElementById('wr-client-name').value = _scName || job.client || '';
   document.getElementById('wr-hist-id').value      = (_scNow && _scNow['Hist Data ID'])    ? _scNow['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_scNow && _scNow['Drive Folder ID']) ? _scNow['Drive Folder ID'].trim() : '';
 
@@ -334,7 +347,11 @@ function openMgrWorkRecord(evId, workerName) {
   // since that's the actual matched client rather than the raw calendar title.
   const _mgrOverride = clientOverrides[_overrideKey('mgr_' + evId)];
   const _mgrSc = _mgrOverride || findClient(ev.clientCandidate || ev.title || '');
-  document.getElementById('wr-client-name').value = (_mgrOverride && (_mgrOverride['QB Customer Name'] || _mgrOverride['Name(s)'])) || ev.clientCandidate || ev.title || '';
+  // Same default-to-resolved-match fix as openWorkRecord() above —
+  // excludes ambiguous matches, which fall back to the raw text below
+  // pending the crew resolving it via the ambiguous-name picker.
+  const _mgrScName = (_mgrSc && !_mgrSc._ambiguous) ? (_mgrSc['QB Customer Name'] || _mgrSc['Name(s)']) : null;
+  document.getElementById('wr-client-name').value = _mgrScName || ev.clientCandidate || ev.title || '';
   document.getElementById('wr-hist-id').value      = (_mgrSc && _mgrSc['Hist Data ID'])    ? _mgrSc['Hist Data ID'].trim()    : '';
   document.getElementById('wr-folder-id').value    = (_mgrSc && _mgrSc['Drive Folder ID']) ? _mgrSc['Drive Folder ID'].trim() : '';
 
