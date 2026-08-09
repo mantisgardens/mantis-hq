@@ -1195,18 +1195,21 @@ function saveForm() {
 }
 
 // ── Submit ────────────────────────────────────────────────────
+// Reverted to the original, known-working implementation (2026-08-09) —
+// two attempts at adding a submit-side timeout (first via
+// AbortController/signal, then via Promise.race()) both made things
+// worse in the field instead of better: the first caused an outright
+// "Failed to fetch" on every submission (a suspected WebKit bug with
+// AbortSignal + the redirect Apps Script's /exec always issues), and
+// the second timed out on every submission with nothing ever reaching
+// Ready to Invoice, which points at something beyond just the client
+// JS (worth investigating server-side separately, with less time
+// pressure, rather than continuing to iterate live against a path
+// crew actually depend on). The pre-submit confirmation dialog is
+// removed too, since re-adding it cleanly on top of this baseline is
+// simple later if still wanted — better to restore the exact
+// known-good state now than assemble a new combination untested.
 function submitForm() {
-  // Confirm first, before collecting/validating anything — Submit (unlike
-  // Save) closes the modal and marks the record submitted, so reopening
-  // it always shows a blank form (see the draft-restore skip for
-  // submitted records in openWorkRecord()/openMgrWorkRecord()). Both
-  // buttons used to show the same "Saving…" wording with nothing to
-  // distinguish the more final action, so a crew member could hit
-  // Submit by mistake with no warning.
-  if (!confirm('Submit the work record? This will reset the form, including all inputs.')) {
-    return;
-  }
-
   const data = collectFormData();
 
   // Validate minimum
@@ -1237,7 +1240,7 @@ function submitForm() {
   // Disable submit button and show progress indicator
   const submitBtn = document.getElementById('wr-submit-btn');
   if (submitBtn) { submitBtn.disabled = true; }
-  showSubmitProgress('Submitting Record', 20);
+  showSubmitProgress('Saving record…', 20);
 
   data.submitted   = true;
   data.submittedAt = new Date().toISOString();
@@ -1325,50 +1328,11 @@ function submitForm() {
       return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
     }
 
-    // Timeout protection for this POST — this endpoint never had any
-    // (unlike the read path's fetchWithTimeout() in crew_api.js, built
-    // after a real HAR capture proved Apps Script's serving path can
-    // hang indefinitely at zero bytes), so a stalled doPost() left the
-    // progress bar stuck forever with no recovery path.
-    //
-    // Deliberately NOT using AbortController/signal here (a first
-    // attempt at this did) — Apps Script's /exec endpoint always
-    // responds via a redirect to script.googleusercontent.com, and
-    // there's a known class of WebKit/mobile-Safari bug where a fetch()
-    // with an AbortSignal attached can throw "Failed to fetch" outright
-    // while following a cross-origin redirect, even when the timer never
-    // actually fires — which is exactly what broke a real submission
-    // right after that version shipped. Promise.race() against a plain
-    // timer gets the same "stop waiting after N seconds" behavior
-    // without touching fetch's own signal handling. The underlying
-    // request isn't actually cancelled either way — Apps Script keeps
-    // executing server-side regardless of what the client does — so
-    // there was never a real reason to abort it client-side in the
-    // first place. Longer than the 7s read timeout since this is a real
-    // write (Doc + multiple sheet updates server-side, not just a cache
-    // read) and false-timeouts here are worse than there — see the
-    // catch block below for why this deliberately doesn't auto-retry.
-    const SUBMIT_TIMEOUT_MS = 25000;
-    const submitTimeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => {
-        const err  = new Error('Submission timed out');
-        err.name = 'TimeoutError';
-        reject(err);
-      }, SUBMIT_TIMEOUT_MS);
-    });
-
-    const submitFetch = fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
+    fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(data),
-    });
-    // If this loses the race (timed out) but the underlying request
-    // eventually settles anyway, nothing else is listening to it — swallow
-    // a late rejection here so it doesn't surface as an unhandled promise
-    // rejection in the console.
-    submitFetch.catch(() => {});
-
-    Promise.race([submitFetch, submitTimeoutPromise])
+    })
       .then(r => {
         showSubmitProgress('Saving documents…', 45);
         return r.json();
@@ -1427,26 +1391,8 @@ function submitForm() {
         console.error('Submit error:', err);
         hideSubmitProgress();
         if (currentJobId) setSt(currentJobId, 'done');
-        // A timeout (TimeoutError, from submitTimeoutPromise above)
-        // doesn't mean the server never got the request — Apps Script
-        // may well still be processing it after the client gave up
-        // waiting (the underlying fetch is never actually cancelled,
-        // just no longer waited on). That's different from a genuine
-        // network failure (request never reached the server at all), so
-        // it gets its own message rather than assuming it's safe to just
-        // submit again — doing that blindly risks a duplicate Ready to
-        // Invoice row / duplicate Drive doc if the original actually
-        // went through. The record itself is never at risk either way —
-        // it's already in localStorage (see savedRecords write above,
-        // before this fetch even fires).
-        const timedOut = err.name === 'TimeoutError';
-        showToast(
-          timedOut
-            ? 'Submission timed out — it may have still gone through. Check Ready to Invoice before submitting again.'
-            : 'Saved locally — sync failed: ' + err.message,
-          timedOut ? 8000 : undefined
-        );
-        setTimeout(() => closeModal(), timedOut ? 8000 : 2500);
+        showToast('Saved locally — sync failed: ' + err.message);
+        setTimeout(() => closeModal(), 2500);
       })
       .finally(() => {
         if (submitBtn) { submitBtn.disabled = false; }
