@@ -1,3 +1,5 @@
-crew/data
-owner/data
+crew/data/crew_load_all.json
+crew/data/plant_database.json
+crew/data/service_manual_data.json
+owner/data/owner_load_all.json
  
