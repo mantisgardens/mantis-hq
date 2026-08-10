@@ -182,6 +182,7 @@
           <label class="form-label">Service Frequency</label>
           <select class="form-input" id="cf-interval">
             <option value="">— select —</option>
+            <option>Weekly</option>
             <option>Bi-weekly</option>
             <option>Monthly</option>
             <option>Bi-monthly</option>
@@ -293,10 +294,31 @@
 <!-- ══ TOAST ════════════════════════════════════════════════ -->
 <div class="toast" id="toast"></div>
 
+<!-- ══ SESSION RE-AUTH BANNER ══════════════════════════════════
+     Shown when a silent token refresh gets blocked (increasingly
+     common — Safari ITP, Chrome FedCM restrictions, etc.) instead of
+     immediately wiping the session and redirecting to login. The
+     Google button below is a real, user-clicked sign-in, which isn't
+     subject to the same silent-prompt blocking — see _showReauthPrompt_
+     / _refreshOwnerToken() in owner_dashboard.js for the full flow. -->
+<div id="owner-reauth-banner" style="display:none;position:fixed;bottom:20px;left:50%;
+     transform:translateX(-50%);background:#8B6914;color:#fff;padding:16px 20px;
+     border-radius:8px;font-family:Arial,sans-serif;z-index:9999;
+     box-shadow:0 4px 16px rgba(0,0,0,0.3);max-width:360px;text-align:center;">
+  <div style="margin-bottom:10px;">&#128274; Your session needs refreshing to continue.</div>
+  <div id="owner-reauth-google-btn" style="display:flex;justify-content:center;margin-bottom:8px;"></div>
+  <button onclick="_cancelReauthPrompt_()"
+          style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);
+                 color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;
+                 font-family:Arial,sans-serif;font-size:13px;">
+    Cancel
+  </button>
+</div>
+
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="../config.js?v=25"></script>
   <script src="js/owner_config.js?v=25"></script>
 <script src="js/session_timeout.js?v=26"></script>
-<script src="js/owner_dashboard.js?v=52"></script>
+<script src="js/owner_dashboard.js?v=54"></script>
 </body>
 </html>
