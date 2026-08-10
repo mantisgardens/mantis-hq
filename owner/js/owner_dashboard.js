@@ -237,7 +237,16 @@ function _handleTokenExpiry() {
 
 function _isTokenError(err) {
   const msg = (err && err.message) || '';
+  // 'Token expired' is Auth.gs's verifyGoogleToken() response for the
+  // single most common, fully-expected failure — a Google ID token
+  // past its own 1-hour expiry, which is exactly the case
+  // _refreshOwnerToken() exists to recover from silently. It didn't
+  // match any of the checks below, so this specific, very normal
+  // failure skipped the refresh-and-retry path entirely and surfaced
+  // as a raw "Save failed: Token expired" toast instead — a real
+  // report from the owner hitting this on Save Client.
   return msg.includes('Invalid token') || msg.includes('Unauthorized') ||
+         msg.includes('Token expired') ||
          msg.includes('HTTP 400')      || msg.includes('HTTP 401');
 }
 
