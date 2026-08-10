@@ -168,6 +168,9 @@ function _ensureOwnerGisInit() {
     client_id:   (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '',
     auto_select: true,
     callback: (response) => {
+      // Whether this came from the silent prompt or the owner clicking
+      // the interactive re-auth button, either way the wait is over.
+      _hideReauthPrompt_();
       const resolve = _pendingTokenResolve, reject = _pendingTokenReject;
       _pendingTokenResolve = _pendingTokenReject = null;
       _tokenRefreshPromise = null;
@@ -181,6 +184,50 @@ function _ensureOwnerGisInit() {
     },
   });
   _ownerGisInitDone = true;
+}
+
+// ── Interactive re-auth fallback ────────────────────────────────
+// Silent refresh (google.accounts.id.prompt()) is increasingly blocked
+// outright by browsers (Safari ITP, Chrome's FedCM restrictions) —
+// this used to mean any owner who hit that immediately got their
+// session wiped and redirected to a bare login page, losing whatever
+// they were doing (a real report: adding a new client). A real user
+// CLICK on a properly rendered Google Sign-In button isn't subject to
+// that same silent-prompt blocking, since it's genuine user-initiated
+// interaction, not an automatic background prompt. Showing that button
+// inline — instead of immediately giving up — lets the owner
+// re-authenticate in one tap without losing their place.
+function _showReauthPrompt_() {
+  const banner = document.getElementById('owner-reauth-banner');
+  if (!banner) return;
+  banner.style.display = 'block';
+  try {
+    google.accounts.id.renderButton(
+      document.getElementById('owner-reauth-google-btn'),
+      { theme: 'filled_blue', size: 'medium', text: 'signin', shape: 'pill' }
+    );
+  } catch(e) {
+    console.warn('_showReauthPrompt_: renderButton failed', e);
+  }
+}
+
+function _hideReauthPrompt_() {
+  const banner = document.getElementById('owner-reauth-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+// Owner explicitly dismisses the banner rather than signing back in —
+// rejects the still-pending refresh promise (so whatever action
+// triggered it fails cleanly with a normal "Save failed" style
+// message) without wiping the session or redirecting, so anything
+// else already loaded keeps working and the failed action can just be
+// retried once they're ready.
+function _cancelReauthPrompt_() {
+  _hideReauthPrompt_();
+  const reject = _pendingTokenReject;
+  _pendingTokenResolve = _pendingTokenReject = null;
+  _tokenRefreshPromise = null;
+  if (reject) reject(new Error('Sign-in cancelled'));
 }
 
 function _refreshOwnerToken() {
@@ -197,10 +244,16 @@ function _refreshOwnerToken() {
       _ensureOwnerGisInit();
       google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          _pendingTokenResolve = _pendingTokenReject = null;
-          _tokenRefreshPromise = null;
-          _handleTokenExpiry();
-          reject(new Error('Silent refresh not possible'));
+          // Deliberately NOT rejecting or clearing _pendingTokenResolve/
+          // _tokenRefreshPromise here — the promise stays pending, and
+          // showing the interactive button below means the SAME GIS
+          // callback in _ensureOwnerGisInit() resolves (or rejects) it
+          // whichever way the owner's click goes. That means whatever
+          // originally called _refreshOwnerToken() — ownerFetch()/
+          // ownerPost()'s "await _refreshOwnerToken(); retry" pattern —
+          // picks up and automatically retries on success, with no
+          // separate retry plumbing needed here.
+          _showReauthPrompt_();
         }
       });
     };
