@@ -25,6 +25,15 @@ let scheduleData    = {};
 let schedWeekDelta  = 0;
 let currentEditId   = null;  // Client ID being edited
 
+// The Client DB sheet isn't necessarily in any particular order — new
+// clients just get appended to the next empty row — so this is applied
+// every time the list is loaded rather than relying on sheet order.
+function _sortClientsByName(clients) {
+  return clients.slice().sort((a, b) =>
+    String(a['Name(s)'] || '').localeCompare(String(b['Name(s)'] || ''), undefined, { sensitivity: 'base' })
+  );
+}
+
 // =============================================================
 // SECTION 2 — AUTH GUARD & SIGN OUT
 // =============================================================
@@ -545,7 +554,7 @@ async function loadAll(forceFresh) {
   const mgrScheduleRes = toResult('manager_schedule');
 
   if (clientsRes.status === 'fulfilled') {
-    allClients = clientsRes.value.clients || [];
+    allClients = _sortClientsByName(clientsRes.value.clients || []);
     setStatus('clients', 'live', `Clients: ${allClients.length} loaded`);
     renderClients('');
     populateClientFilter();
@@ -979,7 +988,7 @@ async function saveClient() {
     // Clear cache and reload clients
     sessionStorage.removeItem('oc_cache_ownerClients');
     const fresh = await ownerFetch('ownerClients');
-    allClients = fresh.clients || [];
+    allClients = _sortClientsByName(fresh.clients || []);
     renderClients(document.getElementById('client-search').value || '');
     populateClientFilter();
   } catch(err) {
