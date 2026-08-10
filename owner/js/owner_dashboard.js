@@ -785,8 +785,31 @@ function openProfile(clientId) {
   document.body.style.overflow = 'hidden';
 }
 
+// ── Modal overlay click-to-dismiss ──────────────────────────────
+// A plain onclick="if (e.target === overlay) close()" check isn't
+// enough on its own: per the DOM click-event spec, "click" fires on
+// the deepest common ancestor of the mousedown target and the mouseup
+// target — so starting a text selection inside a modal's content
+// (e.g. dragging to select text in the Morning Notes editor) and
+// releasing the mouse past the overlay backdrop computes e.target as
+// the OVERLAY itself (the common ancestor of "deep inside the
+// content" and "the backdrop"), even though the user never intended
+// to dismiss the modal, just to select text. Tracking whether the
+// MOUSEDOWN itself started on the backdrop (not inside the modal's
+// content) closes that gap: dismissal now requires the whole
+// gesture — both the mousedown and the resulting click — to
+// originate on the backdrop, not just end up computing that way.
+// Shared across all three modals (client, profile, note editor),
+// which each wire onmousedown="_modalOverlayMouseDown(event)" +
+// onclick="closeXModal(event)" on their overlay div.
+let _modalOverlayMouseDownOnBackdrop = false;
+
+function _modalOverlayMouseDown(event) {
+  _modalOverlayMouseDownOnBackdrop = (event.target === event.currentTarget);
+}
+
 function closeProfileModal(e) {
-  if (e && e.target !== document.getElementById('profile-modal')) return;
+  if (e && (e.target !== document.getElementById('profile-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
   document.getElementById('profile-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -826,7 +849,7 @@ function editCurrentClient() {
 }
 
 function closeClientModal(e) {
-  if (e && e.target !== document.getElementById('client-modal')) return;
+  if (e && (e.target !== document.getElementById('client-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
   document.getElementById('client-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -1068,7 +1091,7 @@ function _openNoteEditorModal(item) {
 }
 
 function closeNoteEditor(e) {
-  if (e && e.target !== document.getElementById('note-editor-modal')) return;
+  if (e && (e.target !== document.getElementById('note-editor-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
   document.getElementById('note-editor-modal').classList.remove('open');
   document.body.style.overflow = '';
   _neTarget = null;
