@@ -341,16 +341,16 @@ function _fetchWithTimeout(url, options, timeoutMs) {
 // real tradeoff (worst case now 3x the load instead of 2x on a genuine
 // failure) — accepted since the alternative is the owner dashboard
 // visibly failing to load.
-async function _fetchJsonWithRetry(url, options, retries) {
+async function _fetchJsonWithRetry(url, options, retries, timeoutMs) {
   retries = retries === undefined ? 2 : retries;
   try {
-    const res = await _fetchWithTimeout(url, options);
+    const res = await _fetchWithTimeout(url, options, timeoutMs);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch(err) {
     if (retries > 0) {
       await new Promise(resolve => setTimeout(resolve, 700));
-      return _fetchJsonWithRetry(url, options, retries - 1);
+      return _fetchJsonWithRetry(url, options, retries - 1, timeoutMs);
     }
     throw err;
   }
@@ -436,14 +436,30 @@ async function fetchOwnerLoadAllWithFallback() {
   }
 }
 
-async function ownerPost(action, payload) {
+async function ownerPost(action, payload, timeoutMs) {
   async function _post() {
     const idToken = encodeURIComponent(getIdToken());
+    // retries=0 — _fetchJsonWithRetry defaults to 2 automatic retries,
+    // which is safe for a GET (ownerFetch) but not here: a stalled or
+    // lost response to a create/save POST doesn't mean the request
+    // never reached the server — Apps Script's serving layer is known
+    // to occasionally lose the RESPONSE even after the server finishes
+    // fine (documented extensively elsewhere in this codebase). Blindly
+    // retrying a non-idempotent write like ownerSaveClient() — which
+    // has no dedup/idempotency check at all — means each retry that
+    // actually reaches the server creates ANOTHER new row. A real
+    // report: the owner added one client, got "Save failed," and three
+    // rows showed up in the Client Database — exactly 1 original + 2
+    // retries, each one silently succeeding server-side while the
+    // client kept timing out waiting on the response. _fetchWithTimeout
+    // already hard-bounds this single attempt via AbortController, so
+    // dropping the retry here doesn't reintroduce a hang — it just
+    // stops after one attempt instead of silently trying three times.
     const data = await _fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(payload),
-    });
+    }, 0, timeoutMs);
     if (data.error) throw new Error(data.error);
     return data;
   }
@@ -952,7 +968,12 @@ async function saveClient() {
   };
 
   try {
-    const result = await ownerPost('ownerSaveClient', payload);
+    // 20s, not the default 7s — adding a new client is one of the
+    // heaviest operations in the app (Drive folder + subfolders + a
+    // whole new Historical Data Google Sheet, on top of the row write),
+    // and the default timeout was tight enough for it to occasionally
+    // time out client-side even though the server finished fine.
+    const result = await ownerPost('ownerSaveClient', payload, 20000);
     showToast(currentEditId ? 'Client updated ✓' : `Client added ✓ (${result.clientId})`);
     closeClientModal();
     // Clear cache and reload clients
