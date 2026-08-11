@@ -1615,7 +1615,18 @@ async function saveNotes() {
     } else {
       payload.sections = notesData[currentTeam] || [];
     }
-    await ownerPost('ownerSaveNotes', payload);
+    // 20s, not the default 7s — same reasoning as ownerSaveClient above:
+    // ownerSaveNotes() also calls requestCachePublish_(), which (outside
+    // the 45s debounce window — the normal case for a one-off note edit)
+    // runs a full live cache publish in-line before returning: two live
+    // schedule rebuilds plus GitHub Contents API commits. That routinely
+    // takes longer than 7s even though the note write itself is fast and
+    // already committed. A real report: the owner saw "Save failed:
+    // signal is aborted without reason" every time, and the note was
+    // always actually saved — the client-side abort fired after the
+    // write but during the trailing publish, which Apps Script keeps
+    // running to completion regardless of the aborted connection.
+    await ownerPost('ownerSaveNotes', payload, 20000);
     notesDirty = false;
     if (btn) btn.classList.remove('unsaved');
     // Only the currently-selected team/leads was actually persisted —
