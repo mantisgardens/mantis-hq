@@ -60,6 +60,18 @@ function doSignOut() {
     google.accounts.id.revoke(email, () => {});
   }
   sessionStorage.clear();
+  // Also clear the persisted cross-tab-close session (owner_login.js's
+  // OWNER_PERSIST_MS layer) — otherwise an explicit sign-out or an
+  // inactivity-timeout sign-out (this function is session_timeout.js's
+  // onSignOut) would still leave a valid persisted session behind, and
+  // the owner would land back on the login page just to get silently
+  // bounced straight back into the dashboard they were just signed out
+  // of.
+  localStorage.removeItem('owner_auth');
+  localStorage.removeItem('owner_id_token');
+  localStorage.removeItem('owner_user_email');
+  localStorage.removeItem('owner_user_name');
+  localStorage.removeItem('owner_auth_expiry');
   window.location.href = (typeof OWNER_CONFIG !== 'undefined')
     ? OWNER_CONFIG.LOGIN_URL : 'index.html';
 }
@@ -293,6 +305,19 @@ function _handleTokenExpiry() {
   sessionStorage.removeItem('owner_auth');
   sessionStorage.removeItem('owner_id_token');
   sessionStorage.setItem('owner_token_expired', '1');
+  // Also clear the persisted cross-tab-close session (see doSignOut's
+  // comment) — this path means a real refresh attempt already failed
+  // outright (GIS unavailable or no credential returned), not just a
+  // routine expired-token retry. Without this, the login page's
+  // persisted-session check would see a still-"valid" localStorage
+  // session and silently redirect straight back to the dashboard,
+  // which would immediately hit the same failure again — an infinite
+  // redirect loop instead of landing on a normal, working login screen.
+  localStorage.removeItem('owner_auth');
+  localStorage.removeItem('owner_id_token');
+  localStorage.removeItem('owner_user_email');
+  localStorage.removeItem('owner_user_name');
+  localStorage.removeItem('owner_auth_expiry');
   window.location.href = (typeof OWNER_CONFIG !== 'undefined')
     ? OWNER_CONFIG.LOGIN_URL : 'index.html';
 }

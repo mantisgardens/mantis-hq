@@ -2,7 +2,6 @@
    session_timeout.js
    Mantis Gardens — Session Timeout
 
-   Shared module used by both the crew app and owner portal.
    Tracks user activity and signs out after a period of
    inactivity, protecting client data on unattended devices.
 

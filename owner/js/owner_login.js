@@ -6,6 +6,37 @@
 const CLIENT_ID  = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.GOOGLE_CLIENT_ID : '';
 const SCRIPT_URL = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_URL       : '';
 
+// Persisted cross-tab-close session, mirroring the crew login page's
+// approach (mantis_landing.js's _hasPersistedSession). Added because
+// this page's own sessionStorage-only 'owner_auth' check below is
+// cleared the instant the tab closes, unlike crew's localStorage-backed
+// session — so the owner was hitting the fetchJsonWithRetry() round
+// trip above on every single fresh open, not just once every ~10
+// hours like crew. A real report: "Could not reach server. Check your
+// connection." (the .catch() below) surfacing noticeably more often on
+// the owner portal than crew, traced to that difference in exposure to
+// the same known-intermittent Apps Script redirect glitch, not a
+// difference in per-attempt failure rate.
+//
+// 2 hours, not crew's 10 — matches the owner dashboard's own
+// inactivity timeout (initSessionTimeout call in owner_dashboard.js,
+// deliberately shorter than crew's given the more sensitive data this
+// portal exposes), so this "skip re-verification" trust window never
+// outlives the in-app idle-timeout policy. A token that's gone stale
+// by the time this is reused still works fine — ownerFetch()/
+// ownerPost() already detect an expired token on the first real API
+// call and silently refresh it via _refreshOwnerToken(), same handling
+// as any mid-session token expiry.
+const OWNER_PERSIST_MS = 2 * 60 * 60 * 1000;
+
+function _clearPersistedOwnerSession() {
+  localStorage.removeItem('owner_auth');
+  localStorage.removeItem('owner_id_token');
+  localStorage.removeItem('owner_user_email');
+  localStorage.removeItem('owner_user_name');
+  localStorage.removeItem('owner_auth_expiry');
+}
+
 // Plain fetch() has NO built-in timeout — if a request stalls mid-
 // flight (a dropped or degraded connection), the promise just sits
 // pending forever, with no recovery but a manual page reload. This was
@@ -132,6 +163,12 @@ function handleCredential(response) {
         sessionStorage.setItem('owner_id_token',   response.credential);
         sessionStorage.setItem('owner_user_email', email);
         sessionStorage.setItem('owner_user_name',  name);
+        // Persisted layer — see OWNER_PERSIST_MS comment above.
+        localStorage.setItem('owner_auth',        '1');
+        localStorage.setItem('owner_id_token',    response.credential);
+        localStorage.setItem('owner_user_email',  email);
+        localStorage.setItem('owner_user_name',   name);
+        localStorage.setItem('owner_auth_expiry', String(Date.now() + OWNER_PERSIST_MS));
         window.location.href = OWNER_CONFIG.DASHBOARD_URL;
       })
       .catch(() => {
@@ -143,10 +180,29 @@ function handleCredential(response) {
   }
 }
 
-// Auto-redirect if already logged in
+// Auto-redirect if already logged in — either this tab's own
+// sessionStorage session, or a still-valid persisted localStorage
+// session from a previous tab/browser session (see OWNER_PERSIST_MS
+// comment above). The latter must seed sessionStorage first so the
+// dashboard's auth guard and getIdToken() have something to work with
+// immediately on load, without this page ever calling ownerPing.
+const _persistedExpiry     = parseInt(localStorage.getItem('owner_auth_expiry') || '0', 10);
+const _hasPersistedSession = localStorage.getItem('owner_auth') === '1' && Date.now() < _persistedExpiry;
+
 if (sessionStorage.getItem('owner_auth') === '1') {
   window.location.href = (typeof OWNER_CONFIG !== 'undefined')
     ? OWNER_CONFIG.DASHBOARD_URL : 'owner_dashboard.html';
+} else if (_hasPersistedSession) {
+  sessionStorage.setItem('owner_auth',       '1');
+  sessionStorage.setItem('owner_id_token',   localStorage.getItem('owner_id_token')   || '');
+  sessionStorage.setItem('owner_user_email', localStorage.getItem('owner_user_email') || '');
+  sessionStorage.setItem('owner_user_name',  localStorage.getItem('owner_user_name')  || '');
+  window.location.href = (typeof OWNER_CONFIG !== 'undefined')
+    ? OWNER_CONFIG.DASHBOARD_URL : 'owner_dashboard.html';
+} else if (localStorage.getItem('owner_auth') === '1') {
+  // Persisted session exists but is past OWNER_PERSIST_MS — stale,
+  // clear it so it isn't checked again on every load from here on.
+  _clearPersistedOwnerSession();
 }
 
 window.addEventListener('load', () => {
