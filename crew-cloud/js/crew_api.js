@@ -257,4 +257,286 @@ async function fetchCrewLoadAllWithFallback(extra) {
   return apiFetch('crew_load_all', extra);
 }
 
+function setStatus(id, state, msg) {
+  document.getElementById(`sd-${id}`).className =
+    `sdot ${state === 'live' ? 'live' : state === 'loading' ? 'loading' : state === 'error' ? 'error' : ''}`;
+  document.getElementById(`sl-${id}`).textContent = msg;
+}
 
+// -- Apply-data helpers --------------------------------------------
+// Each takes a raw section payload -- same shape whether it came from a
+// fresh network response or the 24-hour offline snapshot (useOffline()
+// below, used only when the network call actually fails) -- and updates
+// the corresponding global state (+ status pill, when opts.live is
+// set). Pulled out of loadAll()'s inline per-section handling just to
+// keep that function shorter; each section's data-shape logic lives in
+// exactly one place either way.
+function applyClientsData(data, opts) {
+  opts = opts || {};
+  sheetClients = data.clients || [];
+  clientCache  = {};
+  sheetClients.forEach(c => {
+    const name = (c['Name(s)'] || '').toLowerCase();
+    // Index by all words including short ones like "Rae"
+    name.split(/[\s,&()+\-\/]+/).filter(w => w.length > 1)
+      .forEach(w => {
+        if (!clientCache[w]) clientCache[w] = [];
+        clientCache[w].push(c);
+      });
+    // Also index by last name (first word before comma) with a "last:" prefix
+    // for stronger matching -- avoids false positives from common words
+    const lastName = name.split(',')[0].trim().split(/[\s\-]+/)[0];
+    if (lastName && lastName.length > 1) {
+      const key = 'last:' + lastName;
+      if (!clientCache[key]) clientCache[key] = [];
+      clientCache[key].push(c);
+    }
+  });
+  if (opts.live) setStatus('clients', 'live', `Clients: ${sheetClients.length} active loaded`);
+}
+
+function applyScheduleData(data, opts) {
+  opts = opts || {};
+  SCHEDULE  = data.days || {};
+
+  // Build sorted day list
+  DAYS      = Object.keys(SCHEDULE).sort();
+  DAY_LABELS = DAYS.map(d => {
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  });
+
+  // Snap to today if in the window.
+  // On Sunday, jump straight to next Monday so last week isn't prominent.
+  // Otherwise snap to the nearest future day, else the first available day.
+  const todayKey = todayDateKey();
+  const isSunday = new Date().getDay() === 0;
+  if (!isSunday && DAYS.includes(todayKey)) {
+    currentDay = todayKey;
+  } else if (isSunday) {
+    // Find the Monday immediately following today
+    const nextMonday = new Date();
+    nextMonday.setDate(nextMonday.getDate() + 1);  // Sunday + 1 = Monday
+    const nextMondayKey = `${nextMonday.getFullYear()}-${String(nextMonday.getMonth()+1).padStart(2,'0')}-${String(nextMonday.getDate()).padStart(2,'0')}`;
+    const future = DAYS.find(d => d >= nextMondayKey);
+    currentDay = future || DAYS[0] || null;
+  } else {
+    // Find nearest day >= today
+    const future = DAYS.find(d => d >= todayKey);
+    currentDay = future || DAYS[0] || null;
+  }
+
+  if (opts.live) {
+    const total = DAYS.reduce((sum, d) => {
+      const day = SCHEDULE[d] || {};
+      return sum + (day.t1||[]).length + (day.t2||[]).length + (day.t3||[]).length + (day.tInstall||[]).length;
+    }, 0);
+    setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
+    // If no days came back, show a helpful message in the status bar
+    if (!DAYS.length) {
+      setStatus('calendar', 'error', 'Calendar: connected but no events returned -- check script timezone and calendar permissions');
+    }
+  }
+  updateWeekLabel();
+}
+
+function applyMorningBriefData(data, opts) {
+  opts = opts || {};
+  morningBrief = data;
+  if (opts.live) {
+    const ac  = morningBrief.all_crew || {};
+    const dbg = morningBrief._debug || {};
+    const parts = [];
+    if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
+    if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
+    if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
+    if (dbg.bdayError)                  parts.push(`birthdays: ${dbg.bdayError}`);
+    const detail = parts.length ? ' -- ' + parts.join(', ') : '';
+    setStatus('brief', 'live', `Morning brief: loaded${detail}`);
+  }
+}
+
+function applyCrewTeamsData(data) {
+  crewTeams = data;
+  // Rebuild crew datalist now that we have names
+  const dl = document.getElementById('dl-crew-global');
+  if (dl) {
+    dl.innerHTML = '';
+    const allNames = [...(crewTeams.t1||[]), ...(crewTeams.t2||[]), ...(crewTeams.t3||[]), ...(crewTeams.tInstall||[])];
+    allNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    });
+  }
+}
+
+function applyManagerScheduleData(data) {
+  MANAGER_SCHEDULE = data;
+}
+
+// loadAll() fires ONE combined request (crew_load_all / crew_load_all_fresh)
+// so the crew panel's initial load and manual reload are each a single
+// round trip rather than four or five separate ones.
+async function loadAll(forceFresh) {
+  document.getElementById('reload-btn').disabled = true;
+  // Re-show status pills during reload so crew can see progress
+  document.querySelectorAll('.status-pill').forEach(p => p.style.display = '');
+  setStatus('clients',  'loading', 'Clients: loading...');
+  setStatus('brief',    'loading', 'Morning brief: loading...');
+  setStatus('calendar', 'loading', 'Calendar: loading...');
+
+  // -- Show/hide Managers tab based on role --------------------
+  // Done early so the tab appears/disappears before data loads.
+  const _isManager = isManagerUser();
+  const _mgrTab    = document.getElementById('ttab-managers');
+  if (_mgrTab) _mgrTab.style.display = _isManager ? '' : 'none';
+
+  // -- Single combined fetch ------------------------------------
+  // Ask for manager_schedule only when it'll actually be used.
+  let bundle = null, bundleErr = null;
+  _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
+  try {
+    const mgrExtra = _isManager ? '&mgr=1' : '';
+    bundle = forceFresh
+      ? await apiFetch('crew_load_all_fresh', mgrExtra)
+      : await fetchCrewLoadAllWithFallback(mgrExtra);
+  } catch(e) { bundleErr = e; }
+  clearSlowLoadBanner();
+
+  // Reconstruct the per-section {status, value|reason} shape the rest
+  // of this function expects. A section-level {error: '...'} from the
+  // backend (one sheet/calendar failed) or a hard network failure
+  // (bundleErr) both surface as 'rejected'.
+  function toResult(section) {
+    if (bundleErr) return { status: 'rejected', reason: bundleErr };
+    const val = bundle ? bundle[section] : undefined;
+    if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    return { status: 'fulfilled', value: val === undefined ? null : val };
+  }
+
+  const results = [
+    toResult('active_clients'),
+    toResult('schedule'),
+    toResult('morning_brief'),
+    toResult('crew_teams'),
+    _isManager ? toResult('manager_schedule') : { status: 'fulfilled', value: null },
+  ];
+
+  // -- Track which items fell back to offline cache --------------
+  let offlineCacheTs = null;   // timestamp of oldest stale item used
+
+  function useOffline(action, staleResult, label) {
+    const persisted = persistLoad(action);
+    if (persisted) {
+      if (!offlineCacheTs || persisted.ts < offlineCacheTs) offlineCacheTs = persisted.ts;
+      setStatus(label, 'loading', `${label.charAt(0).toUpperCase() + label.slice(1)}: cached`);
+      return persisted.data;
+    }
+    setStatus(label, 'error', `${label.charAt(0).toUpperCase() + label.slice(1)}: ${staleResult.reason && staleResult.reason.message}`);
+    return null;
+  }
+
+  // -- Clients --
+  const clientsData = results[0].status === 'fulfilled'
+    ? results[0].value
+    : useOffline('active_clients', results[0], 'clients');
+
+  if (clientsData) {
+    if (results[0].status === 'fulfilled') persistSave('active_clients', clientsData);
+    applyClientsData(clientsData, { live: results[0].status === 'fulfilled' });
+  }
+
+  // -- Calendar / Schedule --
+  const calData = results[1].status === 'fulfilled'
+    ? results[1].value
+    : useOffline('schedule', results[1], 'calendar');
+
+  if (calData) {
+    if (results[1].status === 'fulfilled') {
+      // Clear any old persist entry before saving the new window
+      // (old entries may cover a different date range)
+      persistClear('schedule');
+      persistSave('schedule', calData);
+    }
+    applyScheduleData(calData, { live: results[1].status === 'fulfilled' });
+  } else {
+    SCHEDULE   = {};
+    DAYS       = [];
+    DAY_LABELS = [];
+    currentDay = null;
+  }
+
+  // -- Morning brief --
+  const briefData = results[2].status === 'fulfilled'
+    ? results[2].value
+    : useOffline('morning_brief', results[2], 'brief');
+
+  if (briefData) {
+    if (results[2].status === 'fulfilled') persistSave('morning_brief', briefData);
+    applyMorningBriefData(briefData, { live: results[2].status === 'fulfilled' });
+  }
+
+  // -- Crew teams (silent -- no status pill) --
+  const teamsData = results[3] && results[3].status === 'fulfilled'
+    ? results[3].value
+    : (persistLoad('crew_teams') || {}).data || null;
+
+  if (teamsData) {
+    if (results[3] && results[3].status === 'fulfilled') persistSave('crew_teams', teamsData);
+    applyCrewTeamsData(teamsData);
+  }
+
+  // -- Manager schedule (managers only) -----------------------
+  const mgrResult = results[4];
+  if (_isManager && mgrResult) {
+    const mgrData = mgrResult.status === 'fulfilled'
+      ? mgrResult.value
+      : (persistLoad('manager_schedule') || {}).data || null;
+
+    if (mgrData) {
+      if (mgrResult.status === 'fulfilled') persistSave('manager_schedule', mgrData);
+      applyManagerScheduleData(mgrData);
+    }
+  }
+
+  // -- Offline banner ----------------------------------------------
+  if (offlineCacheTs) {
+    showOfflineBanner(offlineCacheTs);
+  } else {
+    clearOfflineBanner();
+  }
+
+  document.getElementById('reload-btn').disabled = false;
+
+  // -- Hide status pills when all loaded successfully --------------
+  // The reload button always stays visible so crew can force-refresh
+  // if David updates the calendar early morning.
+  // If any pill has an error, all pills stay visible.
+  setTimeout(() => {
+    const dots   = document.querySelectorAll('.sdot');
+    const allLive = Array.from(dots).every(d => d.classList.contains('live'));
+    document.querySelectorAll('.status-pill').forEach(p => {
+      p.style.display = allLive ? 'none' : '';
+    });
+  }, 800);
+
+  // -- Debug panel (set display:none -> block on the div to enable) --
+  const dbg = document.getElementById('debug-panel');
+  if (dbg && dbg.style.display !== 'none') {
+    const calResult = results[1];
+    const calVal    = calResult.status === 'fulfilled' ? calResult.value : null;
+    dbg.innerHTML =
+      `<b>Calendar status:</b> ${calResult.status}<br>` +
+      `<b>DAYS.length:</b> ${DAYS.length}<br>` +
+      `<b>currentDay:</b> ${currentDay}<br>` +
+      `<b>SCHEDULE keys:</b> ${Object.keys(SCHEDULE).join(', ') || 'none'}<br>` +
+      (calVal ? `<b>window_start:</b> ${calVal.window_start || '?'} &nbsp; <b>window_end:</b> ${calVal.window_end || '?'}<br>` : '') +
+      (calResult.status === 'rejected' ? `<b>Error:</b> ${calResult.reason.message}` : '') +
+      `<b>Clients:</b> ${sheetClients.length}<br>` +
+      `<b>MorningBrief:</b> ${morningBrief ? 'loaded' : 'null'}`;
+    dbg.style.display = 'block';
+  }
+
+  render();
+}
