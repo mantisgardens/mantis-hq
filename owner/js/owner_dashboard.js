@@ -931,6 +931,7 @@ function openAddClient() {
   currentEditId = null;
   document.getElementById('client-modal-title').textContent = 'Add Client';
   clearClientForm();
+  document.getElementById('cf-delete-btn').style.display = 'none';
   document.getElementById('client-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
   document.getElementById('cf-name').focus();
@@ -956,6 +957,7 @@ function editCurrentClient() {
   document.getElementById('cf-scheduling').value   = c['Scheduling Notes']     || '';
   document.getElementById('cf-billing').value      = c['Billing Notes']        || '';
 
+  document.getElementById('cf-delete-btn').style.display = 'inline-block';
   document.getElementById('client-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -1021,6 +1023,42 @@ async function saveClient() {
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save Client';
+  }
+}
+
+// Archives the client currently open in the edit modal (see
+// ownerDeleteClient() in OwnerPortal.gs) — moves their row to the
+// Retired Clients tab rather than deleting it outright, so Drive
+// folder/records/history stay intact and the row is recoverable by
+// moving it back manually. A confirm() dialog gates this since it's
+// otherwise a single click away with no in-app undo, same pattern as
+// the Login Log's "Clear" button (clearCrewLoginLog() above).
+async function deleteCurrentClient() {
+  if (!currentEditId) return;
+  const c    = allClients.find(x => x['Client ID'] === currentEditId);
+  const name = (c && c['Name(s)']) || 'this client';
+  if (!confirm(`Delete ${name}? This moves them out of the active client list into Retired Clients — their Drive folder and records stay intact, but this can't be undone from within the app.`)) return;
+
+  const delBtn = document.getElementById('cf-delete-btn');
+  delBtn.disabled = true;
+  delBtn.textContent = 'Deleting…';
+
+  try {
+    // 20s, not the default 7s — same requestCachePublish_() reasoning
+    // as ownerSaveClient/saveClient above.
+    await ownerPost('ownerDeleteClient', { clientId: currentEditId }, 20000);
+    showToast('Client deleted ✓');
+    closeClientModal();
+    sessionStorage.removeItem('oc_cache_ownerClients');
+    const fresh = await ownerFetch('ownerClients');
+    allClients = _sortClientsByName(fresh.clients || []);
+    renderClients(document.getElementById('client-search').value || '');
+    populateClientFilter();
+  } catch(err) {
+    showToast('Delete failed: ' + err.message);
+  } finally {
+    delBtn.disabled = false;
+    delBtn.textContent = 'Delete Client';
   }
 }
 
