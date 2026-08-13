@@ -424,6 +424,12 @@ body.login-page{
    confusing them together. */
 .fbtn-apply{background:var(--b);border-color:var(--b);color:#fff}
 .fbtn-apply:hover{opacity:.85}
+/* margin-right:auto pushes this to the opposite end of the flex-end
+   footer from Cancel/Save, matching the "destructive action set apart"
+   convention already used elsewhere (see DANGER ACTION BUTTON below). */
+.fbtn-delete{background:#fff;border-color:#e8c0bc;color:#c0392b;margin-right:auto}
+.fbtn-delete:hover{background:#fdf0ef;border-color:#c0392b}
+.fbtn-delete:disabled{opacity:.5;cursor:not-allowed}
 .form-extra-details{margin-top:16px;border-top:1px solid var(--bg3);padding-top:4px}
 .form-extra-summary{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);cursor:pointer;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
 .form-extra-summary::-webkit-details-marker{display:none}
