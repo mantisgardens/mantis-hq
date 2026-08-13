@@ -122,9 +122,33 @@ function showError(msg) {
   el.style.display = 'block';
 }
 
+// ── gisInitialize ────────────────────────────────────────────
+// Makes google.accounts.id.initialize() idempotent per page life — same
+// guard as mantis_landing.js's gisInitialize() (the crew login page),
+// missing here until now. Re-initializing while a FedCM credential
+// request from an earlier initialize() may still be in flight aborts
+// that request ("FedCM get() rejects with AbortError"), and repeated
+// aborted FedCM requests are exactly what trips Chrome's "FedCM was
+// disabled...based on previous user action" cooldown for the site —
+// once that lands, the next sign-in falls all the way back to GIS's
+// slower iframe-relay flow instead of the fast FedCM path, which reads
+// as the login just hanging or needing several attempts before one
+// finally goes through. This page only calls initGoogleSignIn() once
+// today (no re-render-on-failure path the way crew's doSignOut() has),
+// so this guard is defensive rather than fixing an active double-call
+// here — but it's what keeps that true if this page's flow ever grows
+// a retry-without-reload path later, and keeps this file matching the
+// pattern crew already needed for real.
+let _gisInitDone = false;
+function gisInitialize(config) {
+  if (_gisInitDone) return;
+  google.accounts.id.initialize(config);
+  _gisInitDone = true;
+}
+
 function initGoogleSignIn() {
   if (!CLIENT_ID) return;
-  google.accounts.id.initialize({
+  gisInitialize({
     client_id:   CLIENT_ID,
     callback:    handleCredential,
     auto_select: true,
