@@ -313,7 +313,15 @@
     </div>
 
     <!-- Tab bar: Notes → Fertilizer → Labor → Photos -->
-    <div class="history-tabs" id="history-tabs" style="display:none">
+    <!-- Wrapped so left/right scroll arrows can be positioned over the
+         row's edges for desktop mouse users -- the row itself scrolls
+         via touch swipe fine on phones/tablets already, but had no
+         discoverable way to scroll with a plain desktop mouse (only
+         Shift+wheel, which most people don't know about). -->
+    <div class="history-tabs-wrap">
+      <button class="htab-arrow htab-arrow-left" id="htab-arrow-left"
+              onclick="_scrollHistoryTabs(-1)" aria-label="Scroll tabs left" style="display:none">&#10094;</button>
+      <div class="history-tabs" id="history-tabs" style="display:none">
       <button class="htab active" id="htab-notes"    onclick="switchHistoryTab('notes')">
         &#128196; Notes <span class="htab-ct" id="htab-ct-notes"></span>
       </button>
@@ -329,6 +337,9 @@
       <button class="htab" id="htab-photos"    onclick="switchHistoryTab('photos')">
         &#128247; Photos <span class="htab-ct" id="htab-ct-photos"></span>
       </button>
+      </div>
+      <button class="htab-arrow htab-arrow-right" id="htab-arrow-right"
+              onclick="_scrollHistoryTabs(1)" aria-label="Scroll tabs right" style="display:none">&#10095;</button>
     </div>
 
     <div class="modal-body" id="history-body">
