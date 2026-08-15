@@ -1,0 +1,508 @@
+/* =============================================================
+   owner.css
+   Mantis Gardens — Owner Portal
+
+   Sections:
+     1.  Typography (fonts & size scale) — EDIT SIZES HERE
+     2.  CSS Variables & Reset
+     3.  Login Page
+     4.  Header
+     5.  Nav Tabs
+     6.  Status Bar
+     7.  Content & Tabs
+     8.  Schedule (week nav, day-card grid, team sections, job pills)
+     9.  Client List
+     10. Work Records
+     11. Work Documents
+     12. Morning Notes (notes editor, leads grid)
+     13. Client Profile Modal
+     14. Modals
+     15. Form Elements
+     16. Modal Buttons
+     17. Empty State
+     18. Toast
+     19. Responsive
+     20. Crew Login Log
+     21. Danger Action Button (Crew Logins Clear)
+     22. Note Editor Popup
+
+   This directory used to just say "3. (page-specific styles below)"
+   even though the file already had ~19 separately-named sections —
+   they used a different, unnumbered comment style ("── NAME ──")
+   than sections 1-2's numbered banners, so nothing above matched
+   what was actually here. Filled in for real; keep this list in
+   sync with the file going forward.
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* =============================================================
+   1. TYPOGRAPHY — font families & size scale
+   -------------------------------------------------------------
+   Everything below is the ONLY place font sizes/families are
+   defined. Every rule further down in this file references one
+   of these variables instead of a hardcoded size, so bumping a
+   number here changes every matching element on the page at once.
+
+   This scale USED TO match the crew portal's (mantis_crew_panel.css)
+   1:1, but the owner found the everyday reading tiers (label/small/
+   body/sub/title) too large here specifically, so they were dialed
+   back a notch — the two files' scales are now intentionally
+   different. The crew portal's own scale is untouched.
+
+   Sizes are in rem (1rem = the browser's default 16px), so they
+   scale together with a user's browser/OS text-size setting.
+   1rem is the smallest size used anywhere in this file — nothing
+   should go below it.
+
+   If feedback says a specific kind of text is still too small,
+   find which tier it uses in the comments below and bump just
+   that one variable.
+   ============================================================= */
+:root{
+  /* Font families */
+  --font-body:    "DM Sans", sans-serif;     /* everyday UI text: buttons, inputs, body copy */
+  --font-mono:    "DM Mono", monospace;       /* meta info: dates, tags, uppercase labels */
+  --font-display: "Fraunces", serif;          /* italic serif: titles, headings */
+
+  /* Font size scale, smallest to largest */
+  --fs-tiny:  1rem;      /* 16px — tiny badges (today-badge, record-id) */
+  --fs-label: 1.0625rem; /* 17px — meta labels (record date, doc type, sign-out) */
+  --fs-small: 1.125rem;  /* 18px — secondary text (nav tabs, login sub, profile labels) */
+  --fs-body:  1.1875rem; /* 19px — main reading text: client rows, form fields, notes */
+  --fs-sub:   1.3125rem; /* 21px — sub-headings */
+  --fs-title: 1.5rem;    /* 24px — section/panel/modal titles */
+  --fs-xl:    2rem;      /* 32px — large icon glyphs (reserved; unused in this file today) */
+  --fs-2xl:   2.25rem;   /* 36px — reserved for larger hero text (used on landing/manual pages) */
+  --fs-3xl:   2.5rem;    /* 40px — reserved for larger hero text (used on landing/manual pages) */
+  --fs-4xl:   2.75rem;   /* 44px — reserved for larger hero text (used on landing/manual pages) */
+  --fs-5xl:   3rem;      /* 48px — biggest text on the page (login title) */
+  --fs-6xl:   3.5rem;    /* 56px — biggest tier in the shared scale (used on landing/manual pages) */
+
+  /* Card elevation — one subtle shadow used consistently on card-like
+     surfaces (client rows, day-cards, notes sections, modals) instead
+     of the flat 1px-border-only look this file used to have everywhere. */
+  --shadow-card: 0 1px 3px rgba(28,26,20,0.08);
+}
+
+/* =============================================================
+   2. CSS VARIABLES & RESET
+   ============================================================= */
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--fs-body);min-height:100vh}
+
+/* =============================================================
+   3. LOGIN PAGE
+   ============================================================= */
+body.login-page{
+  background:var(--g);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.login-card{
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:14px;padding:44px 40px 36px;
+  width:100%;max-width:380px;text-align:center;
+}
+.login-logo{width:72px;height:72px;object-fit:contain;margin-bottom:18px;filter:brightness(0) invert(1);opacity:0.9}
+.login-title{font-family:var(--font-display);font-size:var(--fs-5xl);font-weight:300;color:#fff;font-style:italic;margin-bottom:4px}
+.login-sub{font-family:var(--font-mono);font-size:var(--fs-small);color:rgba(255,255,255,0.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:28px}
+.login-divider{height:1px;background:rgba(255,255,255,0.12);margin-bottom:28px}
+.google-signin-wrap{display:flex;justify-content:center;margin-bottom:20px}
+.login-error{display:none;background:rgba(192,57,43,0.3);border:1px solid rgba(192,57,43,0.5);color:#ffcccc;border-radius:6px;padding:10px 14px;font-size:var(--fs-body);margin-bottom:16px}
+.login-footer{font-size:var(--fs-small);color:rgba(255,255,255,0.35);margin-top:20px}
+
+/* =============================================================
+   4. HEADER
+   ============================================================= */
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9}
+.brand-name{font-family:var(--font-display);font-size:var(--fs-title);font-weight:300;color:#d4eacf;font-style:italic}
+.brand-sub{font-family:var(--font-mono);font-size:var(--fs-tiny);color:rgba(255,255,255,0.5);letter-spacing:.12em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:12px}
+.user-name{font-size:var(--fs-body);color:rgba(255,255,255,0.7);font-family:var(--font-mono)}
+.sign-out-btn{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.06em;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:5px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase}
+.sign-out-btn:hover{background:rgba(255,255,255,0.22)}
+
+/* =============================================================
+   5. NAV TABS
+   ============================================================= */
+.nav-tabs{background:var(--bg2);border-bottom:2px solid var(--bg3);display:flex;padding:0 12px;overflow-x:auto}
+.nav-tab{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.08em;text-transform:uppercase;padding:11px 16px;border:none;border-bottom:2px solid transparent;background:none;color:var(--ink3);cursor:pointer;white-space:nowrap;margin-bottom:-2px;transition:all .15s}
+.nav-tab:hover{color:var(--ink)}
+.nav-tab.active{color:var(--g);border-bottom-color:var(--g);font-weight:500}
+
+/* =============================================================
+   6. STATUS BAR
+   ============================================================= */
+.status-bar{background:var(--bg2);border-bottom:1px solid var(--bg3);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.status-pill{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);letter-spacing:.06em;background:#fff;border:1px solid var(--bg3);padding:3px 9px;border-radius:12px}
+.sdot{width:6px;height:6px;border-radius:50%;background:#ccc;flex-shrink:0}
+.sdot.live{background:var(--g2)}.sdot.loading{background:var(--a2);animation:pulse .8s infinite}.sdot.error{background:#c0392b}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.reload-btn{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.06em;text-transform:uppercase;background:var(--g3);color:var(--g);border:1px solid var(--g4);padding:4px 12px;border-radius:4px;cursor:pointer;margin-left:auto;transition:all .15s}
+.reload-btn:hover{background:var(--g2);color:#fff}
+.reload-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* "Still warming up" banner — same treatment as the crew panel's
+   equivalent (mantis_crew_panel.css), shown when a cache-only load
+   hits a cold cache. See showWarmingBanner() in owner_dashboard.js. */
+.offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--a);letter-spacing:0.04em}
+.offline-icon{font-size:var(--fs-body);flex-shrink:0}
+.offline-banner span:nth-child(2){flex:1}
+.offline-retry{cursor:pointer;text-decoration:underline;font-weight:600;white-space:nowrap}
+.offline-retry:hover{color:var(--ink)}
+
+/* =============================================================
+   7. CONTENT & TABS
+   ============================================================= */
+.content{padding:0}
+.tab-panel{display:none;animation:fadeIn .2s ease;min-width:0}
+.tab-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bg3);background:#fff;flex-wrap:wrap;gap:10px}
+.panel-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:300;font-style:italic;color:var(--ink)}
+.panel-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.search-input{padding:7px 12px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);font-family:inherit;background:#fff;color:var(--ink);outline:none;min-width:200px;transition:border-color .15s}
+.search-input:focus{border-color:var(--g)}
+.filter-select{padding:7px 10px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);font-family:var(--font-mono);background:#fff;color:var(--ink);cursor:pointer;outline:none}
+.action-btn{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;padding:7px 14px;border-radius:6px;border:1.5px solid var(--bg3);background:var(--bg2);color:var(--ink2);cursor:pointer;text-transform:uppercase;transition:all .15s}
+.action-btn:hover{background:var(--bg3)}
+.action-btn.primary{background:var(--g);color:#fff;border-color:var(--g)}
+.action-btn.primary:hover{background:var(--g2)}
+
+/* =============================================================
+   8. SCHEDULE
+   ============================================================= */
+.week-nav{display:flex;align-items:center;gap:8px}
+.wk-btn{background:var(--bg2);border:1.5px solid var(--bg3);color:var(--ink2);width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:var(--fs-sub);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.wk-btn:hover{background:var(--bg3)}
+.wk-label{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);min-width:160px;text-align:center}
+
+.schedule-grid { padding: 16px; }
+
+/* ── Day-card grid ─────────────────────────────────────────── */
+.day-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.day-card {
+  background: #fff;
+  border: 1px solid var(--bg3);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.day-card-today {
+  border-color: var(--g);
+  box-shadow: 0 0 0 1.5px var(--g);
+}
+.day-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--b);
+  border-bottom: 1px solid var(--bg3);
+}
+.day-card-name { font-size:var(--fs-body); font-weight: 600; color: #fff; flex: 1; }
+.today-badge { font-size:var(--fs-tiny); background: var(--a2); color: var(--ink); font-weight: 700; padding: 1px 6px; border-radius: 3px; font-family:var(--font-mono); }
+
+/* ── Team sections inside each day-card ─────────────────────── */
+.dc-team { padding: 8px 12px; border-bottom: 1px solid var(--bg3); }
+.dc-team:last-child { border-bottom: none; }
+.dc-team-label {
+  font-family:var(--font-mono);
+  font-size:var(--fs-tiny);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 5px;
+  padding: 3px 6px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.dc-team-label.t1      { background: #e6f5e6; color: #217a21; }
+.dc-team-label.t2      { background: #f1e8fb; color: #7c4dbf; }
+.dc-team-label.t3      { background: #fce8f0; color: #c94f85; }
+.dc-team-label.install { background: #fdf0dc; color: #c2700a; }
+.dc-team-label.mgr     { background: #f5ede0; color: #6b4a20; }
+.dc-empty { color: var(--ink3); font-size:var(--fs-small); padding: 2px 0 4px; }
+
+/* ── Manager sub-stream label ────────────────────────────────── */
+.dc-stream-label {
+  font-size:var(--fs-label);
+  font-weight: 600;
+  color: var(--ink3);
+  margin: 6px 0 3px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--bg3);
+}
+.dc-stream-label:first-child { margin-top: 0; }
+
+/* ── Job pills ───────────────────────────────────────────────── */
+.sched-job { margin-bottom: 5px; padding: 4px 7px; background: var(--bg2); border-radius: 4px; border-left: 3px solid var(--bg3); box-shadow: 0 1px 2px rgba(28,26,20,0.06); }
+.dc-t1 .sched-job      { border-left-color: #217a21; background: #e6f5e6; }
+.dc-t2 .sched-job      { border-left-color: #7c4dbf; background: #f1e8fb; }
+.dc-t3 .sched-job      { border-left-color: #c94f85; background: #fce8f0; }
+.dc-install .sched-job { border-left-color: #c2700a; background: #fdf0dc; }
+.dc-mgr .sched-job     { border-left-color: #6b4a20; background: #f5ede0; }
+.sched-job-client  { font-size:var(--fs-body); font-weight: 600; color: var(--ink); }
+.sched-job-meta    { font-size:var(--fs-label); color: var(--ink3); font-family:var(--font-mono); margin-top: 1px; }
+.sched-dur         { margin-left: 6px; }
+
+/* =============================================================
+   9. CLIENT LIST
+   ============================================================= */
+.client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.client-row{background:#fff;border:1px solid var(--bg3);border-left:3px solid var(--bg3);border-radius:6px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
+.client-row.is-active{border-left-color:var(--g)}
+.client-row:hover{border-color:var(--g);border-left-color:var(--g);background:var(--g3);box-shadow:0 2px 6px rgba(28,26,20,0.1)}
+.client-row-main{flex:1;min-width:0}
+.client-row-name{font-weight:600;font-size:var(--fs-body);color:var(--ink);margin-bottom:3px}
+.client-row-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:var(--fs-body);color:var(--ink3);margin-bottom:3px}
+.client-row-notes{font-size:var(--fs-body);color:var(--ink2);margin-top:4px;line-height:1.4}
+.client-row-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.client-id-badge{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);background:var(--bg2);border:1px solid var(--bg3);padding:2px 7px;border-radius:4px}
+.active-badge{font-size:var(--fs-label);padding:2px 8px;border-radius:10px;font-family:var(--font-mono);font-weight:500}
+.active-badge.active{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.active-badge.inactive{background:var(--bg2);color:var(--ink3);border:1px solid var(--bg3)}
+
+/* =============================================================
+   10. WORK RECORDS
+   ============================================================= */
+.records-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.record-row{background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:12px 16px}
+.record-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.record-date{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);background:var(--bg2);border:1px solid var(--bg3);padding:2px 8px;border-radius:4px}
+.record-client{font-weight:600;font-size:var(--fs-body);color:var(--ink)}
+.record-team{font-size:var(--fs-small);color:var(--ink3)}
+.record-id{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);margin-left:auto}
+.record-detail{font-size:var(--fs-body);color:var(--ink2);margin-bottom:2px}
+.rd-label{font-weight:600;color:var(--ink3);font-size:var(--fs-small);margin-right:6px;text-transform:uppercase;font-family:var(--font-mono)}
+.record-notes{font-size:var(--fs-body);color:var(--ink);margin-top:6px;padding:8px 10px;background:var(--bg2);border-radius:4px;line-height:1.5}
+.record-internal{font-size:var(--fs-body);color:var(--rd);margin-top:4px;padding:6px 10px;background:#fdf0f0;border-radius:4px;border-left:3px solid var(--rd)}
+
+/* =============================================================
+   11. WORK DOCUMENTS
+   ============================================================= */
+.docs-info-bar{padding:8px 18px;background:#f0f7f4;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);color:var(--ink3);line-height:1.5}
+.doc-group{margin-bottom:4px}
+.doc-group-name{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);padding:10px 16px 4px;border-top:1px solid var(--bg3);background:var(--bg2)}
+.doc-group:first-child .doc-group-name{border-top:none}
+.doc-row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--bg3);border-radius:8px;padding:10px 14px;margin:0 0 5px}
+.doc-icon{font-size:var(--fs-title);flex-shrink:0;line-height:1}
+.doc-info{flex:1;min-width:0}
+.doc-name{font-size:var(--fs-body);font-weight:600;color:var(--g);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doc-name:hover{text-decoration:underline}
+.doc-client{display:block;font-size:var(--fs-small);color:var(--ink3);margin-top:2px}
+.doc-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.doc-type{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);background:var(--bg2);border:1px solid var(--bg3);padding:1px 6px;border-radius:3px}
+.doc-date{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3)}
+.doc-loading-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--bg3);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* =============================================================
+   12. MORNING NOTES
+   ============================================================= */
+.notes-tabs{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--bg3);background:var(--bg2);overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent;padding-bottom:1px}
+.notes-tabs::-webkit-scrollbar{height:4px}
+.notes-tabs::-webkit-scrollbar-track{background:transparent}
+.notes-tabs::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+.notes-info-bar{padding:8px 18px;background:#f5f7fa;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);color:var(--ink3);line-height:1.5}
+.notes-tab{padding:7px 18px;border:1.5px solid var(--bg3);border-bottom:none;border-radius:6px 6px 0 0;font-size:var(--fs-body);font-family:inherit;background:#fff;color:var(--ink2);cursor:pointer;transition:all .12s;position:relative;bottom:-1px;flex-shrink:0;white-space:nowrap}
+.notes-tab.active{background:#fff;border-color:var(--g);color:var(--g);font-weight:600;border-bottom-color:#fff}
+.notes-editor{padding:16px;display:flex;flex-direction:column;gap:0}
+.notes-section{background:#fff;border:1.5px solid var(--bg3);border-left:3px solid var(--g4);border-radius:6px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
+.notes-section-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--bg3)}
+.notes-title-input{flex:1;border:none;background:transparent;font-size:var(--fs-body);font-weight:700;font-family:inherit;color:var(--ink);outline:none;padding:2px 0}
+.notes-title-input::placeholder{color:var(--ink3);font-weight:400}
+.notes-section-del{border:none;background:none;color:var(--ink3);cursor:pointer;font-size:var(--fs-body);padding:2px 4px;border-radius:4px;transition:color .1s}
+.notes-section-del:hover{color:var(--rd,#c0392b)}
+.notes-items{padding:6px 12px 2px}
+.notes-item-row{display:flex;align-items:center;gap:6px;padding:3px 0}
+.notes-bullet{color:var(--ink3);font-size:var(--fs-body);flex-shrink:0}
+.notes-item-input{flex:1;border:none;border-bottom:1px solid transparent;background:transparent;font-size:var(--fs-body);font-family:inherit;color:var(--ink);outline:none;padding:3px 2px;transition:border-color .12s;cursor:pointer;min-height:1.4em;line-height:1.4}
+.notes-item-input:hover{border-bottom-color:var(--bg3)}
+.notes-item-input .notes-item-placeholder{color:var(--ink3);font-style:italic}
+.notes-item-del{border:none;background:none;color:var(--ink3);cursor:pointer;font-size:var(--fs-small);padding:2px 4px;border-radius:3px;transition:color .1s}
+.notes-item-move{display:flex;flex-direction:column;gap:1px;flex-shrink:0}
+.notes-item-move-btn{border:none;background:none;color:var(--ink3);cursor:pointer;font-size:0.7rem;line-height:1;padding:4px 8px;border-radius:2px;transition:all .1s}
+.notes-item-move-btn:hover{background:var(--bg2);color:var(--g)}
+.notes-item-move-btn:disabled{color:var(--bg3);cursor:default}
+.notes-item-move-btn:disabled:hover{background:none;color:var(--bg3)}
+.notes-item-del:hover{color:var(--rd,#c0392b) !important}
+/* Fade these to invisible-until-hover only on devices that actually
+   have a mouse — touch devices (phones, tablets) have no reliable
+   hover state, so they'd otherwise be permanently hidden there. */
+@media (hover: hover) and (pointer: fine) {
+  .notes-item-del{color:transparent}
+  .notes-item-row:hover .notes-item-del{color:var(--ink3)}
+  .notes-item-move{opacity:0;transition:opacity .1s}
+  .notes-item-row:hover .notes-item-move{opacity:1}
+}
+.notes-add-item{border:none;background:none;color:var(--g);font-size:var(--fs-body);font-family:inherit;cursor:pointer;padding:4px 12px 8px;text-align:left;opacity:.7;transition:opacity .1s}
+.notes-add-item:hover{opacity:1}
+.notes-add-section{border:1.5px dashed var(--bg3);border-radius:8px;background:none;color:var(--ink3);font-size:var(--fs-body);font-family:inherit;cursor:pointer;padding:10px;width:100%;text-align:center;transition:all .12s;margin-top:2px}
+.notes-add-section:hover{border-color:var(--g);color:var(--g)}
+.fbtn-save.unsaved{background:var(--rd,#c0392b);border-color:var(--rd,#c0392b)}
+.leads-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:16px}
+.leads-column{background:#fff;border:1.5px solid var(--bg3);border-left:3px solid var(--g4);border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
+.leads-column-header{background:var(--g);color:#fff;font-weight:700;font-size:var(--fs-body);padding:8px 12px}
+.leads-items{padding:6px 12px 2px}
+.leads-items .notes-item-input{width:100%}
+
+/* =============================================================
+   13. CLIENT PROFILE MODAL
+   ============================================================= */
+.profile-fields{display:flex;flex-direction:column;gap:0}
+.profile-row{display:flex;padding:8px 0;border-bottom:1px solid var(--bg2);gap:12px}
+.profile-row:last-child{border-bottom:none}
+.profile-label{width:160px;min-width:160px;font-size:var(--fs-small);font-weight:600;color:var(--ink3);text-transform:uppercase;font-family:var(--font-mono);padding-top:1px}
+.profile-val{flex:1;font-size:var(--fs-body);color:var(--ink);line-height:1.5}
+.addr-a{color:var(--g2);text-decoration:underline;text-underline-offset:2px}
+.phone-a{color:var(--g2);text-decoration:none}
+.profile-section-title{font-family:var(--font-display);font-size:var(--fs-sub);font-style:italic;color:var(--ink);margin:18px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bg3)}
+.profile-records{display:flex;flex-direction:column;gap:8px}
+.profile-record{padding:10px 12px;background:var(--bg2);border-left:3px solid var(--g4);border-radius:4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.pr-date{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3)}
+.pr-team{font-size:var(--fs-body);color:var(--ink3)}
+.pr-workers{font-size:var(--fs-body);font-weight:600;color:var(--ink)}
+.pr-notes{width:100%;font-size:var(--fs-body);color:var(--ink2);margin-top:4px;line-height:1.4}
+
+/* =============================================================
+   14. MODALS
+   ============================================================= */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;width:100%;max-width:580px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.modal-wide{max-width:720px}
+.modal-header{padding:18px 22px 16px;border-bottom:1px solid var(--bg3);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.modal-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:300;font-style:italic}
+.modal-close{background:none;border:none;font-size:var(--fs-title);color:var(--ink3);cursor:pointer;padding:4px;line-height:1}
+.modal-close:hover{color:var(--ink)}
+.modal-body{padding:20px 22px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--bg3);display:flex;justify-content:flex-end;gap:10px;flex-shrink:0}
+
+/* =============================================================
+   15. FORM ELEMENTS
+   ============================================================= */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:var(--fs-small);font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--font-mono)}
+.required{color:var(--rd)}
+.form-input,.form-textarea{padding:8px 12px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);font-family:inherit;color:var(--ink);background:#fff;outline:none;transition:border-color .15s;width:100%}
+.form-input:focus,.form-textarea:focus{border-color:var(--g)}
+.form-textarea{min-height:80px;resize:vertical}
+
+/* =============================================================
+   16. MODAL BUTTONS
+   ============================================================= */
+.fbtn{padding:9px 20px;border-radius:6px;font-family:var(--font-mono);font-size:var(--fs-body);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;border:1.5px solid;transition:all .15s}
+.fbtn-cancel{background:#fff;border-color:var(--bg3);color:var(--ink3)}
+.fbtn-cancel:hover{background:var(--bg2)}
+.fbtn-save{background:var(--g);border-color:var(--g);color:#fff}
+.fbtn-save:hover{background:var(--g2)}
+.fbtn-save:disabled{opacity:.5;cursor:not-allowed}
+/* Note Editor popup's confirm button — deliberately a different word
+   ("Apply") and color (blue, not green) from the main notes-tab Save
+   button, since this only commits the item's text back into the
+   in-memory note; the owner still has to press the real Save to send
+   anything to the server. Sharing "Save"/green with that button was
+   confusing them together. */
+.fbtn-apply{background:var(--b);border-color:var(--b);color:#fff}
+.fbtn-apply:hover{opacity:.85}
+/* margin-right:auto pushes this to the opposite end of the flex-end
+   footer from Cancel/Save, matching the "destructive action set apart"
+   convention already used elsewhere (see DANGER ACTION BUTTON below). */
+.fbtn-delete{background:#fff;border-color:#e8c0bc;color:#c0392b;margin-right:auto}
+.fbtn-delete:hover{background:#fdf0ef;border-color:#c0392b}
+.fbtn-delete:disabled{opacity:.5;cursor:not-allowed}
+.form-extra-details{margin-top:16px;border-top:1px solid var(--bg3);padding-top:4px}
+.form-extra-summary{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);cursor:pointer;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+.form-extra-summary::-webkit-details-marker{display:none}
+.form-extra-summary::before{content:"›";font-size:var(--fs-body);transition:transform .15s;display:inline-block}
+details[open] .form-extra-summary::before{transform:rotate(90deg)}
+
+/* =============================================================
+   17. EMPTY STATE
+   ============================================================= */
+.empty-state{padding:40px 20px;text-align:center;color:var(--ink3);font-style:italic;font-size:var(--fs-body)}
+.empty-state.small{padding:16px;font-size:var(--fs-body)}
+
+/* =============================================================
+   18. TOAST
+   ============================================================= */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--g);color:#fff;padding:10px 22px;border-radius:8px;font-size:var(--fs-body);font-family:var(--font-mono);opacity:0;transition:all .3s;pointer-events:none;z-index:9999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* =============================================================
+   19. RESPONSIVE
+   ============================================================= */
+@media(max-width:680px){
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+  .hours-header,.hours-row,.hours-footer{grid-template-columns:1fr 60px 1fr}
+  .hours-clients{display:none}
+  .day-card-grid{grid-template-columns:1fr}
+  .panel-header{flex-direction:column;align-items:flex-start}
+}
+
+/* =============================================================
+   20. CREW LOGIN LOG
+   ============================================================= */
+.logins-list{padding:0 20px 20px}
+.logins-empty{padding:40px 20px;text-align:center;color:var(--ink3);font-style:italic;font-size:var(--fs-body)}
+.logins-error{color:var(--rd)}
+.login-date-group{margin-bottom:18px}
+.login-date-header{font-family:var(--font-mono);font-size:var(--fs-small);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g);background:var(--bg2);padding:6px 12px;border-left:3px solid var(--g);margin-bottom:2px;border-radius:0 4px 4px 0}
+.login-row{display:grid;grid-template-columns:72px 160px 1fr 1fr;align-items:center;gap:12px;padding:7px 12px;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);transition:background .1s}
+.login-row:hover{background:var(--bg2)}
+.login-time{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);white-space:nowrap}
+.login-name{font-weight:600;color:var(--ink)}
+.login-team{font-size:var(--fs-body);color:var(--g2)}
+.login-email{font-size:var(--fs-body);color:var(--ink3)}
+@media(max-width:680px){
+  .login-row{grid-template-columns:60px 1fr 1fr;gap:8px}
+  .login-email{display:none}
+}
+
+
+/* =============================================================
+   21. DANGER ACTION BUTTON (CREW LOGINS CLEAR)
+   ============================================================= */
+.action-btn-danger {
+  background: #fff;
+  color: #c0392b;
+  border-color: #e8c0bc;
+}
+.action-btn-danger:hover {
+  background: #fdf0ef;
+  border-color: #c0392b;
+}
+
+/* =============================================================
+   22. NOTE EDITOR POPUP
+   ============================================================= */
+.ne-toolbar{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bg3)}
+.ne-btn{min-width:30px;height:30px;padding:0 8px;border:1.5px solid var(--bg3);border-radius:5px;background:#fff;color:var(--ink2);font-size:var(--fs-body);font-family:inherit;cursor:pointer;transition:all .12s}
+.ne-btn:hover{background:var(--bg2);border-color:var(--g)}
+.ne-sep{width:1px;height:22px;background:var(--bg3);margin:0 4px}
+.ne-swatch{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--bg3);cursor:pointer;padding:0;transition:transform .1s}
+.ne-swatch:hover{transform:scale(1.15)}
+.ne-swatch-clear{background:#fff;border-style:dashed}
+.ne-canvas{min-height:70px;border:1.5px solid var(--bg3);border-radius:6px;padding:12px 14px;font-size:var(--fs-body);color:var(--ink);line-height:1.5;outline:none;background:#fff}
+.ne-canvas:focus{border-color:var(--g)}
+.ne-hint{font-size:var(--fs-small);color:var(--ink3);margin-top:8px;font-style:italic}
