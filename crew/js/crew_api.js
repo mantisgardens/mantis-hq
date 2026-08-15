@@ -27,6 +27,16 @@ const CACHE_TTL = {
 // with no signal and still see the last known schedule.
 // TTL is 24 hours — stale enough to be safe, fresh enough to matter.
 const PERSIST_TTL  = 24 * 60 * 60 * 1000;
+// Per-action overrides for data that changes frequently enough that
+// the 24h default would serve visibly stale content. Morning brief
+// specifically: the Owner Portal invalidates the server-side cache
+// whenever notes are saved, but the browser's localStorage copy
+// bypasses that entirely on a plain refresh. Matching the server's
+// own 20-minute TTL (src/config.js CACHE_TTL.morning_brief) means
+// the local copy never outlives what the server would serve anyway.
+const PERSIST_TTL_OVERRIDES = {
+  morning_brief: 20 * 60 * 1000,  // 20 min -- matches server CACHE_TTL.morning_brief
+};
 const PERSIST_KEYS = {
   active_clients:   'mg_persist_clients',
   schedule:         'mg_persist_schedule',
@@ -38,6 +48,7 @@ const PERSIST_KEYS = {
 function persistSave(action, data) {
   const key = PERSIST_KEYS[action];
   if (!key) return;
+  const ttl = PERSIST_TTL_OVERRIDES[action] || PERSIST_TTL;
   try {
     localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
   } catch(e) { /* storage full — skip */ }
@@ -55,7 +66,8 @@ function persistLoad(action) {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > PERSIST_TTL) return null;  // too stale
+    const ttl = PERSIST_TTL_OVERRIDES[action] || PERSIST_TTL;
+    if (Date.now() - ts > ttl) return null;  // too stale
     return { data, ts };
   } catch(e) { return null; }
 }
@@ -121,11 +133,33 @@ function clearSlowLoadBanner() {
   if (b) b.remove();
 }
 
-// Cloud Run cutover: the "still warming up" banner that used to live
-// here (showWarmingBanner()/clearWarmingBanner()) was already unused
-// dead code even before this cutover -- nothing ever called it. This
-// backend never returns a warming placeholder in the first place (see
-// apiFetch() below), so there's no reason to bring the concept back.
+// ── "Still warming up" banner ────────────────────────────────────
+// Shown when the backend returned valid-but-empty placeholder data
+// because its cache was cold and this request didn't force a live
+// fetch (see the matching "Cache-only mode" note in Schedule.gs's
+// getSchedule()). Should be rare and short-lived — the prewarmCache
+// trigger refreshes the cache every 5 minutes — but worth explaining
+// rather than leaving a crew member wondering why their schedule
+// looks empty.
+function showWarmingBanner() {
+  let banner = document.getElementById('warming-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'warming-banner';
+    banner.className = 'offline-banner';
+    const statusBar = document.querySelector('.status-bar');
+    statusBar.parentNode.insertBefore(banner, statusBar);
+  }
+  banner.innerHTML =
+    `<span class="offline-icon">&#8987;</span>` +
+    `<span>Data is still warming up — this refreshes automatically every few minutes.</span>` +
+    `<span class="offline-retry" onclick="reloadAll()">Reload now</span>`;
+}
+
+function clearWarmingBanner() {
+  const b = document.getElementById('warming-banner');
+  if (b) b.remove();
+}
 
 // ── fetchWithTimeout ──────────────────────────────────────────────
 // Plain fetch() has NO built-in timeout — if a request stalls mid-
@@ -202,33 +236,22 @@ async function apiFetch(action, extra) {
   const idToken = sessionStorage.getItem('mg_id_token') || '';
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
-  // crew-cloud/ REST-path translation instead of Apps Script's
-  // single-endpoint ?action= dispatch -- SCRIPT_URL here actually
-  // holds CLOUD_RUN_URL's value (see mantis_config.js). Only two
-  // actions are ever passed to apiFetch() (crew_load_all and its
-  // _fresh variant) -- everything else in this app calls fetch()
-  // directly and is translated at its own call site instead.
-  const ACTION_PATHS = {
-    crew_load_all: '/crew-load-all',
-    crew_load_all_fresh: '/crew-load-all-fresh',
-  };
-  const path = ACTION_PATHS[action] || ('/' + action);
-  // Build the query string from non-empty fragments explicitly rather
-  // than concatenating pieces that each assume a leading '&' -- that
-  // pattern (inherited from the original ?action= construction) only
-  // works when every piece is guaranteed non-empty, which authParam
-  // isn't (no id_token yet is a real, if brief, state during load).
-  const queryParts = [authParam.replace(/^&/, ''), extra.replace(/^&/, ''), `_=${Date.now()}`].filter(Boolean);
-  const data = await fetchJsonWithRetry(`${SCRIPT_URL}${path}?${queryParts.join('&')}`);
+  const data = await fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}${authParam}${extra}&_=${Date.now()}`);
   if (data.error) throw new Error(data.error);
 
-  // Store in cache. No "is this a warming placeholder" check needed
-  // here anymore -- this backend always does a live fetch on a cache
-  // miss (see the build doc's design decisions on why the cache-only
-  // + warming-placeholder architecture was never ported), so a
-  // response is always either real data or a thrown error, never a
-  // known-stale placeholder worth avoiding caching.
-  if (ttl) {
+  // Don't cache a "still warming up" result — see Schedule.gs's
+  // getSchedule() and loadAll() below for what that means. It's
+  // known-stale placeholder data; caching it client-side would just
+  // delay picking up the real data once the server-side cache
+  // populates a moment later (up to this action's own TTL, e.g. 3
+  // minutes for crew_load_all — comparable to the ~5 minute prewarm
+  // trigger interval, so skipping this would meaningfully extend how
+  // long a placeholder could linger instead of showing real data).
+  const isWarmingResult = data && typeof data === 'object' &&
+    ['active_clients','schedule','morning_brief','crew_teams'].some(k => data[k] && data[k].warming);
+
+  // Store in cache
+  if (ttl && !isWarmingResult) {
     try {
       sessionStorage.setItem(
         `mg_cache_${action}${extra}`,
@@ -240,21 +263,52 @@ async function apiFetch(action, extra) {
   return data;
 }
 
-// -- fetchCrewLoadAllWithFallback --------------------------------
-// crew-cloud/ simplification: the original checked a static JSON
-// snapshot (published via Apps Script's GitHub-publish pipeline,
-// requestCachePublish_() in Utilities.gs) before falling back to a
-// live request -- a workaround for Apps Script's own serving-layer
-// stalls. Cloud Run doesn't have that problem (see the build doc's
-// load-test results: 100% success across every concurrency level
-// tested) and has no such pipeline producing a snapshot to check for
-// in the first place, so checking for one here would only ever fail
-// and add a wasted round trip before falling through to the same
-// live call anyway. Kept as its own named function (rather than
-// inlining apiFetch() at its one call site) purely so that call site
-// doesn't need to change.
+// ── fetchCrewLoadAllWithFallback ──────────────────────────────
+// Apps Script's own serving path (script.google.com → redirect to
+// script.googleusercontent.com/macros/echo) is the one that's been
+// stalling — see the FETCH_TIMEOUT_MS comment above for the full HAR
+// evidence. This bypasses that path entirely for the ordinary
+// (non-forceFresh) load: Apps Script event-driven-publishes a static
+// snapshot of crew_load_all's data as a plain JSON file into the same
+// repo (see requestCachePublish_() in Utilities.gs), served by GitHub
+// Pages from the same origin as this page — so fetch() never touches
+// script.google.com at all for this call, and never hits the redirect
+// that's been the actual source of every stall we've captured.
+//
+// Falls back to the normal apiFetch('crew_load_all', ...) path (with
+// its own timeout/retry) on ANY failure — missing file, stale/failed
+// deploy, network error, doesn't matter. Returns the exact same bundle
+// shape either way, so nothing downstream in loadAll() needs to know
+// or care which path actually supplied the data. That makes this
+// strictly additive: when the static file is there, it's fast; when
+// it isn't (or is failing) for whatever reason, behavior is identical
+// to before this existed.
+//
+// A short timeout (well under FETCH_TIMEOUT_MS) is deliberate — a
+// same-origin static file on GitHub Pages' CDN should resolve in well
+// under a second when it's working at all; there's no legitimate slow
+// case here to wait out, only "works fast" or "doesn't work," so this
+// should fail over to the live path quickly rather than eating into
+// the crew member's wait before the real fallback even starts.
+const STATIC_CACHE_URL      = 'data/crew_load_all.json';
+const STATIC_CACHE_TIMEOUT_MS = 4000;
+
 async function fetchCrewLoadAllWithFallback(extra) {
-  return apiFetch('crew_load_all', extra);
+  try {
+    const res = await fetchWithTimeout(`${STATIC_CACHE_URL}?_=${Date.now()}`, STATIC_CACHE_TIMEOUT_MS);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data || typeof data !== 'object') throw new Error('Malformed static cache payload');
+    // Visible confirmation the static path actually served this load —
+    // useful while we're still verifying this in the field. Remove
+    // once confident, or gate behind a debug flag if it turns out to
+    // be more noise than signal for daily crew use.
+    if (typeof showToast === 'function') showToast('Loaded from GitHub cache');
+    return data;
+  } catch(err) {
+    console.warn('Static cache fetch failed, falling back to live request:', err.message);
+    return apiFetch('crew_load_all', extra);
+  }
 }
 
 function setStatus(id, state, msg) {
@@ -263,10 +317,10 @@ function setStatus(id, state, msg) {
   document.getElementById(`sl-${id}`).textContent = msg;
 }
 
-// -- Apply-data helpers --------------------------------------------
-// Each takes a raw section payload -- same shape whether it came from a
+// ── Apply-data helpers ──────────────────────────────────────────
+// Each takes a raw section payload — same shape whether it came from a
 // fresh network response or the 24-hour offline snapshot (useOffline()
-// below, used only when the network call actually fails) -- and updates
+// below, used only when the network call actually fails) — and updates
 // the corresponding global state (+ status pill, when opts.live is
 // set). Pulled out of loadAll()'s inline per-section handling just to
 // keep that function shorter; each section's data-shape logic lives in
@@ -284,7 +338,7 @@ function applyClientsData(data, opts) {
         clientCache[w].push(c);
       });
     // Also index by last name (first word before comma) with a "last:" prefix
-    // for stronger matching -- avoids false positives from common words
+    // for stronger matching — avoids false positives from common words
     const lastName = name.split(',')[0].trim().split(/[\s\-]+/)[0];
     if (lastName && lastName.length > 1) {
       const key = 'last:' + lastName;
@@ -334,7 +388,7 @@ function applyScheduleData(data, opts) {
     setStatus('calendar', 'live', `Calendar: ${total} events across ${DAYS.length} days`);
     // If no days came back, show a helpful message in the status bar
     if (!DAYS.length) {
-      setStatus('calendar', 'error', 'Calendar: connected but no events returned -- check script timezone and calendar permissions');
+      setStatus('calendar', 'error', 'Calendar: connected but no events returned — check script timezone and calendar permissions');
     }
   }
   updateWeekLabel();
@@ -350,8 +404,8 @@ function applyMorningBriefData(data, opts) {
     if ((ac.birthdays||[]).length)     parts.push(`${ac.birthdays.length} birthday${ac.birthdays.length > 1 ? 's' : ''}`);
     if ((ac.time_off||[]).length)       parts.push(`${ac.time_off.length} time off`);
     if ((ac.special_events||[]).length) parts.push(`${ac.special_events.length} event${ac.special_events.length > 1 ? 's' : ''}`);
-    if (dbg.bdayError)                  parts.push(`birthdays: ${dbg.bdayError}`);
-    const detail = parts.length ? ' -- ' + parts.join(', ') : '';
+    if (dbg.bdayError)                  parts.push(`⚠ birthdays: ${dbg.bdayError}`);
+    const detail = parts.length ? ' — ' + parts.join(', ') : '';
     setStatus('brief', 'live', `Morning brief: loaded${detail}`);
   }
 }
@@ -375,9 +429,19 @@ function applyManagerScheduleData(data) {
   MANAGER_SCHEDULE = data;
 }
 
-// loadAll() fires ONE combined request (crew_load_all / crew_load_all_fresh)
-// so the crew panel's initial load and manual reload are each a single
-// round trip rather than four or five separate ones.
+// loadAll() fires ONE combined request (action=crew_load_all) so the
+// crew panel's initial load pays the Apps Script per-request dispatch
+// overhead once instead of four or five times. The backend splits the
+// work into named sections (active_clients / schedule / morning_brief /
+// crew_teams / manager_schedule) and we reconstruct the same
+// {status, value|reason} shape Promise.allSettled used to give us, so
+// none of the per-section handling below had to change.
+// Loads all data (calendars, sheets). forceFresh=true (used by the
+// "Reload Database" button) calls crew_load_all_fresh instead of the
+// normal crew_load_all — see Utilities.gs's doGet for what that
+// changes server-side. Every other line below behaves identically
+// either way; the two actions return the same shape, just one always
+// forces a live fetch and the other reads the cache as-is.
 async function loadAll(forceFresh) {
   document.getElementById('reload-btn').disabled = true;
   // Re-show status pills during reload so crew can see progress
@@ -386,14 +450,19 @@ async function loadAll(forceFresh) {
   setStatus('brief',    'loading', 'Morning brief: loading...');
   setStatus('calendar', 'loading', 'Calendar: loading...');
 
-  // -- Show/hide Managers tab based on role --------------------
+  // ── Show/hide Managers tab based on role ─────────────────
   // Done early so the tab appears/disappears before data loads.
   const _isManager = isManagerUser();
   const _mgrTab    = document.getElementById('ttab-managers');
   if (_mgrTab) _mgrTab.style.display = _isManager ? '' : 'none';
 
-  // -- Single combined fetch ------------------------------------
+  // ── Single combined fetch ──────────────────────────────────
   // Ask for manager_schedule only when it'll actually be used.
+  // forceFresh (the "Reload Database" button) always goes through the
+  // live apiFetch path, since it's explicitly asking for a fresh
+  // Calendar/Sheets read — the static file can't serve that. The
+  // normal load tries the static cache file first; see
+  // fetchCrewLoadAllWithFallback()'s comment for why.
   let bundle = null, bundleErr = null;
   _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
@@ -407,13 +476,39 @@ async function loadAll(forceFresh) {
   // Reconstruct the per-section {status, value|reason} shape the rest
   // of this function expects. A section-level {error: '...'} from the
   // backend (one sheet/calendar failed) or a hard network failure
-  // (bundleErr) both surface as 'rejected'.
+  // (bundleErr) both surface as 'rejected', same as before.
+  //
+  // A "still warming up" placeholder (val.warming === true — a cold
+  // cache under the cache-only architecture, see getSchedule()'s
+  // "Cache-only mode" comment in Schedule.gs) is ALSO treated as
+  // 'rejected' here, deliberately — not because it's an error, but so
+  // it automatically routes through the exact same per-section
+  // fallback logic below as a real failure: fall back to the 24-hour
+  // offline snapshot (persistLoad) if one exists, and — critically —
+  // skip persistSave() for it. An earlier version of this let a
+  // warming result fall through as 'fulfilled', which overwrote
+  // sheetClients/SCHEDULE/morningBrief/crewTeams/MANAGER_SCHEDULE with
+  // empty data on every warming event, AND persisted that empty
+  // placeholder into the 24-hour offline cache — silently destroying a
+  // crew member's last good offline snapshot. If they then actually
+  // lost signal, the "offline" fallback would have shown nothing
+  // instead of their last real data, defeating the whole point of it.
   function toResult(section) {
     if (bundleErr) return { status: 'rejected', reason: bundleErr };
     const val = bundle ? bundle[section] : undefined;
     if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
+    if (val && val.warming) return { status: 'rejected', reason: new Error('Still warming up') };
     return { status: 'fulfilled', value: val === undefined ? null : val };
   }
+
+  // ── "Still warming up" banner ──────────────────────────────────
+  // Read directly off the raw bundle (not the results[] built from
+  // toResult() below) since toResult() already folds warming sections
+  // into 'rejected' for the fallback logic — this just needs to know
+  // whether ANY section was warming, to show the explanatory banner.
+  const isWarming = !bundleErr && bundle && ['active_clients','schedule','morning_brief','crew_teams']
+    .some(k => bundle[k] && bundle[k].warming);
+  if (isWarming) showWarmingBanner(); else clearWarmingBanner();
 
   const results = [
     toResult('active_clients'),
@@ -423,21 +518,21 @@ async function loadAll(forceFresh) {
     _isManager ? toResult('manager_schedule') : { status: 'fulfilled', value: null },
   ];
 
-  // -- Track which items fell back to offline cache --------------
+  // ── Track which items fell back to offline cache ──────────────
   let offlineCacheTs = null;   // timestamp of oldest stale item used
 
   function useOffline(action, staleResult, label) {
     const persisted = persistLoad(action);
     if (persisted) {
       if (!offlineCacheTs || persisted.ts < offlineCacheTs) offlineCacheTs = persisted.ts;
-      setStatus(label, 'loading', `${label.charAt(0).toUpperCase() + label.slice(1)}: cached`);
+      setStatus(label, 'loading', `${label.charAt(0).toUpperCase() + label.slice(1)}: cached ↙`);
       return persisted.data;
     }
     setStatus(label, 'error', `${label.charAt(0).toUpperCase() + label.slice(1)}: ${staleResult.reason && staleResult.reason.message}`);
     return null;
   }
 
-  // -- Clients --
+  // ── Clients ──
   const clientsData = results[0].status === 'fulfilled'
     ? results[0].value
     : useOffline('active_clients', results[0], 'clients');
@@ -447,7 +542,7 @@ async function loadAll(forceFresh) {
     applyClientsData(clientsData, { live: results[0].status === 'fulfilled' });
   }
 
-  // -- Calendar / Schedule --
+  // ── Calendar / Schedule ──
   const calData = results[1].status === 'fulfilled'
     ? results[1].value
     : useOffline('schedule', results[1], 'calendar');
@@ -467,7 +562,7 @@ async function loadAll(forceFresh) {
     currentDay = null;
   }
 
-  // -- Morning brief --
+  // ── Morning brief ──
   const briefData = results[2].status === 'fulfilled'
     ? results[2].value
     : useOffline('morning_brief', results[2], 'brief');
@@ -477,7 +572,7 @@ async function loadAll(forceFresh) {
     applyMorningBriefData(briefData, { live: results[2].status === 'fulfilled' });
   }
 
-  // -- Crew teams (silent -- no status pill) --
+  // ── Crew teams (silent — no status pill) ──
   const teamsData = results[3] && results[3].status === 'fulfilled'
     ? results[3].value
     : (persistLoad('crew_teams') || {}).data || null;
@@ -487,7 +582,7 @@ async function loadAll(forceFresh) {
     applyCrewTeamsData(teamsData);
   }
 
-  // -- Manager schedule (managers only) -----------------------
+  // ── Manager schedule (managers only) ─────────────────────
   const mgrResult = results[4];
   if (_isManager && mgrResult) {
     const mgrData = mgrResult.status === 'fulfilled'
@@ -500,7 +595,7 @@ async function loadAll(forceFresh) {
     }
   }
 
-  // -- Offline banner ----------------------------------------------
+  // ── Offline banner ────────────────────────────────────────────
   if (offlineCacheTs) {
     showOfflineBanner(offlineCacheTs);
   } else {
@@ -509,7 +604,7 @@ async function loadAll(forceFresh) {
 
   document.getElementById('reload-btn').disabled = false;
 
-  // -- Hide status pills when all loaded successfully --------------
+  // ── Hide status pills when all loaded successfully ────────────
   // The reload button always stays visible so crew can force-refresh
   // if David updates the calendar early morning.
   // If any pill has an error, all pills stay visible.
@@ -521,7 +616,7 @@ async function loadAll(forceFresh) {
     });
   }, 800);
 
-  // -- Debug panel (set display:none -> block on the div to enable) --
+  // ── Debug panel (set display:none -> block on the div to enable) ──
   const dbg = document.getElementById('debug-panel');
   if (dbg && dbg.style.display !== 'none') {
     const calResult = results[1];
@@ -540,3 +635,5 @@ async function loadAll(forceFresh) {
 
   render();
 }
+
+
