@@ -95,37 +95,15 @@ function clearOwnerCache() {
     .forEach(k => sessionStorage.removeItem(k));
 }
 
-// ── "Still warming up" banner ────────────────────────────────────
-// Same treatment as the crew panel's equivalent (crew_api.js) — the
-// owner dashboard's schedule/manager_schedule sections are now
-// cache-only too (they share getSchedule()/getManagerSchedule() with
-// the crew side, see getOwnerLoadAll() in OwnerPortal.gs), so a cold
-// cache here returns a valid-but-empty placeholder marked warming:true
-// instead of live data. Should be rare and short-lived — the
-// prewarmCache trigger refreshes the cache every 5 minutes.
-function showWarmingBanner() {
-  let banner = document.getElementById('warming-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'warming-banner';
-    banner.className = 'offline-banner';
-    const statusBar = document.querySelector('.status-bar');
-    statusBar.parentNode.insertBefore(banner, statusBar);
-  }
-  banner.innerHTML =
-    `<span class="offline-icon">&#8987;</span>` +
-    `<span>Data is still warming up — this refreshes automatically every few minutes.</span>` +
-    `<span class="offline-retry" onclick="loadAll(true)">Reload now</span>`;
-}
-
-function clearWarmingBanner() {
-  const b = document.getElementById('warming-banner');
-  if (b) b.remove();
-}
+// Cloud Run cutover: the "still warming up" banner
+// (showWarmingBanner()/clearWarmingBanner()) that used to live here
+// is gone -- this backend always does a live fetch on a cache miss
+// (see build doc design decisions), so a response is always either
+// real data or an error, never a known-stale warming placeholder.
 
 // ── Slow-load banner ─────────────────────────────────────────────
 // Same treatment as the crew panel's equivalent (crew_api.js). A load
-// that's still going after SLOW_LOAD_MS — an Apps Script cold start, or
+// that's still going after SLOW_LOAD_MS — 
 // _fetchJsonWithRetry() working through its retries after a transient
 // serving glitch — gets a reassuring note instead of just sitting
 // there looking frozen with no feedback at all, which is what a real
@@ -390,6 +368,28 @@ async function _fetchJsonWithRetry(url, options, retries, timeoutMs) {
   }
 }
 
+// crew-cloud/owner-cloud REST-path translation instead of Apps
+// Script's single-endpoint ?action= dispatch. Shared by both
+// ownerFetch() (GET) and ownerPost() (POST) below, since both build
+// their request URL from the same action name.
+const OWNER_ACTION_PATHS = {
+  ownerClients: '/owner/clients',
+  ownerLoadAll: '/owner/load-all',
+  ownerLoadAllFresh: '/owner/load-all', // force=1 appended below
+  ownerGetLoginLog: '/owner/login-log',
+  ownerClearLoginLog: '/owner/login-log/clear',
+  ownerGetNotes: '/owner/notes',
+  ownerSaveNotes: '/owner/notes',
+  ownerSaveClient: '/owner/clients',
+  ownerDeleteClient: '/owner/clients/delete',
+  ownerGetDocuments: '/owner/documents',
+};
+// The only *Fresh-style action on the owner side -- ownerLoadAllFresh
+// maps to the same path as ownerLoadAll, just with force=1 added,
+// matching the Cloud Run backend's query-param convention rather than
+// a separate action/path per force level.
+const OWNER_FORCE_ACTIONS = new Set(['ownerLoadAllFresh']);
+
 async function ownerFetch(action, extra) {
   extra = extra || '';
   const cacheKey = `oc_cache_${action}${extra}`;
@@ -406,7 +406,9 @@ async function ownerFetch(action, extra) {
 
   async function _fetch() {
     const idToken = encodeURIComponent(getIdToken());
-    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}&id_token=${idToken}${extra}`);
+    const path = OWNER_ACTION_PATHS[action] || ('/' + action);
+    const forceParam = OWNER_FORCE_ACTIONS.has(action) ? '&force=1' : '';
+    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}${path}?id_token=${idToken}${forceParam}${extra}`);
     if (data.error) throw new Error(data.error);
     return data;
   }
@@ -423,14 +425,11 @@ async function ownerFetch(action, extra) {
     }
   }
 
-  // Don't cache a "still warming up" result — see the matching note in
-  // crew_api.js's apiFetch(). Known-stale placeholder data; caching it
-  // would just delay picking up the real data once the server-side
-  // cache populates a moment later.
-  const isWarmingResult = data && typeof data === 'object' &&
-    ['schedule','manager_schedule'].some(k => data[k] && data[k].warming);
-
-  if (ttl && !isWarmingResult) {
+  // No "is this a warming placeholder" check needed here anymore --
+  // see crew_api.js's apiFetch() for the full reasoning (same backend,
+  // same guarantee: always real data or a thrown error, never a
+  // known-stale placeholder).
+  if (ttl) {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
     } catch(e) {}
@@ -438,36 +437,15 @@ async function ownerFetch(action, extra) {
   return data;
 }
 
-// ── fetchOwnerLoadAllWithFallback ─────────────────────────────
-// Same idea as crew_api.js's fetchCrewLoadAllWithFallback() — see
-// that comment for the full reasoning. Apps Script event-driven-
-// publishes a static snapshot of ownerLoadAll's data as a plain JSON
-// file into this same repo (see requestCachePublish_() in
-// Utilities.gs), served by GitHub Pages from the same origin as this
-// page, bypassing script.google.com's redirect entirely for the
-// ordinary (non-forceFresh) load. Falls back to the normal
-// ownerFetch('ownerLoadAll') path on any failure, returning the exact
-// same bundle shape either way — strictly additive, never worse than
-// before this existed.
-const STATIC_OWNER_CACHE_URL      = 'data/owner_load_all.json';
-const STATIC_OWNER_CACHE_TIMEOUT_MS = 4000;
-
+// -- fetchOwnerLoadAllWithFallback --------------------------------
+// owner-cloud/ simplification -- same reasoning as crew_api.js's
+// fetchCrewLoadAllWithFallback(): Cloud Run has no GitHub-publish
+// pipeline producing a static snapshot to check for, so checking for
+// one here would only ever fail before falling through to the same
+// live call anyway. Kept as its own named function purely so its one
+// call site doesn't need to change.
 async function fetchOwnerLoadAllWithFallback() {
-  try {
-    const res = await _fetchWithTimeout(`${STATIC_OWNER_CACHE_URL}?_=${Date.now()}`, null, STATIC_OWNER_CACHE_TIMEOUT_MS);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!data || typeof data !== 'object') throw new Error('Malformed static cache payload');
-    // Visible confirmation the static path actually served this load —
-    // useful while we're still verifying this in the field. Remove
-    // once confident, or gate behind a debug flag if it turns out to
-    // be more noise than signal for daily owner use.
-    if (typeof showToast === 'function') showToast('Loaded from GitHub cache');
-    return data;
-  } catch(err) {
-    console.warn('Static cache fetch failed, falling back to live request:', err.message);
-    return ownerFetch('ownerLoadAll');
-  }
+  return ownerFetch('ownerLoadAll');
 }
 
 async function ownerPost(action, payload, timeoutMs) {
@@ -489,7 +467,8 @@ async function ownerPost(action, payload, timeoutMs) {
     // already hard-bounds this single attempt via AbortController, so
     // dropping the retry here doesn't reintroduce a hang — it just
     // stops after one attempt instead of silently trying three times.
-    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}?action=${action}&id_token=${idToken}`, {
+    const path = OWNER_ACTION_PATHS[action] || ('/' + action);
+    const data = await _fetchJsonWithRetry(`${SCRIPT_URL}${path}?id_token=${idToken}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(payload),
@@ -529,7 +508,7 @@ async function loadAll(forceFresh) {
   setStatus('records',  'live',    'Documents: ready');
 
   // Fire a warm-up ping
-  fetch(`${SCRIPT_URL}?action=ping&id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
+  fetch(`${SCRIPT_URL}/owner/ping?id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
 
   // ── Single combined fetch ──────────────────────────────────
   // Was 3 separate round trips (ownerClients / ownerSchedule /
@@ -537,11 +516,11 @@ async function loadAll(forceFresh) {
   // Google ID token against Google's tokeninfo endpoint. Now it's one
   // request — the backend verifies the token once and bundles all
   // three sections into a single response.
-  // forceFresh (the reload button) always goes through the live
-  // ownerFetch path, since it's explicitly asking for a fresh
-  // Calendar/Sheets read — the static file can't serve that. The
-  // normal load tries the static cache file first; see
-  // fetchOwnerLoadAllWithFallback()'s comment for why.
+  // forceFresh (the reload button) goes through ownerLoadAllFresh
+  // (force=1 on the backend), bypassing its cache for a genuinely
+  // live Calendar/Sheets read. The normal load still goes through
+  // fetchOwnerLoadAllWithFallback() -- a thin passthrough to
+  // ownerFetch('ownerLoadAll') now, see that function's own comment.
   let bundle = null, bundleErr = null;
   _slowLoadTimer = setTimeout(showSlowLoadBanner, SLOW_LOAD_MS);
   try {
@@ -551,28 +530,12 @@ async function loadAll(forceFresh) {
   } catch(e) { bundleErr = e; }
   clearSlowLoadBanner();
 
-  // A "still warming up" placeholder (val.warming === true) is treated
-  // as 'rejected' here too — see the matching note in crew_api.js's
-  // loadAll() for the full reasoning. This dashboard has no 24-hour
-  // offline cache to accidentally corrupt like the crew panel does,
-  // but without this it would still show a misleading "Schedule:
-  // loaded" status for an empty placeholder instead of an honest
-  // "still warming up."
   function toResult(section) {
     if (bundleErr) return { status: 'rejected', reason: bundleErr };
     const val = bundle ? bundle[section] : undefined;
     if (val && val.error) return { status: 'rejected', reason: new Error(val.error) };
-    if (val && val.warming) return { status: 'rejected', reason: new Error('Still warming up') };
     return { status: 'fulfilled', value: val === undefined ? null : val };
   }
-
-  // ── "Still warming up" banner ────────────────────────────────────
-  // Read directly off the raw bundle (not the results built from
-  // toResult() above, which now folds warming into 'rejected') —
-  // this just needs to know whether ANY section was warming.
-  const isWarming = !bundleErr && bundle &&
-    ['schedule','manager_schedule'].some(k => bundle[k] && bundle[k].warming);
-  if (isWarming) showWarmingBanner(); else clearWarmingBanner();
 
   const clientsRes     = toResult('clients');
   const scheduleRes    = toResult('schedule');

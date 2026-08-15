@@ -174,7 +174,7 @@ function handleCredential(response) {
 
     // Verify with server — owner check happens in Apps Script
     const idToken = encodeURIComponent(response.credential);
-    fetchJsonWithRetry(`${SCRIPT_URL}?action=ownerPing&id_token=${idToken}`)
+    fetchJsonWithRetry(`${SCRIPT_URL}/owner/ping?id_token=${idToken}`)
       .then(json => {
         if (btn) btn.style.opacity = '1';
         if (json.error) {
