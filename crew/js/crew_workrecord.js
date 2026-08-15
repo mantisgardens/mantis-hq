@@ -263,8 +263,8 @@ function openWorkRecord(jobId) {
       .then(() => buildForm())
       .catch(() => {
         // First attempt failed — wait 2 seconds and retry once before giving up.
-        // This handles Apps Script cold-start timeouts which are common on first load,
-        // and (via loadServiceDataReady()) a cache that's still cold/warming.
+        // This handles a transient network hiccup on first load, same idea
+        // as this app's other retry-once patterns.
         setTimeout(() => {
           loadServiceDataReady()
             .then(() => buildForm())
@@ -291,7 +291,7 @@ function openWorkRecord(jobId) {
   // no network round-trip needed. Fall back to prefetch only if _sc is missing.
   if (job._sc && job._sc['Drive Folder ID']) {
     _folderIdCache[job.client] = job._sc['Drive Folder ID'].trim();
-  } else if (job.client && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
+  } else if (job.client && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_CLOUD_RUN_URL_HERE') {
     prefetchClientFolder(job.client);
   }
 }
@@ -423,7 +423,7 @@ function openMgrWorkRecord(evId, workerName) {
     buildForm();
   }
 
-  if (ev.clientCandidate && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
+  if (ev.clientCandidate && SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_CLOUD_RUN_URL_HERE') {
     prefetchClientFolder(ev.clientCandidate);
   }
 }
@@ -453,7 +453,7 @@ function _prefillLastFertilizers(clientName, fertList, irrList, jobId) {
 
   const idToken   = sessionStorage.getItem('mg_id_token') || '';
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
-  const url = `${SCRIPT_URL}?action=historical_data${authParam}`
+  const url = `${SCRIPT_URL}/historical-data?${authParam.replace(/^&/, '')}`
             + `&client=${encodeURIComponent(clientName)}`
             + `&histId=${encodeURIComponent(histId)}`
             + `&folderId=${encodeURIComponent(folderId)}`
@@ -517,7 +517,7 @@ function prefetchClientFolder(clientName) {
   if (_folderIdCache[clientName]) return;  // already cached
   const idToken  = sessionStorage.getItem('mg_id_token') || '';
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
-  const url = `${SCRIPT_URL}?action=prefetchClientFolder${authParam}&client=${encodeURIComponent(clientName)}`;
+  const url = `${SCRIPT_URL}/prefetch-client-folder?${authParam.replace(/^&/, '')}&client=${encodeURIComponent(clientName)}`;
   fetch(url)
     .then(r => r.json())
     .then(json => {
@@ -1272,7 +1272,7 @@ function submitForm() {
   safeLocalSave();
 
   // POST to Apps Script if configured
-  if (SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_EXEC_URL_HERE') {
+  if (SCRIPT_URL && SCRIPT_URL !== 'PASTE_YOUR_CLOUD_RUN_URL_HERE') {
 
     // Photos are sent separately, after the main record succeeds — see below.
     data.photos = [];
@@ -1310,7 +1310,7 @@ function submitForm() {
         invoiceRowNum: data.invoiceRowNum || null,
         photos,
       };
-      return fetch(`${SCRIPT_URL}?action=submitWorkRecordPhotos${authParam}`, {
+      return fetch(`${SCRIPT_URL}/work-records/photos?${authParam.replace(/^&/, '')}`, {
         method:  'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body:    JSON.stringify(batchData),
@@ -1347,7 +1347,7 @@ function submitForm() {
       return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
     }
 
-    fetch(`${SCRIPT_URL}?action=submitWorkRecord${authParam}`, {
+    fetch(`${SCRIPT_URL}/work-records?${authParam.replace(/^&/, '')}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(data),
@@ -1471,7 +1471,7 @@ function toggleChecklist(jobId) {
   const auth = sessionStorage.getItem('mg_id_token')
     ? `&id_token=${encodeURIComponent(sessionStorage.getItem('mg_id_token'))}` : '';
 
-  fetch(`${MANTIS_CONFIG.SCRIPT_URL}?action=getChecklist${auth}`)
+  fetch(`${MANTIS_CONFIG.SCRIPT_URL}/checklist?${auth.replace(/^&/, '')}`)
     .then(r => r.json())
     .then(json => {
       if (json.error) throw new Error(json.error);

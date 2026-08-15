@@ -4,7 +4,7 @@
    Data is fetched live from Apps Script via mantis_data_loader.js.
    ============================================================= */
 
-// SECTION 4 — SECTION NAVIGATION
+// SECTION 1 — SECTION NAVIGATION
 // =============================================================
 let currentSection = 'plants';
 
@@ -27,7 +27,7 @@ function showSection(id) {
 }
 
 // =============================================================
-// SECTION 5 — SEARCH
+// SECTION 2 — SEARCH
 // =============================================================
 function doSearch(q) {
   q = q.toLowerCase().trim();
@@ -78,7 +78,7 @@ function updateCount(shown, total) {
 }
 
 // =============================================================
-// SECTION 6 — PLANT RENDERING (search + profile card)
+// SECTION 3 — PLANT RENDERING (search + profile card)
 // =============================================================
 
 // ── Filter state ───────────────────────────────────────────
@@ -279,7 +279,7 @@ function plantEmptyCard() {
 }
 
 // =============================================================
-// SECTION 7 — FERTILIZER / SPRAY RENDERING
+// SECTION 4 — FERTILIZER / SPRAY RENDERING
 // =============================================================
 function renderFert() {
   const wrap = document.getElementById('fert-table');
@@ -337,7 +337,7 @@ function renderFert() {
 }
 
 // =============================================================
-// SECTION 8 — EQUIPMENT RENDERING
+// SECTION 5 — EQUIPMENT RENDERING
 // =============================================================
 function renderEquip() {
   const el = document.getElementById('equip-content');
@@ -440,7 +440,7 @@ function renderEquip() {
 }
 
 // =============================================================
-// SECTION 9 — UTILITY & STARTUP
+// SECTION 6 — UTILITY & STARTUP
 // =============================================================
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

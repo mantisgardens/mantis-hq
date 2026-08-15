@@ -160,7 +160,7 @@ function handleCredential(response) {
     // the email is in the APPROVED_USERS Script Property.
     // The client never sees the approved list.
     const idToken = encodeURIComponent(response.credential);
-    fetchJsonWithRetry(`${SCRIPT_URL}?action=ping&id_token=${idToken}`)
+    fetchJsonWithRetry(`${SCRIPT_URL}/ping/authed?id_token=${idToken}`)
       .then(json => {
         if (btn) btn.style.opacity = '1';
         if (json.error) {

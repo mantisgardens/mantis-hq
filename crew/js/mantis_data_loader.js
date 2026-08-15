@@ -80,10 +80,8 @@ function hideLoadingOverlay() {
 
 // Plain fetch() has NO built-in timeout — if a request stalls mid-
 // flight (a dropped or degraded connection), the promise just sits
-// pending forever, with no recovery but a manual page reload. A real
-// report on the crew panel's data loading showed exactly this pattern
-// (stuck indefinitely, resolved instantly by reloading — proving the
-// backend wasn't the problem). AbortController forces a stalled
+// pending forever, with no recovery but a manual page reload. 
+// AbortController forces a stalled
 // request to actually fail after SM_FETCH_TIMEOUT_MS, so
 // fetchServiceJsonWithRetry() below treats it like any other failure.
 // Named distinctly (SM_ prefix, not shared with crew_api.js's/
@@ -92,15 +90,6 @@ function hideLoadingOverlay() {
 // `const FETCH_TIMEOUT_MS` declarations in that shared page would be a
 // SyntaxError and break the entire page, not just silently override
 // like a duplicate `function` would.
-// 7s — see the matching comment in crew_api.js. A HAR capture of a
-// real slow load showed the actual failure mode: the initial /exec
-// request always gets its redirect back in 1-2s, but the follow-up
-// fetch of the redirect target (script.googleusercontent.com/macros/
-// echo) can hang completely dead until aborted — at which point the
-// existing retry below succeeds in under a second. No legitimate
-// slow-but-progressing case was found for a long timeout to protect;
-// 30s was just making every dead connection sit that much longer
-// before the retry (which reliably works) got a chance.
 const SM_FETCH_TIMEOUT_MS = 7000;
 function fetchServiceWithTimeout(url, timeoutMs) {
   const controller = new AbortController();
@@ -159,14 +148,11 @@ function fetchStaticServiceJson_(path) {
     });
 }
 
-// ── Main loader ───────────────────────────────────────────────
-// forceFresh=true (used by the "Reload now" link shown when the
-// backend cache is cold) skips the client-side cache and calls the
-// *Fresh actions, which force a live server-side refresh — same
-// cache-only + forceLive pattern used everywhere else in this app
-// (see the "Cache-only mode" note in Schedule.gs's getSchedule()).
-// Resolves with { warming } so initServiceManual() can tell a
-// legitimately-empty-right-now cold cache apart from a normal load.
+// -- Main loader -------------------------------------------------
+// forceFresh=true (used by the "Reload now" link, retained for manual
+// refresh even though the automatic warming-retry path that used to
+// also trigger it is gone) skips the client-side cache and requests
+// a live server-side refresh via ?force=1.
 function loadServiceData(forceFresh) {
   return new Promise((resolve, reject) => {
 
@@ -179,42 +165,37 @@ function loadServiceData(forceFresh) {
     if (smCached && plantCached) {
       applyServiceManualData(smCached);
       applyPlantData(plantCached);
-      resolve({ warming: false });
+      resolve();
       return;
     }
 
-    if (!SCRIPT_URL_SM || SCRIPT_URL_SM === 'PASTE_YOUR_EXEC_URL_HERE') {
+    if (!SCRIPT_URL_SM || SCRIPT_URL_SM === 'PASTE_YOUR_CLOUD_RUN_URL_HERE') {
       reject(new Error('SCRIPT_URL not configured in mantis_config.js'));
       return;
     }
 
-    const auth        = getAuthParam();
-    const smAction     = forceFresh ? 'getServiceManualDataFresh' : 'getServiceManualData';
-    const plantAction  = forceFresh ? 'getPlantDatabaseFresh'     : 'getPlantDatabase';
+    const auth = getAuthParam();
 
-    // forceFresh always goes through the live action — it's explicitly
-    // asking for a fresh Sheets read, which the static file can't
-    // serve. The normal load tries the static cache file first, same
-    // as crew_api.js's loadAll() does for crew_load_all.
-    function fetchLive(action) {
-      return fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}?action=${action}${auth}`)
+    // crew-cloud/ simplification: REST paths with a ?force=1 query
+    // param instead of separate *Fresh action names (matching the
+    // Cloud Run backend's own convention -- see build doc section on
+    // ServiceManual.gs). The static-file-first check is also dropped
+    // entirely here, same reasoning as crew_api.js's
+    // fetchCrewLoadAllWithFallback() -- Cloud Run has no GitHub-publish
+    // pipeline producing a snapshot to check for, so it would only
+    // ever fail before falling through to this same live call anyway.
+    function fetchLive(path, force) {
+      const forceParam = force ? '&force=1' : '';
+      return fetchServiceJsonWithRetry(`${SCRIPT_URL_SM}${path}?${auth.replace(/^&/, '')}${forceParam}`)
         .then(json => { if (json.error) throw new Error(json.error); return json; });
     }
     function loadSm() {
       if (smCached) return Promise.resolve(smCached);
-      if (forceFresh) return fetchLive(smAction);
-      return fetchStaticServiceJson_('data/service_manual_data.json').catch(err => {
-        console.warn('Static service manual cache fetch failed, falling back to live request:', err.message);
-        return fetchLive(smAction);
-      });
+      return fetchLive('/service-manual', forceFresh);
     }
     function loadPlant() {
       if (plantCached) return Promise.resolve(plantCached);
-      if (forceFresh) return fetchLive(plantAction);
-      return fetchStaticServiceJson_('data/plant_database.json').catch(err => {
-        console.warn('Static plant database cache fetch failed, falling back to live request:', err.message);
-        return fetchLive(plantAction);
-      });
+      return fetchLive('/plant-database', forceFresh);
     }
 
     setLoadingProgress(20);
@@ -225,41 +206,25 @@ function loadServiceData(forceFresh) {
       setLoadingProgress(80);
       applyServiceManualData(smData);
       applyPlantData(plantData);
-
-      // Don't cache a "still warming up" placeholder client-side — see
-      // the matching note in crew_api.js's apiFetch(). It's known-stale
-      // data; caching it would just delay picking up the real data on
-      // the next visit within this session's 30-minute client cache.
-      const warming = !!(smData.warming || plantData.warming);
-      if (!warming) {
-        if (!smCached)    setCached(smKey,    smData);
-        if (!plantCached) setCached(plantKey, plantData);
-      }
+      if (!smCached)    setCached(smKey,    smData);
+      if (!plantCached) setCached(plantKey, plantData);
       setLoadingProgress(100);
-      resolve({ warming });
+      resolve();
     })
     .catch(reject);
   });
 }
 
-// ── loadServiceDataReady ────────────────────────────────────────
-// Wraps loadServiceData() for callers that just need
-// FERT_PRODUCTS/PLANTS/etc. actually populated (e.g. crew_workrecord.js
-// building the Work Record form's product dropdowns) and don't want to
-// separately handle the { warming } cache-only placeholder as distinct
-// from a real network failure. A cold cache is retried once with
-// forceFresh (forcing a live fetch) before being treated as a failure
-// — same "retry once" shape those callers already use for actual fetch
-// errors, just extended to cover this case too so a crew member never
-// silently sees empty dropdowns that quietly rendered from placeholder
-// data instead of erroring or retrying.
+// -- loadServiceDataReady -------------------------------------------
+// Thin wrapper kept for callers (e.g. crew_workrecord.js building the
+// Work Record form's product dropdowns) that just need
+// FERT_PRODUCTS/PLANTS/etc. actually populated. Used to also retry
+// once with forceFresh if the cache came back in a "still warming up"
+// state -- that state can't happen against this backend (see
+// loadServiceData() above), so this is now a plain passthrough. Kept
+// as its own named function so callers don't need to change.
 function loadServiceDataReady() {
-  return loadServiceData().then(({ warming }) => {
-    if (!warming) return;
-    return loadServiceData(true).then(({ warming: stillWarming }) => {
-      if (stillWarming) throw new Error('Service data still warming after forced refresh');
-    });
-  });
+  return loadServiceData();
 }
 
 // ── Apply service manual data ─────────────────────────────────
@@ -286,9 +251,8 @@ function applyPlantData(data) {
 }
 
 // ── Startup ───────────────────────────────────────────────────
-// forceFresh=true is passed by the "Reload now" link the warming state
-// below renders — forces a live refresh instead of waiting for the
-// next scheduled prewarm.
+// forceFresh=true forces a live server-side refresh, bypassing the
+// backend's own cache.
 function initServiceManual(forceFresh) {
   showLoadingOverlay(forceFresh ? 'Refreshing service data…' : 'Loading service data…');
   setLoadingProgress(10);
@@ -296,25 +260,7 @@ function initServiceManual(forceFresh) {
   if (errEl) errEl.style.display = 'none';
 
   loadServiceData(forceFresh)
-    .then(({ warming }) => {
-      if (warming) {
-        // Cache was cold and this wasn't itself a forced fetch — the
-        // data really is empty right now, not just slow. Unlike an
-        // empty day on the crew schedule (a normal, legitimate state),
-        // there's no legitimate "0 plants" state for this page, so
-        // showing the empty result would just look broken. Keep the
-        // loading overlay up with an explanation and a manual retry
-        // instead — same "still warming up" idea as showWarmingBanner()
-        // in crew_api.js, just surfaced in this page's own overlay
-        // rather than a banner.
-        const txt = document.querySelector('#loading-overlay .loading-text');
-        if (txt) {
-          txt.innerHTML = 'Still warming up — this refreshes automatically every few minutes.<br>' +
-            '<a href="#" style="color:#7ec8a0;text-decoration:underline" ' +
-            'onclick="initServiceManual(true);return false;">Reload now</a>';
-        }
-        return;
-      }
+    .then(() => {
       hideLoadingOverlay();
       if (typeof renderPlants === 'function') renderPlants();
       if (typeof renderFert   === 'function') renderFert();

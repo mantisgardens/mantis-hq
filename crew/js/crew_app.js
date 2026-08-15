@@ -34,10 +34,10 @@ function doSignOut() {
 // cache-only default every other request uses) and returns the fresh
 // data in this one round trip. Replaces the old two-step "clear the
 // server cache, then reload" flow, which doesn't make sense anymore:
-// clearing the cache and then calling the normal crew_load_all would
-// just return a "warming up" placeholder instead of forcing a fetch,
-// now that ordinary requests never fall back to a live fetch
-// themselves — see Schedule.gs's getSchedule() for why.
+// clearing a client-side cache and then calling the normal
+// crew_load_all wouldn't force a fresh fetch on its own -- calling
+// the _fresh variant directly (below) is what actually forces the
+// backend to skip its own cache and refetch live.
 // Disables the button, spins its icon, and swaps its label to
 // "Refreshing..." immediately on click — the round trip takes a few
 // seconds, and without a clear in-progress state it looks like the

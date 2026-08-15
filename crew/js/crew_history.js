@@ -90,7 +90,7 @@ async function loadHistory(clientName, cardId) {
 
     const idToken   = sessionStorage.getItem('mg_id_token') || '';
     const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
-    const url = `${SCRIPT_URL}?action=historical_data${authParam}`
+    const url = `${SCRIPT_URL}/historical-data?${authParam.replace(/^&/, '')}`
               + `&client=${encodeURIComponent(clientName)}`
               + `&histId=${encodeURIComponent(histId)}`
               + `&folderId=${encodeURIComponent(folderId)}`
@@ -106,6 +106,7 @@ async function loadHistory(clientName, cardId) {
     // Show tabs and search
     document.getElementById('history-tabs').style.display        = 'flex';
     document.getElementById('history-search-wrap').style.display = 'flex';
+    _updateHistoryTabArrows();
 
     // Update tab counts
     const nc = document.getElementById('htab-ct-notes');
@@ -411,4 +412,42 @@ function _populateHistorySelect() {
     opt.value = opt.textContent = name;
     sel.appendChild(opt);
   });
+}
+
+
+// -- Desktop scroll arrows for the tab bar ---------------------------
+// The tab row scrolls fine via touch swipe on phones/tablets, and via
+// Shift+scroll-wheel on desktop, but neither is discoverable without
+// already knowing to try it. These two functions add a visible,
+// clickable alternative for a plain desktop mouse. Not needed on
+// touch devices, but harmless there too -- they just won't have
+// anything to click if the row doesn't overflow.
+let _historyTabsListenerAttached = false;
+
+function _scrollHistoryTabs(direction) {
+  const el = document.getElementById('history-tabs');
+  if (!el) return;
+  el.scrollBy({ left: direction * 150, behavior: 'smooth' });
+}
+
+function _updateHistoryTabArrows() {
+  const el = document.getElementById('history-tabs');
+  const leftArrow = document.getElementById('htab-arrow-left');
+  const rightArrow = document.getElementById('htab-arrow-right');
+  if (!el || !leftArrow || !rightArrow) return;
+
+  // Attach the scroll listener once, lazily, the first time the tabs
+  // are actually shown -- rather than at page load, when the element
+  // might not have its final layout/content yet.
+  if (!_historyTabsListenerAttached) {
+    el.addEventListener('scroll', _updateHistoryTabArrows);
+    window.addEventListener('resize', _updateHistoryTabArrows);
+    _historyTabsListenerAttached = true;
+  }
+
+  const maxScroll = el.scrollWidth - el.clientWidth;
+  // 2px tolerance -- fractional pixel rounding can leave scrollLeft a
+  // hair short of maxScroll even when fully scrolled to the end.
+  leftArrow.style.display  = el.scrollLeft > 2 ? 'flex' : 'none';
+  rightArrow.style.display = el.scrollLeft < maxScroll - 2 ? 'flex' : 'none';
 }
