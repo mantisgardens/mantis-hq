@@ -92,5 +92,5 @@ if (sessionStorage.getItem('mg_auth') === '1') {
 // ── Start: load all data ──────────────────────────────────────
 // This happens every time the page (mantis_crew_panel.html) loads.
 currentDay = todayDateKey();
-loadAll(true);
+loadAll();
 
