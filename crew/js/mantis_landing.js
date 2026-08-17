@@ -181,12 +181,26 @@ function handleCredential(response) {
         localStorage.setItem('mg_user_role',     role);
         localStorage.setItem('mg_auth_expiry',   expiry.toString());
         localStorage.setItem('mg_session_start', Date.now().toString());
+        // Store the id_token in localStorage with its own 1-hour expiry
+        // so it survives mobile browser tab restores (which clear
+        // sessionStorage). crew_api.js reads it back from localStorage
+        // when sessionStorage is empty after a browser-restored page.
+        const tokenExpiry = Date.now() + (60 * 60 * 1000); // 1 hour
+        localStorage.setItem('mg_id_token',        response.credential);
+        localStorage.setItem('mg_id_token_expiry', tokenExpiry.toString());
         // Also seed sessionStorage so session_timeout.js works
         sessionStorage.setItem('mg_auth',          '1');
         sessionStorage.setItem('mg_user_email',    email);
         sessionStorage.setItem('mg_user_name',     name);
         sessionStorage.setItem('mg_user_category', category);
         sessionStorage.setItem('mg_user_role',     role);
+        // If we were sent here for a token refresh (?return=panel),
+        // go straight back to the crew panel instead of showing the
+        // home screen -- the crew member just wants to get back to work.
+        if (new URLSearchParams(window.location.search).has('return')) {
+          window.location.href = CREW_URL;  // no ?fresh=1 -- data is still cached
+          return;
+        }
         setupHome(name, category);
         show('home');
       })
@@ -217,6 +231,8 @@ function doSignOut() {
   localStorage.removeItem('mg_user_role');
   localStorage.removeItem('mg_auth_expiry');
   localStorage.removeItem('mg_session_start');
+  localStorage.removeItem('mg_id_token');
+  localStorage.removeItem('mg_id_token_expiry');
   sessionStorage.clear();
   show('login');
   hideLoginError();
@@ -269,7 +285,7 @@ function setupHome(userName, crewCategory) {
 // SECTION 5 — NAVIGATION
 // =============================================================
 function goTo(dest) {
-  if (dest === 'crew')   window.location.href = CREW_URL;
+  if (dest === 'crew')   window.location.href = CREW_URL + '?fresh=1';
   if (dest === 'manual') window.location.href = MANUAL_URL;
 }
 
@@ -304,7 +320,7 @@ function closeTeamPickerOutside(e) {
   if (e.target.id === 'team-picker-overlay') closeTeamPicker();
 }
 function selectTeam(team) {
-  window.location.href = CREW_URL + '?team=' + encodeURIComponent(team);
+  window.location.href = CREW_URL + '?fresh=1&team=' + encodeURIComponent(team);
 }
 
 
@@ -322,6 +338,21 @@ if (sessionStorage.getItem('mg_timeout') === '1') {
   }
 }
 
+// Token-expired redirect (?return=panel): the crew panel detected an
+// expired Google ID token and sent the crew member here to re-auth.
+// Show a clear message and skip the persisted-session fast-path below
+// so they actually sign in and get a fresh token rather than being
+// silently shunted back to the home screen with the same stale token.
+const _returnToCrew = new URLSearchParams(window.location.search).has('return');
+if (_returnToCrew) {
+  sessionStorage.removeItem('mg_id_token');
+  const err = document.getElementById('login-error');
+  if (err) {
+    err.textContent = 'Your session token expired. Please sign in again.';
+    err.style.display = 'block';
+  }
+}
+
 // Check for a valid persisted localStorage session (survives window close)
 const _persistedAuth   = localStorage.getItem('mg_auth');
 const _persistedExpiry = parseInt(localStorage.getItem('mg_auth_expiry') || '0');
@@ -329,7 +360,7 @@ const _persistedName   = localStorage.getItem('mg_user_name')  || '';
 const _persistedEmail  = localStorage.getItem('mg_user_email') || '';
 const _hasPersistedSession = _persistedAuth === '1' && Date.now() < _persistedExpiry;
 
-if (_hasPersistedSession) {
+if (_hasPersistedSession && !_returnToCrew) {
   // Seed sessionStorage so session_timeout.js and the crew panel work normally
   const _persistedCategory = localStorage.getItem('mg_user_category') || '';
   const _persistedRole     = localStorage.getItem('mg_user_role')     || '';
@@ -338,6 +369,12 @@ if (_hasPersistedSession) {
   sessionStorage.setItem('mg_user_name',     _persistedName);
   sessionStorage.setItem('mg_user_category', _persistedCategory);
   sessionStorage.setItem('mg_user_role',     _persistedRole);
+  // Restore the token from localStorage if it hasn't expired yet
+  const _persistedToken       = localStorage.getItem('mg_id_token') || '';
+  const _persistedTokenExpiry = parseInt(localStorage.getItem('mg_id_token_expiry') || '0');
+  if (_persistedToken && Date.now() < _persistedTokenExpiry) {
+    sessionStorage.setItem('mg_id_token', _persistedToken);
+  }
   setupHome(_persistedName, _persistedCategory);
   show('home');
 
@@ -364,6 +401,8 @@ if (_hasPersistedSession) {
   localStorage.removeItem('mg_user_category');
   localStorage.removeItem('mg_user_role');
   localStorage.removeItem('mg_auth_expiry');
+  localStorage.removeItem('mg_id_token');
+  localStorage.removeItem('mg_id_token_expiry');
   show('login');
 
   // Initialize GIS for the login screen
