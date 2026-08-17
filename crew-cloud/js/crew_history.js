@@ -1,0 +1,453 @@
+/* =============================================================
+   crew_history.js
+   Mantis Gardens — Historical Data Panel
+   ============================================================= */
+
+// HISTORICAL DATA PANEL
+// openHistoryForClient(name)  — opens modal pre-selected to client
+// loadHistory(clientName)     — fetches from Historical Data sheet
+// switchHistoryTab(tab)       — switches Notes/Fert/Labor/Photos
+// filterHistory(query)        — real-time search across all tabs
+// closeHistory()              — closes the modal
+// =============================================================
+
+let _historyData   = null;    // last fetched payload
+let _historyClient = '';      // currently loaded client name
+let _historyTab    = 'notes'; // active tab: 'notes'|'fert'|'records'|'photos'
+let _historyQuery  = '';      // current search string
+
+// ── Open / close ──────────────────────────────────────────────
+
+function openHistoryForClient(clientName, cardId) {
+  // clientName arrives URL-encoded from the inline onclick handlers in
+  // crew_render.js (avoids breaking on client names containing apostrophes,
+  // e.g. "O'Brien") — decode it back to the real name here.
+  try { clientName = decodeURIComponent(clientName); } catch (e) { /* already plain */ }
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (clientName) {
+    // If the crew manually located this client via the picker, use that
+    // override directly — skip findClient() entirely.
+    const override = (cardId && typeof clientOverrides !== 'undefined')
+      ? clientOverrides[_overrideKey(cardId)]
+      : null;
+    const _matched = override ? null : findClient(clientName);
+    const resolvedName = override
+      ? (override['Name(s)'] || clientName)
+      : ((_matched && _matched['Name(s)']) || clientName);
+    const sel = document.getElementById('history-client-select');
+    if (sel) sel.value = resolvedName;
+    loadHistory(resolvedName, cardId);
+  }
+}
+
+// ── Load history ───────────────────────────────────────────────
+
+async function loadHistory(clientName, cardId) {
+  if (!clientName) {
+    _historyShowEmpty('Select a client above to view their historical data.');
+    return;
+  }
+
+  _historyClient = clientName;
+  _historyData   = null;
+  _historyQuery  = '';
+
+  const search = document.getElementById('history-search');
+  const clear  = document.getElementById('history-search-clear');
+  const label  = document.getElementById('history-client-label');
+  if (search) search.value = '';
+  if (clear)  clear.style.display  = 'none';
+  if (label)  label.textContent    = clientName;
+
+  document.getElementById('history-tabs').style.display        = 'none';
+  document.getElementById('history-search-wrap').style.display = 'none';
+  ['htab-ct-notes','htab-ct-internal','htab-ct-records','htab-ct-fert','htab-ct-photos'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '';
+  });
+
+  document.getElementById('history-body').innerHTML =
+    `<div class="history-loading"><div class="history-spinner"></div>Loading history for ${esc(clientName)}…</div>`;
+
+  try {
+    // Use a manually-resolved override if the crew picked this client via the
+    // locator — avoids sending a useless fetch when no auto-match was found.
+    const _override = (cardId && typeof clientOverrides !== 'undefined')
+      ? clientOverrides[_overrideKey(cardId)]
+      : null;
+    const sc = _override || findClient(clientName);
+
+    // If nothing resolves — no override and no DB match — show instant message
+    // rather than firing a fetch that will return empty anyway.
+    if (!sc && sheetClients.length) {
+      _historyShowEmpty(`No client record found for "${clientName}". Use the Locate client button on the job card to identify this client.`);
+      return;
+    }
+
+    const histId   = (sc && sc['Hist Data ID'])    ? sc['Hist Data ID'].trim()    : '';
+    const folderId = (sc && sc['Drive Folder ID']) ? sc['Drive Folder ID'].trim() : '';
+
+    const idToken   = sessionStorage.getItem('mg_id_token') || '';
+    const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
+    const url = `${SCRIPT_URL}/historical-data?${authParam.replace(/^&/, '')}`
+              + `&client=${encodeURIComponent(clientName)}`
+              + `&histId=${encodeURIComponent(histId)}`
+              + `&folderId=${encodeURIComponent(folderId)}`
+              + `&_=${Date.now()}`;
+
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    _historyData = data;
+    _historyTab  = 'notes';
+
+    // Show tabs and search
+    document.getElementById('history-tabs').style.display        = 'flex';
+    document.getElementById('history-search-wrap').style.display = 'flex';
+    _updateHistoryTabArrows();
+
+    // Update tab counts
+    const nc = document.getElementById('htab-ct-notes');
+    const rc = document.getElementById('htab-ct-records');
+    const fc = document.getElementById('htab-ct-fert');
+    const pc = document.getElementById('htab-ct-photos');
+    if (nc) nc.textContent = (data.notes        || []).length || '';
+    if (rc) rc.textContent = (data.labor        || []).length || '';
+    if (fc) fc.textContent = (data.fertilizers  || []).length || '';
+    if (pc) pc.textContent = Array.isArray(data.photos) && data.photos.length ? data.photos.length : '';
+
+    // Activate Notes tab
+    document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+    const notesTab = document.getElementById('htab-notes');
+    const internalEl = document.getElementById('htab-ct-internal');
+    if (internalEl) internalEl.textContent = (data.internalNotes || []).length || '';
+    if (notesTab) notesTab.classList.add('active');
+
+    _renderHistoryTab();
+
+  } catch(e) {
+    document.getElementById('history-body').innerHTML =
+      `<div class="history-error">&#9888; Could not load history: ${esc(e.message)}</div>`;
+  }
+}
+
+function _historyShowEmpty(msg) {
+  document.getElementById('history-body').innerHTML =
+    `<div class="history-empty">${esc(msg)}</div>`;
+  document.getElementById('history-tabs').style.display        = 'none';
+  document.getElementById('history-search-wrap').style.display = 'none';
+  const label = document.getElementById('history-client-label');
+  if (label) label.textContent = '';
+}
+
+// ── Tab switching ──────────────────────────────────────────────
+
+function switchHistoryTab(tab) {
+  _historyTab = tab;
+  document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById('htab-' + tab);
+  if (el) el.classList.add('active');
+  _renderHistoryTab();
+}
+
+// ── Search ─────────────────────────────────────────────────────
+
+function filterHistory(query) {
+  _historyQuery = query.toLowerCase().trim();
+  const clear = document.getElementById('history-search-clear');
+  if (clear) clear.style.display = _historyQuery ? '' : 'none';
+  _renderHistoryTab();
+}
+
+function clearHistorySearch() {
+  const search = document.getElementById('history-search');
+  if (search) search.value = '';
+  filterHistory('');
+}
+
+// ── Render dispatcher ──────────────────────────────────────────
+
+function _renderHistoryTab() {
+  if (!_historyData) return;
+  const body = document.getElementById('history-body');
+  const q    = _historyQuery;
+  if      (_historyTab === 'notes')    _renderNotes(body, q);
+  else if (_historyTab === 'internal') _renderInternalNotes(body, q);
+  else if (_historyTab === 'fert')     _renderFertilizers(body, q);
+  else if (_historyTab === 'records')  _renderLabor(body, q);
+  else if (_historyTab === 'photos')   _renderPhotos(body, q);
+}
+
+// Highlight matching text
+function _hl(text, q) {
+  if (!q || !text) return esc(text);
+  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return esc(text).replace(new RegExp(`(${safeQ})`, 'gi'), '<mark class="hl">$1</mark>');
+}
+
+// ── Notes tab ─────────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the note text.
+
+function _renderNotes(body, q) {
+  let notes = (_historyData.notes || []).filter(n => n.text || n.date);
+  if (q) notes = notes.filter(n =>
+    (n.date  || '').toLowerCase().includes(q) ||
+    (n.text  || '').toLowerCase().includes(q)
+  );
+
+  if (!notes.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No notes match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No service notes found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = notes.map((n, i) => `
+    <div class="hn-card" id="hn-${i}" onclick="toggleNote(${i})">
+      <div class="hn-header">
+        <span class="hn-date">${esc(n.date)}</span>
+        <span class="hn-arrow">&#8250;</span>
+      </div>
+      <div class="hn-body">
+        ${n.text ? `<p class="hn-text">${_hl(n.text, q)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  // Auto-expand all when searching
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function _renderInternalNotes(body, q) {
+  let notes = (_historyData.internalNotes || []).filter(n => n.text || n.date);
+  if (q) notes = notes.filter(n =>
+    (n.date || '').toLowerCase().includes(q) ||
+    (n.text || '').toLowerCase().includes(q)
+  );
+
+  if (!notes.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No internal notes match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No internal notes for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="hn-internal-banner">&#128274; Internal use only — not shown to clients</div>` +
+    notes.map((n, i) => `
+    <div class="hn-card hn-card-internal" id="hni-${i}" onclick="toggleInternalNote(${i})">
+      <div class="hn-header">
+        <span class="hn-date">${esc(n.date)}</span>
+        <span class="hn-arrow">&#8250;</span>
+      </div>
+      <div class="hn-body">
+        ${n.text ? `<p class="hn-text">${_hl(n.text, q)}</p>` : ''}
+      </div>
+    </div>`).join('');
+
+  if (q) body.querySelectorAll('.hn-card-internal').forEach(c => c.classList.add('open'));
+}
+
+function toggleInternalNote(i) {
+  const card = document.getElementById('hni-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+function toggleNote(i) {
+  const card = document.getElementById('hn-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Fertilizer tab ────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the products.
+// Multiple products per date are pipe-delimited in the value.
+
+function _renderFertilizers(body, q) {
+  let entries = (_historyData.fertilizers || []).filter(e => e.product || e.date);
+  if (q) entries = entries.filter(e =>
+    (e.date    || '').toLowerCase().includes(q) ||
+    (e.product || '').toLowerCase().includes(q)
+  );
+
+  if (!entries.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No fertilizers match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No fertilizer records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map((e, i) => {
+    // Split pipe-delimited products into individual lines
+    const products = (e.product || '').split(' | ').filter(p => p.trim());
+    const productHTML = products.map(p =>
+      `<div class="hf-item">${_hl(p.trim(), q)}</div>`
+    ).join('');
+    return `
+      <div class="hn-card" id="hf-${i}" onclick="toggleFert(${i})">
+        <div class="hn-header">
+          <span class="hn-date">${esc(e.date)}</span>
+          <span class="hf-preview">${esc(products[0] || '')}${products.length > 1 ? ` +${products.length - 1} more` : ''}</span>
+          <span class="hn-arrow">&#8250;</span>
+        </div>
+        <div class="hn-body hf-body">${productHTML}</div>
+      </div>`;
+  }).join('');
+
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function toggleFert(i) {
+  const card = document.getElementById('hf-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Labor tab ─────────────────────────────────────────────────
+// Each date is a collapsed card; click to expand the description.
+
+function _renderLabor(body, q) {
+  let entries = (_historyData.labor || []).filter(e => e.description || e.date);
+  if (q) entries = entries.filter(e =>
+    (e.date        || '').toLowerCase().includes(q) ||
+    (e.description || '').toLowerCase().includes(q)
+  );
+
+  if (!entries.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No labor records match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No labor records found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = entries.map((e, i) => {
+    // Split pipe-delimited descriptions
+    const items = (e.description || '').split(' | ').filter(d => d.trim());
+    const itemsHTML = items.map(d =>
+      `<div class="hr-item">${_hl(d.trim(), q)}</div>`
+    ).join('');
+    return `
+      <div class="hn-card" id="hr-${i}" onclick="toggleRecord(${i})">
+        <div class="hn-header">
+          <span class="hn-date">${esc(e.date)}</span>
+          <span class="hr-preview">${esc((items[0] || '').slice(0, 60))}${(items[0] || '').length > 60 || items.length > 1 ? '…' : ''}</span>
+          <span class="hn-arrow">&#8250;</span>
+        </div>
+        <div class="hn-body">${itemsHTML}</div>
+      </div>`;
+  }).join('');
+
+  if (q) body.querySelectorAll('.hn-card').forEach(c => c.classList.add('open'));
+}
+
+function toggleRecord(i) {
+  const card = document.getElementById('hr-' + i);
+  if (card) card.classList.toggle('open');
+}
+
+// ── Photos tab ────────────────────────────────────────────────
+// Flat list of photos with date and filename. Filename links to
+// the file in Google Drive.
+
+function _renderPhotos(body, q) {
+  let photos = (_historyData.photos || []).filter(p => p.fileId || p.filename);
+  if (q) photos = photos.filter(p =>
+    (p.date     || '').toLowerCase().includes(q) ||
+    (p.filename || '').toLowerCase().includes(q)
+  );
+
+  if (!photos.length) {
+    body.innerHTML = q
+      ? `<div class="history-empty">No photos match "<strong>${esc(q)}</strong>"</div>`
+      : '<div class="history-empty">No photos found for this client.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="hp-list">` +
+    photos.map(p => {
+      const driveUrl = p.fileId
+        ? `https://drive.google.com/file/d/${esc(p.fileId)}/view`
+        : '#';
+      const name = _hl(p.filename || p.fileId || '(unnamed)', q);
+      return `
+        <div class="hp-row">
+          <span class="hp-date">${esc(p.date)}</span>
+          <a class="hp-link" href="${driveUrl}" target="_blank" rel="noopener">
+            &#128247; ${name}
+          </a>
+        </div>`;
+    }).join('') +
+  `</div>`;
+}
+
+// ── Open / close ──────────────────────────────────────────────
+function openHistory() {
+  _populateHistorySelect();
+  document.getElementById('history-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeHistory() {
+  document.getElementById('history-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeHistoryOutside(e) {
+  if (e.target.id === 'history-modal') closeHistory();
+}
+
+// ── Populate client dropdown ───────────────────────────────────
+
+function _populateHistorySelect() {
+  const sel = document.getElementById('history-client-select');
+  while (sel.options.length > 1) sel.remove(1);
+  sel.value = '';
+  const sorted = [...sheetClients].sort((a, b) => {
+    const na = (a['Name(s)'] || a['name'] || '').toLowerCase();
+    const nb = (b['Name(s)'] || b['name'] || '').toLowerCase();
+    return na.localeCompare(nb);
+  });
+  sorted.forEach(c => {
+    const name = c['Name(s)'] || c['name'] || '';
+    if (!name) return;
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+
+// -- Desktop scroll arrows for the tab bar ---------------------------
+// The tab row scrolls fine via touch swipe on phones/tablets, and via
+// Shift+scroll-wheel on desktop, but neither is discoverable without
+// already knowing to try it. These two functions add a visible,
+// clickable alternative for a plain desktop mouse. Not needed on
+// touch devices, but harmless there too -- they just won't have
+// anything to click if the row doesn't overflow.
+let _historyTabsListenerAttached = false;
+
+function _scrollHistoryTabs(direction) {
+  const el = document.getElementById('history-tabs');
+  if (!el) return;
+  el.scrollBy({ left: direction * 150, behavior: 'smooth' });
+}
+
+function _updateHistoryTabArrows() {
+  const el = document.getElementById('history-tabs');
+  const leftArrow = document.getElementById('htab-arrow-left');
+  const rightArrow = document.getElementById('htab-arrow-right');
+  if (!el || !leftArrow || !rightArrow) return;
+
+  // Attach the scroll listener once, lazily, the first time the tabs
+  // are actually shown -- rather than at page load, when the element
+  // might not have its final layout/content yet.
+  if (!_historyTabsListenerAttached) {
+    el.addEventListener('scroll', _updateHistoryTabArrows);
+    window.addEventListener('resize', _updateHistoryTabArrows);
+    _historyTabsListenerAttached = true;
+  }
+
+  const maxScroll = el.scrollWidth - el.clientWidth;
+  // 2px tolerance -- fractional pixel rounding can leave scrollLeft a
+  // hair short of maxScroll even when fully scrolled to the end.
+  leftArrow.style.display  = el.scrollLeft > 2 ? 'flex' : 'none';
+  rightArrow.style.display = el.scrollLeft < maxScroll - 2 ? 'flex' : 'none';
+}

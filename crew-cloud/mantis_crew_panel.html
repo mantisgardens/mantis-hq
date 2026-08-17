@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<!--
+  mantis_crew_panel.html
+  Mantis Gardens — Crew Assignment Panel
+  
+  This file is intentionally lean — just structure and markup.
+  Styles → mantis_crew_panel.css
+  Logic  → crew_config.js, crew_api.js, crew_render.js,
+            crew_ui.js, crew_workrecord.js, crew_history.js,
+            crew_app.js  (loaded in that order)
+  
+  Configuration: edit SCRIPT_URL in crew_config.js after each
+  Apps Script redeployment.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- See index.html for why these are here — avoids a stale cached
+       page shell serving old ?v= script references. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>Mantis Gardens — Crew Panel</title>
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=63">
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row1">
+    <div class="brand">
+      <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+      <div>
+        <div class="brand-name">Mantis Gardens</div>
+        <div class="brand-sub">Crew Assignment Panel</div>
+      </div>
+    </div>
+    <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+  </div>
+  <div class="header-row2">
+    <button class="nav-btn" onclick="shiftWeek(-1)">&#8592; Prev</button>
+    <span class="week-label" id="week-label">Week of Apr 16</span>
+    <button class="nav-btn" onclick="shiftWeek(1)">Next &#8594;</button>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="status-pill"><div class="sdot" id="sd-clients"></div><span id="sl-clients">Clients: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-brief"></div><span id="sl-brief">Morning brief: not loaded</span></div>
+  <div class="status-pill"><div class="sdot" id="sd-calendar"></div><span id="sl-calendar">Calendar: not loaded</span></div>
+</div>
+
+<div class="day-tabs" id="day-tabs"></div>
+<!-- Debug panel: change display:none to display:block to enable -->
+<div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:var(--font-mono);font-size:var(--fs-small);padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
+
+<!-- Team tab bar — one tab per crew, full-width content below -->
+<div class="team-tabs" id="team-tabs">
+  <div class="team-tab t1 active" id="ttab-t1" onclick="switchTeam('t1')">
+    Team 1
+  </div>
+  <div class="team-tab t2" id="ttab-t2" onclick="switchTeam('t2')">
+    Team 2
+  </div>
+  <div class="team-tab t3" id="ttab-t3" onclick="switchTeam('t3')">
+    Team 3
+  </div>
+  <div class="team-tab install" id="ttab-install" onclick="switchTeam('install')">
+    Install
+  </div>
+  <!-- Managers tab: hidden for non-manager crew, shown by loadAll() role check -->
+  <div class="team-tab managers" id="ttab-managers" onclick="switchTeam('managers')" style="display:none">
+    Managers
+  </div>
+</div>
+
+<!-- Single full-width team panel — content swaps on tab switch -->
+<div class="main">
+  <div class="team-panel" id="panel-t1">
+    <div class="team-header t1">
+      <div><div class="team-name">Maintenance &middot; Team 1</div><div class="team-meta">Lead: 916-584-6181</div></div>
+    </div>
+    <div id="brief-t1" class="brief-wrap"></div>
+    <div class="jobs-list" id="t1-jobs"></div>
+  </div>
+  <div class="team-panel hidden" id="panel-t2">
+    <div class="team-header t2">
+      <div><div class="team-name">Maintenance &middot; Team 2</div><div class="team-meta">Lead: 916-584-0731</div></div>
+    </div>
+    <div id="brief-t2" class="brief-wrap"></div>
+    <div class="jobs-list" id="t2-jobs"></div>
+  </div>
+  <div class="team-panel hidden" id="panel-t3">
+    <div class="team-header t3">
+      <div><div class="team-name">Maintenance &middot; Team 3</div><div class="team-meta">Lead: TODO-PHONE</div></div>
+    </div>
+    <div id="brief-t3" class="brief-wrap"></div>
+    <div class="jobs-list" id="t3-jobs"></div>
+  </div>
+  <div class="team-panel hidden" id="panel-install">
+    <div class="team-header install">
+      <div><div class="team-name">Install Team</div><div class="team-meta">Op Mgr: 916-584-0259</div></div>
+    </div>
+    <div id="brief-install" class="brief-wrap"></div>
+    <div class="jobs-list" id="install-jobs"></div>
+  </div>
+
+  <!-- ── Managers panel ── -->
+  <div class="team-panel hidden" id="panel-managers">
+    <div class="team-header managers">
+      <div><div class="team-name">&#128203; Managers</div><div class="team-meta" id="managers-meta">Loading…</div></div>
+    </div>
+    <div id="brief-managers" class="brief-wrap"></div>
+    <div class="jobs-list" id="managers-jobs"></div>
+  </div>
+</div>
+
+<div class="summary-bar" id="summary-bar">
+  <div class="summary-stats" id="summary-stats"></div>
+  <button class="reload-btn" id="reload-btn" onclick="reloadAll()"><span class="reload-icon">&#8635;</span> <span id="reload-btn-label">Reload Database</span></button>
+</div>
+
+
+
+<!-- ── Work Record Form Modal ── -->
+<div class="modal-overlay" id="work-modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Work Record</div>
+        <div class="modal-client" id="modal-client"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- Hidden fields: written by openWorkRecord, read by collectFormData.
+           Ensures client/IDs survive even if JS state is stale. -->
+      <input type="hidden" id="wr-client-name"  value=""/>
+      <input type="hidden" id="wr-client-id"     value=""/>
+      <input type="hidden" id="wr-hist-id"       value=""/>
+      <input type="hidden" id="wr-folder-id"     value=""/>
+
+      <!-- Crew name (pre-filled from team) -->
+      <div class="form-section">
+        <div class="form-section-label">Crew</div>
+        <div class="form-field">
+          <label class="form-label">Team</label>
+          <input class="form-input" id="wr-team" type="text" readonly
+                 style="background:var(--bg2);color:var(--ink2)"/>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Service Start</label>
+          <input class="form-input" id="wr-date-start" type="date"/>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Service End <span style="font-weight:normal;opacity:.6">(optional — multi-day only)</span></label>
+          <input class="form-input" id="wr-date-end" type="date"/>
+        </div>
+      </div>
+
+      <!-- Workers + hours + labor type -->
+      <div class="form-section">
+        <div class="form-section-label">Workers &amp; Hours</div>
+        <div class="dynamic-list" id="workers-list"></div>
+        <button class="add-row-btn" onclick="addWorker()">+ Add worker</button>
+      </div>
+
+      <!-- Materials / supplies — five sub-sections -->
+      <div class="form-section">
+        <div class="form-section-label">Materials &amp; Supplies Used</div>
+
+        <!-- Sub-section 1: Fertilizer, Spray & Bulk -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#127807; Fertilizer, Spray, &amp; Bulk</div>
+          <div class="dynamic-list" id="fert-list"></div>
+          <button class="add-row-btn" onclick="addFert()">+ Add fertilizer/spray/bulk</button>
+        </div>
+
+        <!-- Sub-section 2: Irrigation & Drainage -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#128166; Irrigation &amp; Drainage</div>
+          <div class="dynamic-list" id="irrigation-list"></div>
+          <button class="add-row-btn" onclick="addIrrigationItem()">+ Add irrigation item</button>
+        </div>
+
+        <!-- Sub-section 3: Plants -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#127801; Plants</div>
+          <div class="dynamic-list" id="plants-list"></div>
+          <button class="add-row-btn" onclick="addPlant()">+ Add plant</button>
+        </div>
+
+        <!-- Sub-section 4: Other Materials (staking, installation, dump fees etc.) -->
+        <div class="mat-subsection">
+          <div class="mat-subsection-label">&#128295; Other Materials & Fees</div>
+          <div class="dynamic-list" id="other-materials-list"></div>
+          <button class="add-row-btn" onclick="addOtherMaterial()">+ Add material</button>
+        </div>
+
+      </div>
+
+      <!-- Service notes (visible to client) -->
+      <div class="form-section">
+        <div class="form-section-label">Service Notes <span style="color:var(--g);font-size:var(--fs-tiny)">(visible to client)</span></div>
+        <textarea class="form-textarea" id="wr-service-notes"
+                  placeholder="Describe work completed, observations, recommendations..."></textarea>
+      </div>
+
+      <!-- Internal notes (not shown to client) -->
+      <div class="form-section">
+        <div class="form-section-label">Internal Notes <span style="color:var(--rd);font-size:var(--fs-tiny)">(not shown to client)</span></div>
+        <textarea class="form-textarea" id="wr-internal-notes"
+                  placeholder="Internal observations, issues, follow-up needed..."></textarea>
+      </div>
+
+      <!-- Photo upload -->
+      <div class="form-section">
+        <div class="form-section-label">Photos</div>
+        <div class="photo-upload-row">
+          <label class="photo-upload-btn" for="photo-input-camera">
+            <input type="file" id="photo-input-camera" accept="image/*" capture="environment" multiple onchange="handlePhotos(event)"/>
+            <span class="photo-upload-icon">&#128247;</span> Camera
+          </label>
+          <label class="photo-upload-btn" for="photo-input-gallery">
+            <input type="file" id="photo-input-gallery" accept="image/*" multiple onchange="handlePhotos(event)"/>
+            <span class="photo-upload-icon">&#128444;</span> Gallery
+          </label>
+        </div>
+        <div class="photo-previews" id="photo-previews"></div>
+      </div>
+
+    </div><!-- end modal-body -->
+
+    <div class="modal-footer">
+      <button class="fbtn fbtn-clear"  onclick="clearForm()">Clear</button>
+      <button class="fbtn fbtn-save"   onclick="saveForm()">Save</button>
+      <button class="fbtn fbtn-submit" id="wr-submit-btn" onclick="submitForm()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- End of Job Checklist — fixed bottom panel, outside modal -->
+<div id="checklist-panel" style="display:none">
+  <div class="checklist-header">
+    <span>&#9989; End of Job Checklist</span>
+    <button class="checklist-close" onclick="toggleChecklist(null)">&#10005;</button>
+  </div>
+  <div class="checklist-body">
+
+    <div class="checklist-section">TIME</div>
+    <label class="checklist-item"><input type="checkbox"> In/out time recorded for each client</label>
+    <label class="checklist-item"><input type="checkbox"> Breaks noted (if applicable)</label>
+    <label class="checklist-item"><input type="checkbox"> Training time noted (if applicable)</label>
+    <label class="checklist-item"><input type="checkbox"> Walkthrough time noted (if applicable)</label>
+    <p class="checklist-note">&#x1F4AC; <em>'Time onsite'</em> = total crew time onsite. <em>'Labor hours'</em> = hours per person. Clients are charged per labor-hour. If only one person received training or took a break, note that so time is only subtracted for one person.</p>
+
+    <div class="checklist-section">NOTES</div>
+    <label class="checklist-item"><input type="checkbox"> All notes are completed</label>
+    <label class="checklist-item"><input type="checkbox"> Irrigation fixes and changes are noted (parts charged = needs a note)</label>
+    <label class="checklist-item"><input type="checkbox"> Client requests included</label>
+    <label class="checklist-item"><input type="checkbox"> If something didn't get done — reason listed</label>
+    <label class="checklist-item"><input type="checkbox"> If follow-up needed — follow-up section added</label>
+    <p class="checklist-note">&#x26A0;&#xFE0F; If follow-up is urgent or something will surprise the client, communicate with David <strong>before</strong> leaving. Don't wait for management to read it in the sheets.</p>
+
+    <div class="checklist-section">PARTS &amp; MATERIALS</div>
+    <label class="checklist-item"><input type="checkbox"> Fertilizer (all fertilizer — check planting projects, double-check math)</label>
+    <label class="checklist-item"><input type="checkbox"> Irrigation parts (couplers, hoop stakes, etc.)</label>
+    <label class="checklist-item"><input type="checkbox"> Vinegar spray / hort oil spray (sold in ¼ gal increments)</label>
+    <label class="checklist-item"><input type="checkbox"> Bagged soil (sold in ¼ bag increments)</label>
+    <label class="checklist-item"><input type="checkbox"> Bulk soil (list pot size / quantity used)</label>
+    <label class="checklist-item"><input type="checkbox"> Arbor mulch / chip drop mulch (charged as one $40 loading fee)</label>
+    <label class="checklist-item"><input type="checkbox"> Other mulch (cubic yard)</label>
+    <label class="checklist-item"><input type="checkbox"> Plants (quantity, name, size, source — e.g. 2x Salvia coccinea, 5 gal, Mantis nursery)</label>
+    <label class="checklist-item"><input type="checkbox"> Pick up / delivery fee (if you went to a store for parts)</label>
+    <label class="checklist-item"><input type="checkbox"> Small debris haul $30 (two tarps, &lt;50 gal, fits in green waste bin)</label>
+    <label class="checklist-item"><input type="checkbox"> Large debris haul $105 (&gt;50 gal, &lt;1 ton)</label>
+    <label class="checklist-item"><input type="checkbox"> Trellis materials (eye screws, trellis line, turnbuckles, etc.)</label>
+    <label class="checklist-item"><input type="checkbox"> Staking materials (t-posts, wood stakes, rubber tree strapping)</label>
+    <p class="checklist-note">Anything left onsite and charged to client. If you aren't sure — list it anyway and ask.</p>
+
+  </div><!-- end checklist-body -->
+</div><!-- end checklist-panel -->
+
+<!-- ── Historical Data Modal ── -->
+<div class="modal-overlay" id="history-modal" onclick="closeHistoryOutside(event)">
+  <div class="modal modal-history">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Historical Data</div>
+        <div class="modal-client" id="history-client-label"></div>
+      </div>
+      <button class="modal-close" onclick="closeHistory()">&#10005;</button>
+    </div>
+
+    <!-- Client selector -->
+    <div class="history-selector">
+      <select class="history-select" id="history-client-select" onchange="loadHistory(this.value)">
+        <option value="">— Select a client —</option>
+      </select>
+    </div>
+
+    <!-- Search bar (shown after client selected) -->
+    <div class="history-search-wrap" id="history-search-wrap" style="display:none">
+      <span class="history-search-icon">&#128269;</span>
+      <input class="history-search" id="history-search" type="text"
+             placeholder="Search notes, fertilizers, labor…"
+             oninput="filterHistory(this.value)"/>
+      <button class="history-search-clear" id="history-search-clear"
+              onclick="clearHistorySearch()" style="display:none">&#10005;</button>
+    </div>
+
+    <!-- Tab bar: Notes → Fertilizer → Labor → Photos -->
+    <!-- Wrapped so left/right scroll arrows can be positioned over the
+         row's edges for desktop mouse users -- the row itself scrolls
+         via touch swipe fine on phones/tablets already, but had no
+         discoverable way to scroll with a plain desktop mouse (only
+         Shift+wheel, which most people don't know about). -->
+    <div class="history-tabs-wrap">
+      <button class="htab-arrow htab-arrow-left" id="htab-arrow-left"
+              onclick="_scrollHistoryTabs(-1)" aria-label="Scroll tabs left" style="display:none">&#10094;</button>
+      <div class="history-tabs" id="history-tabs" style="display:none">
+      <button class="htab active" id="htab-notes"    onclick="switchHistoryTab('notes')">
+        &#128196; Notes <span class="htab-ct" id="htab-ct-notes"></span>
+      </button>
+      <button class="htab" id="htab-internal"  onclick="switchHistoryTab('internal')">
+        &#128274; Internal <span class="htab-ct" id="htab-ct-internal"></span>
+      </button>
+      <button class="htab" id="htab-fert"      onclick="switchHistoryTab('fert')">
+        &#127807; Fertilizer <span class="htab-ct" id="htab-ct-fert"></span>
+      </button>
+      <button class="htab" id="htab-records"   onclick="switchHistoryTab('records')">
+        &#128203; Labor <span class="htab-ct" id="htab-ct-records"></span>
+      </button>
+      <button class="htab" id="htab-photos"    onclick="switchHistoryTab('photos')">
+        &#128247; Photos <span class="htab-ct" id="htab-ct-photos"></span>
+      </button>
+      </div>
+      <button class="htab-arrow htab-arrow-right" id="htab-arrow-right"
+              onclick="_scrollHistoryTabs(1)" aria-label="Scroll tabs right" style="display:none">&#10095;</button>
+    </div>
+
+    <div class="modal-body" id="history-body">
+      <div class="history-empty">Select a client above to view their historical data.</div>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<!-- Pre-declared datalists — JS populates options after data loads.
+     Must exist in the DOM before any input with list="..." is created. -->
+<datalist id="dl-crew-global"></datalist>
+<datalist id="dl-fert-global"></datalist>
+<datalist id="dl-irr-global"></datalist>
+<datalist id="dl-plants-global"></datalist>
+<datalist id="dl-other-global"></datalist>
+
+<!-- The first two js config files must be before all other js files and in this order. -->
+<script src="../config.js?v=36"></script>
+<script src="js/mantis_config.js?v=47"></script>
+<script src="js/session_timeout.js?v=37"></script>
+<script src="js/mantis_data_loader.js?v=62"></script>
+<script src="js/crew_config.js?v=51"></script>
+<script src="js/crew_api.js?v=62"></script>
+<script src="js/crew_render.js?v=76"></script>
+<script src="js/crew_ui.js?v=42"></script>
+<script src="js/crew_workrecord.js?v=83"></script>
+<script src="js/crew_history.js?v=58"></script>
+<!-- crew_app.js must be last script tag on the page so all other
+   modules are defined before startup code runs.  -->
+<script src="js/crew_app.js?v=47"></script>
+<script>
+// Diagnostic: detect if crew_history.js failed to load
+window.addEventListener('load', () => {
+  if (typeof openHistoryForClient === 'undefined') {
+    console.error('[Mantis] crew_history.js failed to load or execute. History buttons will not work.');
+    // Provide a fallback so the error is visible rather than silent
+    window.openHistoryForClient = function(name, cardId) {
+      alert('History panel failed to load. Check browser console for errors, then hard-refresh (Ctrl+Shift+R).');
+    };
+  }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,556 @@
+/* =============================================================
+   mantis_service_manual.css
+   Mantis Gardens — Service Manual
+
+   Sections:
+     1.  Typography (fonts & size scale) — EDIT SIZES HERE
+     2.  Variables & Reset
+     3.  Header
+     4.  Section Tabs
+     5.  Search Bar
+     6.  Section Containers
+     7.  Plant Cards (grid)
+     8.  Fertilizer / Spray Table
+     9.  Equipment Lists
+     10. Shared Utilities (tags, badges, empty state)
+     11. Responsive
+     12. Plant Lookup (search, filters, split-pane results + profile)
+     13. Pruning Guide Tab
+
+   Sections 12-13 were added after this file's original 11-section
+   plan and never added to this directory or given matching banners
+   — they used to just start mid-file with no clear boundary. The
+   inline numbers on sections 3-11 were also off by one from this
+   list (their comments started counting from "2" at Header instead
+   of "3") — fixed to match. Keep this list in sync with the file:
+   if you add a new named block below, add it here too.
+   ============================================================= */
+
+/* =============================================================
+   1. TYPOGRAPHY — font families & size scale
+   -------------------------------------------------------------
+   Everything below is the ONLY place font sizes/families are
+   defined. Every rule further down in this file references one
+   of these variables instead of a hardcoded size, so bumping a
+   number here changes every matching element on the page at once.
+   This is the same shared scale used across the crew panel, owner
+   portal, and landing page (mantis_crew_panel.css, owner.css,
+   mantis_landing.css) — keep them in sync if you change one.
+
+   Sizes are in rem (1rem = the browser's default 16px), so they
+   scale together with a user's browser/OS text-size setting.
+   1rem is the smallest size used anywhere in this file — nothing
+   should go below it.
+
+   If feedback says a specific kind of text is still too small,
+   find which tier it uses in the comments below and bump just
+   that one variable.
+   ============================================================= */
+:root{
+  /* Font families */
+  --font-body:    "DM Sans", sans-serif;     /* everyday UI text: buttons, inputs, body copy */
+  --font-mono:    "DM Mono", monospace;       /* meta info: tags, uppercase labels */
+  --font-display: "Fraunces", serif;          /* italic serif: titles, headings */
+
+  /* Font size scale, smallest to largest */
+  --fs-tiny:  1rem;      /* 16px — tiny badges/tags */
+  --fs-label: 1.125rem;  /* 18px — meta labels */
+  --fs-small: 1.25rem;   /* 20px — secondary text (tabs, search bar meta) */
+  --fs-body:  1.375rem;  /* 22px — main reading text: plant names, table cells */
+  --fs-sub:   1.5rem;    /* 24px — sub-headings */
+  --fs-title: 1.75rem;   /* 28px — section titles */
+  --fs-xl:    2rem;      /* 32px — large icon glyphs (reserved; unused in this file today) */
+  --fs-2xl:   2.25rem;   /* 36px — reserved (unused in this file today) */
+  --fs-3xl:   2.5rem;    /* 40px — reserved (unused in this file today) */
+  --fs-4xl:   2.75rem;   /* 44px — reserved (unused in this file today) */
+  --fs-5xl:   3rem;      /* 48px — reserved (unused in this file today) */
+  --fs-6xl:   3.5rem;    /* 56px — biggest tier in the shared scale (reserved) */
+}
+
+/* =============================================================
+   2. VARIABLES & RESET
+   ============================================================= */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a2:#f0c060;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --t3:#6b3a1a;--t3b:#fdf0e4;--t3s:#f0c880;
+  --rd:#7a2020;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
+  font-size:var(--fs-body);min-height:100vh}
+
+/* =============================================================
+   3. HEADER
+   ============================================================= */
+.header{background:var(--g);padding:11px 16px;display:flex;
+  align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;opacity:0.9}
+.brand-name{font-family:var(--font-display);font-size:var(--fs-title);font-weight:300;
+  font-style:italic;color:#d4eacf}
+.brand-sub{font-family:var(--font-mono);font-size:var(--fs-tiny);
+  color:rgba(255,255,255,0.45);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+.signout-btn{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.08em;
+  text-transform:uppercase;background:rgba(255,255,255,0.1);
+  border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);
+  padding:5px 11px;border-radius:4px;cursor:pointer;transition:all 0.15s}
+.signout-btn:hover{background:rgba(255,255,255,0.2);color:#fff}
+
+/* =============================================================
+   4. SECTION TABS
+   ============================================================= */
+.section-tabs{background:var(--bg2);border-bottom:1px solid var(--bg3);
+  display:flex;overflow-x:auto}
+.section-tab{padding:11px 18px;font-family:var(--font-mono);font-size:var(--fs-small);
+  letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;
+  border-bottom:2px solid transparent;color:var(--ink3);
+  white-space:nowrap;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.section-tab:hover{color:var(--ink)}
+.section-tab.active{color:var(--g);border-bottom-color:var(--g);background:#fff}
+.tab-icon{font-size:var(--fs-body)}
+
+/* =============================================================
+   5. SEARCH BAR
+   ============================================================= */
+.search-bar{background:#fff;border-bottom:1px solid var(--bg3);
+  padding:9px 16px;display:flex;align-items:center;gap:10px}
+.search-input{flex:1;font-family:var(--font-body);font-size:var(--fs-body);
+  padding:8px 12px;border:1px solid var(--bg3);border-radius:6px;
+  outline:none;transition:border-color 0.15s;background:var(--bg)}
+.search-input:focus{border-color:var(--g4)}
+.search-count{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);
+  white-space:nowrap;letter-spacing:0.06em}
+
+/* =============================================================
+   6. SECTION CONTAINERS
+   ============================================================= */
+.section{display:none;padding:16px}
+.section.active{display:block}
+
+/* =============================================================
+   7. PLANT CARDS (GRID)
+   ============================================================= */
+.entries-grid{display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.plant-card{background:#fff;border:1px solid var(--bg3);border-radius:8px;
+  overflow:hidden;transition:box-shadow 0.15s;cursor:pointer}
+.plant-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.08)}
+.plant-card.hidden{display:none}
+.plant-header{padding:12px 14px 10px;border-bottom:1px solid var(--bg3)}
+.plant-common{font-family:var(--font-display);font-size:var(--fs-sub);font-weight:400;
+  color:var(--ink);margin-bottom:2px}
+.plant-latin{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);
+  font-style:italic;letter-spacing:0.04em}
+.plant-tags{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap}
+.plant-body{padding:10px 14px;display:none;flex-direction:column;gap:6px}
+.plant-card.open .plant-body{display:flex}
+.plant-row{display:flex;gap:8px;font-size:var(--fs-body);align-items:flex-start}
+.pr-label{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);
+  text-transform:uppercase;letter-spacing:0.1em;min-width:68px;padding-top:2px;flex-shrink:0}
+.pr-val{color:var(--ink);line-height:1.5}
+
+/* =============================================================
+   8. FERTILIZER / SPRAY TABLE
+   ============================================================= */
+.table-wrap{overflow-x:auto}
+.fert-section-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:400;
+  font-style:italic;color:var(--ink);margin:16px 0 10px;padding-bottom:6px;
+  border-bottom:2px solid var(--bg3)}
+.fert-section-title:first-child{margin-top:0}
+.data-table{width:100%;border-collapse:collapse;background:#fff;
+  border:1px solid var(--bg3);border-radius:8px;overflow:hidden;
+  margin-bottom:20px;font-size:var(--fs-body);box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.data-table th{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--ink3);padding:9px 12px;
+  background:var(--bg2);text-align:left;border-bottom:1px solid var(--bg3)}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--bg3);
+  color:var(--ink);line-height:1.5;vertical-align:top}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg)}
+.data-table tr.hidden{display:none}
+.highlight{background:var(--a2);padding:1px 3px;border-radius:2px}
+
+/* Tech sheet callout */
+.callout{background:var(--b3);border:1px solid var(--b4);border-radius:8px;
+  padding:14px 16px;margin-bottom:20px;font-size:var(--fs-body);line-height:1.7;color:var(--ink)}
+.callout-title{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--b);margin-bottom:8px;font-weight:500}
+.callout-warn{background:var(--a3);border:1px solid var(--a4);border-radius:8px;
+  padding:14px 16px;margin-bottom:20px;font-size:var(--fs-body);line-height:1.7;color:var(--ink)}
+.callout-warn .callout-title{color:var(--a)}
+
+/* =============================================================
+   9. EQUIPMENT LISTS
+   ============================================================= */
+.equip-section{margin-bottom:28px}
+.equip-section-title{font-family:var(--font-display);font-size:var(--fs-title);font-weight:400;
+  font-style:italic;color:var(--ink);margin-bottom:10px;padding-bottom:6px;
+  border-bottom:2px solid var(--bg3)}
+.vehicle-card{background:#fff;border:1px solid var(--bg3);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.vehicle-name{font-family:var(--font-display);font-size:var(--fs-sub);color:var(--ink);
+  margin-bottom:4px}
+.vehicle-detail{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--ink3);
+  letter-spacing:0.04em;margin-bottom:2px}
+.vehicle-vin{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);
+  letter-spacing:0.06em;margin-top:4px}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.tool-card{background:#fff;border:1px solid var(--bg3);border-radius:6px;
+  padding:9px 12px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.tool-card.hidden{display:none}
+.tool-name{font-size:var(--fs-body);color:var(--ink)}
+.tool-detail{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);
+  margin-top:2px}
+.tool-count{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--g2);
+  font-weight:500;flex-shrink:0;margin-left:8px}
+.tool-brand{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--b);
+  margin-top:2px}
+
+/* =============================================================
+   10. SHARED UTILITIES (TAGS, BADGES, EMPTY STATE)
+   ============================================================= */
+.tag{font-family:var(--font-mono);font-size:var(--fs-tiny);padding:2px 6px;
+  border-radius:3px;letter-spacing:0.04em;text-transform:uppercase}
+.tag-native{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
+.tag-drought{background:var(--a3);color:var(--a);border:1px solid var(--a4)}
+.tag-deer{background:#f5eef8;color:#5b2c6f;border:1px solid #d7bde2}
+.tag-sun{background:#fef9e7;color:#7d6608;border:1px solid #f9e79f}
+.tag-shade{background:var(--b3);color:var(--b);border:1px solid var(--b4)}
+.tag-fruit{background:#fdf2f8;color:#76448a;border:1px solid #d7bde2}
+.tag-rose{background:#fff0f3;color:var(--rd);border:1px solid #f5b7b1}
+.tag-warn{background:#fff3e0;color:#8a5000;border:1px solid #f0d090}
+
+.empty-state{padding:40px;text-align:center;color:var(--ink3);
+  font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:0.06em}
+
+/* =============================================================
+   11. RESPONSIVE
+   ============================================================= */
+@media(max-width:600px){
+  .entries-grid{grid-template-columns:1fr}
+  .tool-grid{grid-template-columns:1fr 1fr}
+}
+/* ── Tool manual links ── */
+.power-card{align-items:flex-start}
+.tool-links{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+.tool-link{
+  font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.06em;
+  text-transform:uppercase;padding:2px 7px;border-radius:3px;
+  text-decoration:none;transition:all 0.15s;
+  background:var(--b3);color:var(--b);border:1px solid var(--b4);
+}
+.tool-link:hover{background:var(--b);color:#fff}
+.tool-link.pdf{background:var(--a3);color:var(--a);border-color:var(--a4)}
+.tool-link.pdf:hover{background:var(--a);color:#fff}
+
+/* =============================================================
+   12. PLANT LOOKUP (SEARCH, FILTERS, SPLIT-PANE RESULTS + PROFILE)
+   ============================================================= */
+
+/* Search bar */
+.plant-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+}
+#plant-search-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1.5px solid var(--bg3);
+  border-radius: 6px;
+  font-size:var(--fs-body);
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink1);
+  outline: none;
+  transition: border-color 0.15s;
+}
+#plant-search-input:focus {
+  border-color: var(--b);
+  box-shadow: 0 0 0 3px rgba(31,78,61,0.1);
+}
+.plant-result-count {
+  font-size:var(--fs-body);
+  color: var(--ink3);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: right;
+}
+
+/* Plant filter bar */
+.plant-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+}
+.pf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 1 auto;
+}
+.pf-label {
+  font-family:var(--font-mono);
+  font-size:var(--fs-tiny);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+.pf-select {
+  padding: 6px 10px;
+  border: 1.5px solid var(--bg3);
+  border-radius: 6px;
+  font-size:var(--fs-body);
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink2);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: auto;
+}
+.pf-select:focus { border-color: var(--b); }
+.pf-select.active { border-color: var(--b); background: var(--b3); color: var(--b); font-weight: 600; }
+.pf-clear-field { flex: 0; min-width: auto; }
+.pf-clear {
+  padding: 6px 12px;
+  border: 1.5px solid var(--bg3);
+  border-radius: 6px;
+  font-size:var(--fs-body);
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.pf-clear:hover { border-color: var(--rd, #c0392b); color: var(--rd, #c0392b); }
+
+
+.plant-lookup-pane {
+  display: flex;
+  height: calc(100vh - 200px);
+  min-height: 400px;
+  overflow: hidden;
+}
+
+/* Results list column */
+.plant-results-col {
+  width: 460px;
+  min-width: 300px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid var(--bg3);
+  overflow: hidden;
+}
+.prc-header {
+  display: grid;
+  grid-template-columns: 3fr 2fr 1fr;
+  padding: 6px 10px;
+  background: var(--b);
+  color: #fff;
+  font-size:var(--fs-small);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+#plant-results-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.plant-result-row {
+  display: grid;
+  grid-template-columns: 3fr 2fr 1fr;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--bg2);
+  transition: background 0.1s;
+  font-size:var(--fs-body);
+  gap: 4px;
+}
+.plant-result-row:hover  { background: var(--bg2); }
+.plant-result-row.prl-active {
+  background: var(--bg3);
+  border-left: 3px solid var(--b);
+}
+.prr-common { font-weight: 600; color: var(--ink1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-latin  { color: var(--ink3); font-style: italic; font-size:var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-type   { color: var(--ink3); font-size:var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prr-empty  { padding: 20px; color: var(--ink3); font-style: italic; font-size:var(--fs-body); }
+
+/* Profile card column */
+.plant-profile-col {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  background: #fff;
+}
+
+/* Empty state */
+.pp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--ink3);
+  font-size:var(--fs-body);
+  text-align: center;
+  padding: 40px;
+}
+
+/* Profile card content */
+.pp-header {
+  background: var(--b);
+  color: #fff;
+  padding: 18px 20px 14px;
+}
+.pp-common   { font-size:var(--fs-2xl); font-weight: 700; line-height: 1.2; }
+.pp-botanical { font-size:var(--fs-body); font-style: italic; opacity: 0.8; margin-top: 4px; }
+.pp-type-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.pp-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size:var(--fs-small);
+  font-weight: 600;
+}
+.pp-badge.pp-native  { background: rgba(100,200,130,0.35); }
+.pp-badge.pp-drought { background: rgba(255,200,80,0.35); }
+
+/* Section panels inside profile */
+.pp-sections { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pp-section {
+  border-radius: 6px;
+  border: 1px solid var(--bg3);
+  overflow: hidden;
+}
+.pp-section-title {
+  background: var(--bg2);
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size:var(--fs-body);
+  color: var(--b);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--bg3);
+}
+.pp-prune .pp-section-title { color: #1565A0; background: #E3F2FD; }
+.pp-fert  .pp-section-title { color: #6D4C00; }
+.pp-row {
+  display: flex;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--bg2);
+  font-size:var(--fs-body);
+  gap: 8px;
+}
+.pp-row:last-child { border-bottom: none; }
+.pp-label {
+  width: 140px;
+  min-width: 140px;
+  font-weight: 600;
+  color: var(--ink2);
+  font-size:var(--fs-small);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding-top: 1px;
+  overflow-wrap: break-word;
+}
+.pp-val {
+  flex: 1;
+  color: var(--ink1);
+  line-height: 1.5;
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 680px) {
+  .plant-lookup-pane   { flex-direction: column; height: auto; }
+  .plant-results-col   { width: 100%; border-right: none; border-bottom: 2px solid var(--bg3); max-height: 260px; }
+  .plant-profile-col   { min-height: 400px; }
+}
+
+
+/* =============================================================
+   13. PRUNING GUIDE TAB
+   ============================================================= */
+.pg-group-card {
+  background: #fff;
+  border: 1px solid #dde8e2;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  transition: background 0.15s;
+}
+.pg-group-card.hidden { display: none; }
+.pg-group-card.pg-now {
+  background: var(--g-light, #e8f4f0);
+  border-color: var(--g, #2E7D52);
+}
+.pg-group-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pg-group-name {
+  font-weight: 700;
+  font-size:var(--fs-body);
+  color: #1F4E3D;
+  flex: 1;
+  min-width: 120px;
+}
+.pg-period {
+  font-family:var(--font-mono);
+  font-size:var(--fs-small);
+  color: #1565A0;
+  background: #E3F2FD;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.pg-now-badge {
+  font-size:var(--fs-label);
+  background: var(--g, #2E7D52);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.pg-row {
+  display: flex;
+  gap: 10px;
+  font-size:var(--fs-body);
+  line-height: 1.55;
+  padding: 3px 0;
+  border-top: 1px solid rgba(0,0,0,0.05);
+}
+.pg-row-label {
+  flex: 0 0 90px;
+  color: #666;
+  font-size:var(--fs-small);
+  padding-top: 1px;
+}
+.pg-row-val { flex: 1; color: var(--ink1, #111); }
+.pg-example-text { color: #555; font-style: italic; }
