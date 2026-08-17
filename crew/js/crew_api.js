@@ -192,6 +192,91 @@ async function fetchJsonWithRetry(url, retries) {
   }
 }
 
+// ── Token refresh (crew panel) ─────────────────────────────────
+// Google ID tokens expire after 1 hour. Without refresh, every
+// request after expiry returns 401 and the app shows "No network"
+// (misleadingly). Port of the owner portal's _isTokenError() /
+// _refreshOwnerToken() pattern -- uses GIS's silent prompt() to get
+// a fresh token without requiring a full logout/login.
+//
+// GIS must be loaded on mantis_crew_panel.html (added alongside this
+// change) for this to work -- the login page (index.html) loads it
+// too, but the panel page is a separate navigation so it needs its own.
+
+function _isTokenError(err) {
+  const msg = (err && err.message) || '';
+  return msg.includes('Unauthorized') || msg.includes('HTTP 401') ||
+         msg.includes('Token expired') || msg.includes('Invalid token');
+}
+
+let _crewTokenRefreshPromise = null;
+let _crewPendingTokenResolve = null;
+
+function _refreshCrewToken() {
+  if (_crewTokenRefreshPromise) return _crewTokenRefreshPromise;
+  _crewTokenRefreshPromise = new Promise((resolve, reject) => {
+    const tryRefresh = () => {
+      if (typeof google === 'undefined' || !google.accounts) {
+        _crewTokenRefreshPromise = null;
+        reject(new Error('GIS not available'));
+        return;
+      }
+      _crewPendingTokenResolve = resolve;
+      // Re-initialize GIS with the crew callback so the new token
+      // goes into sessionStorage the same way login does.
+      google.accounts.id.initialize({
+        client_id: (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID : '',
+        callback: (response) => {
+          if (response && response.credential) {
+            sessionStorage.setItem('mg_id_token', response.credential);
+            _crewTokenRefreshPromise = null;
+            if (_crewPendingTokenResolve) {
+              _crewPendingTokenResolve();
+              _crewPendingTokenResolve = null;
+            }
+          } else {
+            _crewTokenRefreshPromise = null;
+            reject(new Error('Token refresh failed'));
+          }
+        },
+        auto_select: true,
+      });
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Silent refresh not possible -- redirect to login page
+          _crewTokenRefreshPromise = null;
+          sessionStorage.removeItem('mg_id_token');
+          window.location.href = (typeof MANTIS_CONFIG !== 'undefined')
+            ? MANTIS_CONFIG.LOGIN_URL : 'index.html';
+          reject(new Error('Silent refresh not available'));
+        }
+      });
+    };
+
+    if (typeof google !== 'undefined' && google.accounts) {
+      tryRefresh();
+    } else {
+      let waited = 0;
+      const poll = setInterval(() => {
+        waited += 100;
+        if (typeof google !== 'undefined' && google.accounts) {
+          clearInterval(poll);
+          tryRefresh();
+        } else if (waited >= 3000) {
+          clearInterval(poll);
+          _crewTokenRefreshPromise = null;
+          // GIS not available -- redirect to login
+          sessionStorage.removeItem('mg_id_token');
+          window.location.href = (typeof MANTIS_CONFIG !== 'undefined')
+            ? MANTIS_CONFIG.LOGIN_URL : 'index.html';
+          reject(new Error('GIS not available after 3s'));
+        }
+      }, 100);
+    }
+  });
+  return _crewTokenRefreshPromise;
+}
+
 // apiFetch() wraps all calls to the Apps Script web app.
 // Main interaction method to Apps Script code.
 async function apiFetch(action, extra) {
@@ -413,7 +498,22 @@ async function loadAll(forceFresh) {
     bundle = forceFresh
       ? await apiFetch('crew_load_all_fresh', mgrExtra)
       : await fetchCrewLoadAllWithFallback(mgrExtra);
-  } catch(e) { bundleErr = e; }
+  } catch(e) {
+    if (_isTokenError(e)) {
+      // Token expired -- try a silent GIS refresh then retry once.
+      // If refresh fails (GIS not available, user dismissed prompt),
+      // _refreshCrewToken() redirects to login, so we won't reach
+      // the retry line anyway.
+      try {
+        await _refreshCrewToken();
+        bundle = forceFresh
+          ? await apiFetch('crew_load_all_fresh', mgrExtra)
+          : await fetchCrewLoadAllWithFallback(mgrExtra);
+      } catch(retryErr) { bundleErr = retryErr; }
+    } else {
+      bundleErr = e;
+    }
+  }
   clearSlowLoadBanner();
 
   // Reconstruct the per-section {status, value|reason} shape the rest
