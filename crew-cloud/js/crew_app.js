@@ -112,3 +112,8 @@ currentDay = todayDateKey();
 // forceFresh only on genuine login (?fresh=1), not browser restores.
 setTimeout(() => loadAll(_isFreshLogin), 400);
 
+// Proactive token-expiry banner removed -- no longer needed now that
+// login exchanges the 1-hour Google JWT for a 10-hour Mantis session
+// token (POST /auth/session). The localStorage token now lives for
+// the full session and doesn't need mid-day renewal prompts.
+
