@@ -100,33 +100,15 @@ if (sessionStorage.getItem('mg_auth') === '1') {
 // app open and just need a local cache refresh, not a re-auth.
 const _isFreshLogin = new URLSearchParams(window.location.search).has('fresh');
 currentDay = todayDateKey();
-loadAll(_isFreshLogin);
 
-// ── Re-connect after background/sleep ─────────────────────────
-// Mobile devices often lose network briefly when the screen wakes,
-// which causes the network fetch to fail and shows the "No network"
-// banner even though the device does have connectivity. Listening
-// for visibilitychange and retrying after a short delay (to give the
-// network time to re-establish) handles this automatically -- saving
-// crew from having to log out and back in.
-//
-// Key insight: clearOfflineBanner() removes the banner element from
-// the DOM entirely (not just hides it), so we can't check for its
-// presence to decide whether to retry. Instead: always retry if away
-// more than 60 seconds -- short switches (checking a text) don't
-// need a re-fetch, but anything longer than a minute might have
-// caused a stale load or a failed one either way.
-let _lastVisibleAt = Date.now();
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible') {
-    _lastVisibleAt = Date.now();
-    return;
-  }
-  const awayMs = Date.now() - _lastVisibleAt;
-  if (awayMs < 60 * 1000) return;
-
-  // 2-second delay lets the network re-establish after the device
-  // wakes before we actually fire the request.
-  setTimeout(() => loadAll(), 2000);
-});
+// ── Startup load strategy ──────────────────────────────────────
+// Small settle delay before the first fetch, matching the owner
+// portal's own startup pattern (owner_dashboard.js line 1793:
+// setTimeout(loadAll, 400)). The owner portal comment explains why:
+// firing a network request as the very first thing after a page load
+// or redirect is flaky -- the network may not be fully ready yet,
+// especially on mobile after the browser restores a backgrounded tab.
+// 400ms is enough for the page to settle without being noticeable.
+// forceFresh only on genuine login (?fresh=1), not browser restores.
+setTimeout(() => loadAll(_isFreshLogin), 400);
 
