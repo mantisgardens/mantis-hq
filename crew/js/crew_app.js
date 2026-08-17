@@ -90,7 +90,47 @@ if (sessionStorage.getItem('mg_auth') === '1') {
 })();
 
 // ── Start: load all data ──────────────────────────────────────
-// This happens every time the page (mantis_crew_panel.html) loads.
+// Force a fresh server fetch on the first load after login
+// (?fresh=1 is appended by mantis_landing.js on redirect), so crew
+// always see current schedule and notes immediately after signing in.
+// On subsequent page loads (e.g. after a browser refresh mid-day
+// while the app has been open for hours), use normal caching so the
+// crew don't get bounced back to login just because their 1-hour
+// token has expired -- they may have been working all day with the
+// app open and just need a local cache refresh, not a re-auth.
+const _isFreshLogin = new URLSearchParams(window.location.search).has('fresh');
 currentDay = todayDateKey();
-loadAll();
+loadAll(_isFreshLogin);
+
+// ── Re-connect after background/sleep ─────────────────────────
+// Mobile devices often lose network briefly when the screen wakes.
+// If the crew member returns to the app after 15+ minutes away and
+// data failed to load (showing the "No network" banner), this
+// automatically retries after a short delay to let the network
+// re-establish -- saving them from having to log out and back in.
+let _lastVisibleAt = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') {
+    _lastVisibleAt = Date.now();
+    return;
+  }
+  const awayMs = Date.now() - _lastVisibleAt;
+  // Only act if away more than 60 seconds -- short switches
+  // (checking a text, etc.) don't need a re-fetch.
+  if (awayMs < 60 * 1000) return;
+
+  // Small delay so the network has time to re-establish after the
+  // device wakes -- without this, the retry hits the same transient
+  // failure that caused the banner in the first place.
+  setTimeout(() => {
+    const offlineBanner = document.getElementById('offline-banner');
+    const isShowingOffline = offlineBanner && offlineBanner.style.display !== 'none';
+    // Always retry if showing the offline banner (clearly failed).
+    // Also silently refresh if away 15+ minutes so crew returning
+    // from a long break see current schedule automatically.
+    if (isShowingOffline || awayMs > 15 * 60 * 1000) {
+      loadAll();
+    }
+  }, 2000);
+});
 
