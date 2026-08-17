@@ -223,6 +223,8 @@
     localStorage.removeItem('mg_user_email');
     localStorage.removeItem('mg_user_name');
     localStorage.removeItem('mg_auth_expiry');
+    localStorage.removeItem('mg_id_token');
+    localStorage.removeItem('mg_id_token_expiry');
 
     const loginUrl = (_options && _options.loginUrl) || 'index.html';
     sessionStorage.clear();

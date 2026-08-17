@@ -212,67 +212,26 @@ function _isTokenError(err) {
 let _crewTokenRefreshPromise = null;
 let _crewPendingTokenResolve = null;
 
+// _refreshCrewToken() -- redirect to login with a return flag so the
+// crew member comes back to the panel automatically after signing in.
+// Unlike the owner portal, the crew app can't reliably use GIS's
+// silent prompt() on mobile -- One Tap is frequently suppressed after
+// first use. Rather than a complex silent-refresh attempt that often
+// fails and causes confusing delays, just redirect cleanly to login.
+// The ?return=panel flag tells the login page to redirect straight
+// back to the crew panel after authentication, so the crew member
+// doesn't have to navigate manually.
 function _refreshCrewToken() {
   if (_crewTokenRefreshPromise) return _crewTokenRefreshPromise;
   _crewTokenRefreshPromise = new Promise((resolve, reject) => {
-    const tryRefresh = () => {
-      if (typeof google === 'undefined' || !google.accounts) {
-        _crewTokenRefreshPromise = null;
-        reject(new Error('GIS not available'));
-        return;
-      }
-      _crewPendingTokenResolve = resolve;
-      // Re-initialize GIS with the crew callback so the new token
-      // goes into sessionStorage the same way login does.
-      google.accounts.id.initialize({
-        client_id: (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID : '',
-        callback: (response) => {
-          if (response && response.credential) {
-            sessionStorage.setItem('mg_id_token', response.credential);
-            _crewTokenRefreshPromise = null;
-            if (_crewPendingTokenResolve) {
-              _crewPendingTokenResolve();
-              _crewPendingTokenResolve = null;
-            }
-          } else {
-            _crewTokenRefreshPromise = null;
-            reject(new Error('Token refresh failed'));
-          }
-        },
-        auto_select: true,
-      });
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Silent refresh not possible -- redirect to login page
-          _crewTokenRefreshPromise = null;
-          sessionStorage.removeItem('mg_id_token');
-          window.location.href = (typeof MANTIS_CONFIG !== 'undefined')
-            ? MANTIS_CONFIG.LOGIN_URL : 'index.html';
-          reject(new Error('Silent refresh not available'));
-        }
-      });
-    };
-
-    if (typeof google !== 'undefined' && google.accounts) {
-      tryRefresh();
-    } else {
-      let waited = 0;
-      const poll = setInterval(() => {
-        waited += 100;
-        if (typeof google !== 'undefined' && google.accounts) {
-          clearInterval(poll);
-          tryRefresh();
-        } else if (waited >= 3000) {
-          clearInterval(poll);
-          _crewTokenRefreshPromise = null;
-          // GIS not available -- redirect to login
-          sessionStorage.removeItem('mg_id_token');
-          window.location.href = (typeof MANTIS_CONFIG !== 'undefined')
-            ? MANTIS_CONFIG.LOGIN_URL : 'index.html';
-          reject(new Error('GIS not available after 3s'));
-        }
-      }, 100);
-    }
+    sessionStorage.removeItem('mg_id_token');
+    const loginUrl = ((typeof MANTIS_CONFIG !== 'undefined')
+      ? MANTIS_CONFIG.LOGIN_URL : 'index.html')
+      + '?return=panel';
+    window.location.href = loginUrl;
+    // Promise never resolves -- redirect is already in flight.
+    // The rejection is a safety net in case location.href is delayed.
+    reject(new Error('Redirecting to login'));
   });
   return _crewTokenRefreshPromise;
 }
@@ -296,7 +255,21 @@ async function apiFetch(action, extra) {
   }
 
   // Include Google ID token for server-side verification.
-  const idToken = sessionStorage.getItem('mg_id_token') || '';
+  // Fall back to localStorage if sessionStorage is empty -- mobile
+  // browsers clear sessionStorage when they discard and restore a
+  // tab after a period of inactivity, even though the token itself
+  // is still valid for up to an hour. When we find a valid token in
+  // localStorage, seed it back into sessionStorage so subsequent
+  // calls within this page session don't need the fallback again.
+  let idToken = sessionStorage.getItem('mg_id_token') || '';
+  if (!idToken) {
+    const lsToken  = localStorage.getItem('mg_id_token') || '';
+    const lsExpiry = parseInt(localStorage.getItem('mg_id_token_expiry') || '0');
+    if (lsToken && Date.now() < lsExpiry) {
+      sessionStorage.setItem('mg_id_token', lsToken);
+      idToken = lsToken;
+    }
+  }
   const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
   // crew-cloud/ REST-path translation instead of Apps Script's
