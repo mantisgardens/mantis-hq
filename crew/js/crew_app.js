@@ -103,11 +103,19 @@ currentDay = todayDateKey();
 loadAll(_isFreshLogin);
 
 // ── Re-connect after background/sleep ─────────────────────────
-// Mobile devices often lose network briefly when the screen wakes.
-// If the crew member returns to the app after 15+ minutes away and
-// data failed to load (showing the "No network" banner), this
-// automatically retries after a short delay to let the network
-// re-establish -- saving them from having to log out and back in.
+// Mobile devices often lose network briefly when the screen wakes,
+// which causes the network fetch to fail and shows the "No network"
+// banner even though the device does have connectivity. Listening
+// for visibilitychange and retrying after a short delay (to give the
+// network time to re-establish) handles this automatically -- saving
+// crew from having to log out and back in.
+//
+// Key insight: clearOfflineBanner() removes the banner element from
+// the DOM entirely (not just hides it), so we can't check for its
+// presence to decide whether to retry. Instead: always retry if away
+// more than 60 seconds -- short switches (checking a text) don't
+// need a re-fetch, but anything longer than a minute might have
+// caused a stale load or a failed one either way.
 let _lastVisibleAt = Date.now();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') {
@@ -115,22 +123,10 @@ document.addEventListener('visibilitychange', () => {
     return;
   }
   const awayMs = Date.now() - _lastVisibleAt;
-  // Only act if away more than 60 seconds -- short switches
-  // (checking a text, etc.) don't need a re-fetch.
   if (awayMs < 60 * 1000) return;
 
-  // Small delay so the network has time to re-establish after the
-  // device wakes -- without this, the retry hits the same transient
-  // failure that caused the banner in the first place.
-  setTimeout(() => {
-    const offlineBanner = document.getElementById('offline-banner');
-    const isShowingOffline = offlineBanner && offlineBanner.style.display !== 'none';
-    // Always retry if showing the offline banner (clearly failed).
-    // Also silently refresh if away 15+ minutes so crew returning
-    // from a long break see current schedule automatically.
-    if (isShowingOffline || awayMs > 15 * 60 * 1000) {
-      loadAll();
-    }
-  }, 2000);
+  // 2-second delay lets the network re-establish after the device
+  // wakes before we actually fire the request.
+  setTimeout(() => loadAll(), 2000);
 });
 
