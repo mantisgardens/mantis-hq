@@ -24,6 +24,10 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Panel</title>
   <link rel="stylesheet" href="css/mantis_crew_panel.css?v=63">
+  <!-- GIS loaded here (as well as index.html) so the crew panel
+       can silently refresh expired tokens mid-session, matching
+       the owner portal which also loads GIS on its dashboard page. -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -362,17 +366,17 @@
 <!-- The first two js config files must be before all other js files and in this order. -->
 <script src="../config.js?v=36"></script>
 <script src="js/mantis_config.js?v=47"></script>
-<script src="js/session_timeout.js?v=37"></script>
+<script src="js/session_timeout.js?v=40"></script>
 <script src="js/mantis_data_loader.js?v=62"></script>
 <script src="js/crew_config.js?v=51"></script>
-<script src="js/crew_api.js?v=62"></script>
+<script src="js/crew_api.js?v=65"></script>
 <script src="js/crew_render.js?v=76"></script>
 <script src="js/crew_ui.js?v=42"></script>
 <script src="js/crew_workrecord.js?v=83"></script>
 <script src="js/crew_history.js?v=58"></script>
 <!-- crew_app.js must be last script tag on the page so all other
    modules are defined before startup code runs.  -->
-<script src="js/crew_app.js?v=47"></script>
+<script src="js/crew_app.js?v=50"></script>
 <script>
 // Diagnostic: detect if crew_history.js failed to load
 window.addEventListener('load', () => {
