@@ -439,15 +439,12 @@ function renderEquip() {
   el.innerHTML = html;
 }
 
-// =============================================================
-// SECTION 6 — UTILITY & STARTUP
-// =============================================================
 function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // =============================================================
-// SECTION: PRUNING GUIDE — SACRAMENTO
+// SECTION 6 : PRUNING GUIDE — SACRAMENTO
 // Renders the 43-group Sacramento pruning reference from
 // PRUNING_GUIDE (loaded from the "Pruning Guide — Sacramento"
 // sheet in Mantis_Plant_Database).
@@ -471,12 +468,10 @@ function renderPruning() {
 
   let html = `
     <div class="callout" style="margin-bottom:18px">
-      <div class="callout-title">&#9988; Sacramento Pruning Guide</div>
-      Timing is everything in Sacramento's climate. Groups highlighted
+      <div class="callout-title">&#9988; Groups highlighted
       <span style="background:var(--g-light,#e8f4f0);padding:1px 6px;border-radius:4px;font-weight:600">in green</span>
       include <b>${nowMonth}</b> in their pruning window.
-      Always prune spring-blooming plants <b>after</b> they flower —
-      never before. See each plant card for its specific period and notes.
+      See each plant card in the Plane Database tab for its specific period and notes.
     </div>`;
 
   if (!groups.length) {
