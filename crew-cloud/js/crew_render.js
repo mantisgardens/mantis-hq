@@ -120,7 +120,13 @@ function matchOwnerHomeAddress(name) {
 }
 
 // ── Client matching ───────────────────────────────────────────
-function findClient(name) {
+// findClient(name, intervalHint) -- fuzzy client lookup with optional
+// interval tiebreaker. When a name is ambiguous (e.g. "De Vere White"
+// matches four clients), intervalHint (e.g. "Monthly" from the calendar
+// event's recurrence description) is compared against each candidate's
+// "Visit Interval" column. If exactly one candidate matches, that one
+// wins -- resolving the ambiguity without showing the picker.
+function findClient(name, intervalHint) {
   if (!sheetClients.length) return null;
   const _ownerHome = matchOwnerHomeAddress(name);
   if (_ownerHome) return _ownerHome;
@@ -231,13 +237,35 @@ function findClient(name) {
   }
 
   // Detect ties: if any other client shares the top score the match is
-  // ambiguous. Attach a flag so the card can warn the crew member.
+  // ambiguous. Try the interval hint as a tiebreaker first before
+  // falling back to the ambiguous-match picker.
   const tied = [];
   scores.forEach((s, c) => { if (s === top && c !== best) tied.push(c); });
   if (tied.length) {
-    const names = [best, ...tied].map(c => c['Name(s)'] || '').join(', ');
-    console.log('[findClient] ambiguous match for:', name, '| tied clients:', names);
     const _candidates = [best, ...tied];
+
+    // Interval tiebreaker: if a calendar event interval (e.g. "Monthly",
+    // "Quarterly") was passed in, check each candidate's "Visit Interval"
+    // column. If exactly one matches, use it -- resolves the ambiguity
+    // without showing the picker. Comparison is case-insensitive and
+    // checks whether the client's interval *contains* the hint (so
+    // "Bi-Monthly" matches a hint of "monthly" and won't falsely match
+    // "quarterly").
+    if (intervalHint) {
+      const hint = intervalHint.toLowerCase();
+      const intervalMatches = _candidates.filter(c => {
+        const vi = (c['Visit Interval'] || c['Visit interval'] || '').toLowerCase().trim();
+        return vi && vi === hint;  // exact match -- 'bi-monthly'.includes('monthly')
+                                   // would be true with includes(), falsely matching
+      });
+      if (intervalMatches.length === 1) {
+        // Exactly one candidate matches -- tiebreaker resolved.
+        return intervalMatches[0];
+      }
+    }
+
+    const names = _candidates.map(c => c['Name(s)'] || '').join(', ');
+    console.log('[findClient] ambiguous match for:', name, '| tied clients:', names);
     best = Object.assign({}, best, {
       _ambiguous:           true,
       _ambiguousNames:      _candidates.map(c => c['Name(s)'] || '').filter(Boolean),
@@ -719,7 +747,7 @@ function renderJobs(cid, jobs, teamClass) {
 
   jobs.forEach(j => {
     const isLoad = j.type === 'load-in';
-    const sc     = !isLoad ? findClient(j.client) : null;
+    const sc     = !isLoad ? findClient(j.client, j.interval) : null;
     // Store the resolved sheet client back on the job object so openWorkRecord
     // and collectFormData can use Drive Folder ID / Hist Data ID directly
     // without re-running the lookup — and without depending on currentDay being
@@ -852,7 +880,7 @@ function renderManagerPanel() {
     } else {
       stream.events.forEach(ev => {
         const isClientEv = ev.type === 'client';
-        const sc         = isClientEv ? findClient(ev.clientCandidate || ev.title) : null;
+        const sc         = isClientEv ? findClient(ev.clientCandidate || ev.title, ev.interval) : null;
         const isExp      = expanded['mgr_' + ev.id];
 
         // Render each event — client events use the full Team 1/2 card format;

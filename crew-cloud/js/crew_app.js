@@ -102,15 +102,18 @@ const _isFreshLogin = new URLSearchParams(window.location.search).has('fresh');
 currentDay = todayDateKey();
 
 // ── Startup load strategy ──────────────────────────────────────
-// Small settle delay before the first fetch, matching the owner
-// portal's own startup pattern (owner_dashboard.js line 1793:
-// setTimeout(loadAll, 400)). The owner portal comment explains why:
-// firing a network request as the very first thing after a page load
-// or redirect is flaky -- the network may not be fully ready yet,
-// especially on mobile after the browser restores a backgrounded tab.
-// 400ms is enough for the page to settle without being noticeable.
-// forceFresh only on genuine login (?fresh=1), not browser restores.
-setTimeout(() => loadAll(_isFreshLogin), 400);
+// Force a fresh server fetch on genuine login (?fresh=1). Also force
+// fresh if the last known fresh load was more than 4 hours ago --
+// this catches crew members whose browser restored the tab from
+// overnight without going through the login page, who would otherwise
+// get a stale cached schedule from the previous day. 4 hours is
+// safely within a work day but long enough to not re-trigger on a
+// normal mid-day break.
+const _lastFresh = parseInt(localStorage.getItem('mg_last_fresh_load') || '0');
+const _staleData = Date.now() - _lastFresh > 4 * 60 * 60 * 1000;
+const _forceFresh = _isFreshLogin || _staleData;
+if (_forceFresh) localStorage.setItem('mg_last_fresh_load', Date.now().toString());
+setTimeout(() => loadAll(_forceFresh), 400);
 
 // Proactive token-expiry banner removed -- no longer needed now that
 // login exchanges the 1-hour Google JWT for a 10-hour Mantis session

@@ -225,6 +225,7 @@ function _refreshCrewToken() {
   if (_crewTokenRefreshPromise) return _crewTokenRefreshPromise;
   _crewTokenRefreshPromise = new Promise((resolve, reject) => {
     sessionStorage.removeItem('mg_id_token');
+    localStorage.removeItem('mg_last_fresh_load'); // force fresh data after re-auth
     const loginUrl = ((typeof MANTIS_CONFIG !== 'undefined')
       ? MANTIS_CONFIG.LOGIN_URL : 'index.html')
       + '?return=panel';
