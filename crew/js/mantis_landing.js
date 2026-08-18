@@ -181,13 +181,31 @@ function handleCredential(response) {
         localStorage.setItem('mg_user_role',     role);
         localStorage.setItem('mg_auth_expiry',   expiry.toString());
         localStorage.setItem('mg_session_start', Date.now().toString());
-        // Store the id_token in localStorage with its own 1-hour expiry
-        // so it survives mobile browser tab restores (which clear
-        // sessionStorage). crew_api.js reads it back from localStorage
-        // when sessionStorage is empty after a browser-restored page.
-        const tokenExpiry = Date.now() + (60 * 60 * 1000); // 1 hour
+        // Exchange the Google JWT for a Mantis session token with a
+        // 10-hour lifetime so crew don't need to re-authenticate every
+        // hour. The Google token is stored as the initial fallback; the
+        // session token overwrites it if the exchange succeeds.
+        // If SESSION_SECRET isn't configured on the server yet, the
+        // exchange returns 503 and we silently fall back to the 1-hour
+        // Google token -- nothing breaks, sessions just expire sooner.
+        const tokenExpiry = Date.now() + (60 * 60 * 1000); // 1-hour fallback
         localStorage.setItem('mg_id_token',        response.credential);
         localStorage.setItem('mg_id_token_expiry', tokenExpiry.toString());
+        // Attempt session token exchange (async, non-blocking).
+        // On success, overwrites the short-lived Google token with the
+        // 10-hour session token so all subsequent requests and tab
+        // restores use the long-lived one automatically.
+        fetch(SCRIPT_URL + '/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_token: response.credential }),
+        }).then(r => r.ok ? r.json() : null).then(data => {
+          if (data && data.session_token) {
+            localStorage.setItem('mg_id_token',        data.session_token);
+            localStorage.setItem('mg_id_token_expiry', data.expires_at.toString());
+            sessionStorage.setItem('mg_id_token',      data.session_token);
+          }
+        }).catch(() => { /* silently use Google token fallback */ });
         // Also seed sessionStorage so session_timeout.js works
         sessionStorage.setItem('mg_auth',          '1');
         sessionStorage.setItem('mg_user_email',    email);
@@ -233,6 +251,8 @@ function doSignOut() {
   localStorage.removeItem('mg_session_start');
   localStorage.removeItem('mg_id_token');
   localStorage.removeItem('mg_id_token_expiry');
+  localStorage.removeItem('mg_session_token');
+  localStorage.removeItem('mg_session_token_expiry');
   sessionStorage.clear();
   show('login');
   hideLoginError();
