@@ -471,7 +471,7 @@ function renderPruning() {
       <div class="callout-title">&#9988; Groups highlighted
       <span style="background:var(--g-light,#e8f4f0);padding:1px 6px;border-radius:4px;font-weight:600">in green</span>
       include <b>${nowMonth}</b> in their pruning window.
-      See each plant card in the Plane Database tab for its specific period and notes.
+      See each plant card in the Plant Database tab for its specific period and notes.
     </div>`;
 
   if (!groups.length) {
