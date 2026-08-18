@@ -242,6 +242,13 @@ function applyServiceManualData(data) {
   const realTools = allTools.filter(t => t.name && t.brand);
   POWER_TOOLS = realTools.filter(t => (t.category||'').toLowerCase() === 'power');
   HAND_TOOLS  = realTools.filter(t => (t.category||'').toLowerCase() !== 'power');
+
+  // The Pruning Guide tab lives in the same spreadsheet as the other
+  // service manual data (SERVICE_MANUAL_SHEET_ID), so the backend
+  // returns it as part of the /service-manual response -- not
+  // /plant-database as applyPlantData() assumes. Apply it here so
+  // Pruning Guide changes picked up by a force-refresh actually appear.
+  if (data.pruningGuide) PRUNING_GUIDE = data.pruningGuide;
 }
 
 // ── Apply plant data ──────────────────────────────────────────
