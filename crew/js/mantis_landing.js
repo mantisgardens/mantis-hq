@@ -253,6 +253,7 @@ function doSignOut() {
   localStorage.removeItem('mg_id_token_expiry');
   localStorage.removeItem('mg_session_token');
   localStorage.removeItem('mg_session_token_expiry');
+  localStorage.removeItem('mg_last_fresh_load');
   sessionStorage.clear();
   show('login');
   hideLoginError();
