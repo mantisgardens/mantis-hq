@@ -229,6 +229,17 @@ function plantShowProfile(p) {
     </div>`;
   }
 
+  // Pruning Resources is a citation/reference line (source names, sometimes
+  // a bare URL in parentheses), not a crew instruction — rendered smaller
+  // and muted so it doesn't compete with the actionable rows above it.
+  function sourceRow(val) {
+    if (!val) return '';
+    return `<div class="pp-row pp-row-source">
+      <span class="pp-label">Sources</span>
+      <span class="pp-val pp-val-source">${esc(val)}</span>
+    </div>`;
+  }
+
   card.innerHTML = `
     <div class="pp-header">
       <div class="pp-common">${esc(p.common || p.botanical)}</div>
@@ -256,6 +267,8 @@ function plantShowProfile(p) {
         <div class="pp-section-title">&#9988; Pruning</div>
         ${row('Period',  p.pruning_period)}
         ${row('Notes',   p.pruning_notes)}
+        ${row('Also',    p.additional_maintenance)}
+        ${sourceRow(p.pruning_resources)}
       </div>
 
       <div class="pp-section pp-fert" style="background:${fcatBg}">
@@ -466,11 +479,35 @@ function renderPruning() {
     return period.toLowerCase().includes(nowMonth.toLowerCase());
   }
 
+  // The "Additional / Ongoing Maintenance" column uses looser language
+  // than Pruning Period -- "through spring and summer", "late summer",
+  // "monthly through late spring and summer" -- rather than an exact
+  // month range. Checked as its own function (not folded into
+  // periodIsNow) so the main monthly highlight / sort order above stays
+  // driven only by the precise Pruning Period column; this just powers a
+  // small secondary badge on the "Also" line itself.
+  const seasonByMonthIndex = [
+    'winter','winter','spring','spring','spring','summer',
+    'summer','summer','fall','fall','fall','winter',
+  ];
+  const nowSeason = seasonByMonthIndex[new Date().getMonth()];
+
+  function noteIsNow(text) {
+    if (!text) return false;
+    const t = text.toLowerCase();
+    return t.includes(nowMonth.toLowerCase()) || t.includes(nowSeason);
+  }
+
   let html = `
     <div class="callout" style="margin-bottom:18px">
       <div class="callout-title">&#9988; Groups highlighted
       <span style="background:var(--g-light,#e8f4f0);padding:1px 6px;border-radius:4px;font-weight:600">in green</span>
-      include <b>${nowMonth}</b> in their pruning window.
+      include <b>${nowMonth}</b> in their main pruning window.
+      Some groups also list an <b>Also</b> line for ongoing tasks (deadheading,
+      sucker removal, hedge reshaping, etc.) that run across a season rather
+      than one month &mdash; those get a small
+      <span style="background:#B5651D;color:#fff;padding:1px 6px;border-radius:4px;font-weight:600">active now</span>
+      tag when the current month falls within that season.
       See each plant card in the Plant Database tab for its specific period and notes.
     </div>`;
 
@@ -511,6 +548,11 @@ function renderPruning() {
       <div class="pg-row">
         <span class="pg-row-label">&#9888; Crew notes</span>
         <span class="pg-row-val">${esc(g.crew_notes)}</span>
+      </div>` : ''}
+      ${g.maintenance ? `
+      <div class="pg-row pg-row-maintenance">
+        <span class="pg-row-label">&#128260; Also</span>
+        <span class="pg-row-val">${esc(g.maintenance)}${noteIsNow(g.maintenance) ? ' <span class="pg-note-now">active now</span>' : ''}</span>
       </div>` : ''}
       ${g.examples ? `
       <div class="pg-row pg-examples">
