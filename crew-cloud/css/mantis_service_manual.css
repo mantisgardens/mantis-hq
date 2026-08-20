@@ -483,6 +483,16 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   line-height: 1.5;
 }
 
+/* Pruning-resources citation line — reference material, not a crew
+   instruction, so it's deliberately quieter than the rows above it. */
+.pp-row-source { background: var(--bg2); }
+.pp-val-source {
+  font-size: var(--fs-small);
+  color: var(--ink3);
+  font-style: italic;
+  line-height: 1.4;
+}
+
 /* Responsive: stack on narrow screens */
 @media (max-width: 680px) {
   .plant-lookup-pane   { flex-direction: column; height: auto; }
@@ -554,3 +564,19 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 }
 .pg-row-val { flex: 1; color: var(--ink1, #111); }
 .pg-example-text { color: #555; font-style: italic; }
+
+/* "Also" row -- ongoing maintenance beyond the main cutback. Amber to
+   visually match the same column's header accent on the Pruning Guide —
+   Sacramento sheet, and to read as distinct from the green "this is the
+   group's main pruning month" signal above. */
+.pg-row-maintenance .pg-row-label { color: #B5651D; }
+.pg-note-now {
+  display: inline-block;
+  font-size:var(--fs-label);
+  background: #B5651D;
+  color: #fff;
+  padding: 1px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  margin-left: 4px;
+}
