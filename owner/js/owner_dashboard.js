@@ -76,6 +76,19 @@ function doSignOut() {
     ? OWNER_CONFIG.LOGIN_URL : 'index.html';
 }
 
+// Only needed when invoice creation starts failing with a QuickBooks
+// "token refresh failed" error (see routes/quickbooksOAuth.js on the
+// backend). Opens in a new tab since it navigates through Intuit's
+// own login/consent screen and back — losing the dashboard tab's
+// state for that would be an annoying side effect of what's meant to
+// be a quick, occasional fix.
+function reconnectQuickBooks() {
+  const base = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_URL : '';
+  if (!base) { alert('SCRIPT_URL is not configured — cannot start QuickBooks reconnect.'); return; }
+  const url = `${base}/owner/quickbooks/oauth-start?id_token=${encodeURIComponent(getIdToken())}`;
+  window.open(url, '_blank');
+}
+
 // =============================================================
 // SECTION 3 — API LAYER
 // =============================================================
