@@ -520,8 +520,18 @@ async function loadAll(forceFresh) {
   setStatus('schedule', 'loading', 'Schedule: loading…');
   setStatus('records',  'live',    'Documents: ready');
 
-  // Fire a warm-up ping
-  fetch(`${SCRIPT_URL}/owner/ping?id_token=${encodeURIComponent(getIdToken())}`).catch(()=>{});
+  // Fire a warm-up ping -- also tells us whether this signed-in user
+  // is tech-allowlisted, to reveal the QuickBooks reconnect button.
+  // Hidden by default in the HTML; this is the only place that ever
+  // shows it, so a failed/slow ping just leaves it hidden rather than
+  // flashing it visible first.
+  fetch(`${SCRIPT_URL}/owner/ping?id_token=${encodeURIComponent(getIdToken())}`)
+    .then(r => r.json())
+    .then(data => {
+      const btn = document.getElementById('qb-reconnect-btn');
+      if (btn && data && data.isTech) btn.style.display = '';
+    })
+    .catch(()=>{});
 
   // ── Single combined fetch ──────────────────────────────────
   // Was 3 separate round trips (ownerClients / ownerSchedule /
