@@ -132,6 +132,8 @@ body.login-page{
 .user-name{font-size:var(--fs-body);color:rgba(255,255,255,0.7);font-family:var(--font-mono)}
 .sign-out-btn{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.06em;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:5px 12px;border-radius:4px;cursor:pointer;text-transform:uppercase}
 .sign-out-btn:hover{background:rgba(255,255,255,0.22)}
+.qb-reconnect-btn{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:.04em;background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.75);padding:5px 10px;border-radius:4px;cursor:pointer}
+.qb-reconnect-btn:hover{background:#B5651D;border-color:#B5651D;color:#fff}
 
 /* =============================================================
    5. NAV TABS
