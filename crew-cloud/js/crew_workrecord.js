@@ -30,6 +30,28 @@ let photoFiles     = [];
 // Saved records: { jobId: { workers, materials, serviceNotes, internalNotes, savedAt } }
 let savedRecords   = JSON.parse(localStorage.getItem('mg_work_records') || '{}');
 
+// Manager calendar events' descriptions can be plain text (one line
+// per '\n', the historical assumption) or real HTML -- Google
+// Calendar's own rich-text editor output, same as
+// sanitizeCalNotesHtml() in crew_render.js already has to account for
+// elsewhere. This is a one-line title-bar subtitle, not a place to
+// render HTML, so an HTML description gets flattened to plain text
+// first rather than assumed to use '\n' as its line separator --
+// otherwise (no '\n' in real HTML markup) description.split('\n')[0]
+// returns the ENTIRE description with every tag showing up as
+// literal text once assigned to a .textContent (e.g.
+// "<br><b><u>1. Landscape irrigation</u></b><br>-- 1x ...").
+function _descPreview(description) {
+  if (!description) return '';
+  if (!/<[a-z][\s\S]*>/i.test(description)) return description.split('\n')[0];
+  const tmp = document.createElement('div');
+  tmp.innerHTML = description;
+  tmp.querySelectorAll('br').forEach(br => br.replaceWith(' '));
+  tmp.querySelectorAll('blockquote, p, div, li').forEach(el => el.append(' '));
+  const flat = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  return flat.length > 100 ? flat.slice(0, 100).trim() + '\u2026' : flat;
+}
+
 // Fertilizer/spray names — populated from FERT_PRODUCTS once loaded.
 // Falls back to a hardcoded list if the spreadsheet hasn't loaded yet.
 function getFertNames() {
@@ -342,7 +364,7 @@ function openMgrWorkRecord(evId, workerName) {
   currentJobData = ev;
 
   document.getElementById('modal-title').textContent  = 'Work Record';
-  document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + ev.description.split('\n')[0] : '');
+  document.getElementById('modal-client').textContent = ev.title + (ev.description ? '  ·  ' + _descPreview(ev.description) : '');
   document.getElementById('wr-team').value        = 'Managers';
   // See the matching fix/comment in openWorkRecord() above — restore the
   // saved draft's Service Start/End instead of always resetting them.
