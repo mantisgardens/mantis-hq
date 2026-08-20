@@ -568,20 +568,34 @@ function isFormEmpty() {
       && photoFiles.length === 0;
 }
 
+// Saves the currently-open job's in-progress form as a draft to
+// localStorage, same data collectFormData()/closeModal() already
+// produce. Safe to call frequently -- guarded so it's a no-op unless
+// a job is actually open, the form has real content, and it isn't
+// already a submitted record (never overwrite a submitted record
+// with in-progress draft data). showToastMsg is optional since the
+// periodic/background-triggered callers below don't want a toast
+// firing on every debounced keystroke -- only closeModal()'s
+// explicit-close path does.
+function autoSaveDraft(showToastMsg) {
+  const alreadySubmitted = currentJobId && savedRecords[currentJobId] && savedRecords[currentJobId].submitted;
+  if (!currentJobId || alreadySubmitted || isFormEmpty()) return false;
+
+  const data = collectFormData();
+  savedRecords[currentJobId] = Object.assign({}, data, { photos: [] });
+  safeLocalSave();
+
+  const btn = document.getElementById('wr-btn-' + currentJobId);
+  if (btn && !btn.querySelector('.saved-badge')) {
+    btn.innerHTML += '<span class="saved-badge">saved</span>';
+  }
+  if (showToastMsg) showToast(showToastMsg);
+  return true;
+}
+
 function closeModal() {
   // Auto-save draft if the form has content and hasn't been submitted
-  const alreadySubmitted = currentJobId && savedRecords[currentJobId] && savedRecords[currentJobId].submitted;
-  if (currentJobId && !alreadySubmitted && !isFormEmpty()) {
-    const data = collectFormData();
-    savedRecords[currentJobId] = Object.assign({}, data, { photos: [] });
-    safeLocalSave();
-    // Update the saved badge on the job card button
-    const btn = document.getElementById('wr-btn-' + currentJobId);
-    if (btn && !btn.querySelector('.saved-badge')) {
-      btn.innerHTML += '<span class="saved-badge">saved</span>';
-    }
-    showToast('Draft auto-saved ✓');
-  }
+  autoSaveDraft('Draft auto-saved \u2713');
 
   document.getElementById('work-modal').classList.remove('open');
   // Hide checklist so it's closed fresh next time
@@ -594,6 +608,43 @@ function closeModal() {
 function closeModalOutside(e) {
   if (e.target === document.getElementById('work-modal')) closeModal();
 }
+
+// ── Continuous autosave ─────────────────────────────────────────
+// closeModal()'s auto-save (above) only ever ran when someone
+// deliberately tapped the X or clicked outside the modal -- which
+// does nothing for the actual complaint: crew switching tabs or
+// closing the app/browser outright without going through either of
+// those. Two more triggers close that gap:
+//
+// 1. A debounced save on every field edit, so the localStorage draft
+//    is never more than a couple seconds stale during normal typing.
+// 2. An IMMEDIATE (non-debounced) save on visibilitychange -> hidden,
+//    which fires reliably when a tab is switched away from or the
+//    app/browser is closed/backgrounded -- including on iOS
+//    Safari/Android Chrome, which is exactly the environment
+//    session_timeout.js already has to account for elsewhere in this
+//    file's sibling. This is deliberately visibilitychange rather
+//    than beforeunload: beforeunload is unreliable-to-silently-skipped
+//    on mobile, which is precisely the case being fixed here.
+//
+// Both are no-ops (via autoSaveDraft()'s own guard) whenever no job
+// is currently open, so this is safe to leave registered at all
+// times rather than attaching/detaching per modal open/close.
+let _autoSaveTimer = null;
+function _scheduleAutoSave() {
+  if (!currentJobId) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(() => autoSaveDraft(), 2000);
+}
+document.addEventListener('input',  _scheduleAutoSave, true);
+document.addEventListener('change', _scheduleAutoSave, true);
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    clearTimeout(_autoSaveTimer);
+    autoSaveDraft();
+  }
+});
 
 
 // =============================================================
