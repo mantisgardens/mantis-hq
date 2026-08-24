@@ -244,6 +244,28 @@ function findClient(name, intervalHint) {
   if (tied.length) {
     const _candidates = [best, ...tied];
 
+    // Address tiebreaker: some event titles add extra text after the
+    // client's name specifically to disambiguate manually -- e.g.
+    // "Lewis (Wyndgate)" when there are multiple Lewis clients. Any
+    // word from the title that isn't part of ANY client's name (i.e.
+    // not a key in clientCache -- so not "lewis" itself, which *is*
+    // a name word) is a candidate for this: check whether it appears
+    // in each tied client's Address. Tried before the interval hint
+    // below since an address fragment like "wyndgate" is specific to
+    // one property, whereas an interval like "Monthly" is shared by
+    // many clients and is a weaker signal.
+    const _nameWords = new Set(Object.keys(clientCache).map(k => k.startsWith('last:') ? k.slice(5) : k));
+    const _leftoverWords = words.filter(w => w.length >= 3 && !_nameWords.has(w));
+    if (_leftoverWords.length) {
+      const _addrMatches = _candidates.filter(c => {
+        const addr = (c['Address'] || '').toLowerCase();
+        return _leftoverWords.some(w => addr.includes(w));
+      });
+      if (_addrMatches.length === 1) {
+        return _addrMatches[0];
+      }
+    }
+
     // Interval tiebreaker: if a calendar event interval (e.g. "Monthly",
     // "Quarterly") was passed in, check each candidate's "Visit Interval"
     // column. If exactly one matches, use it -- resolves the ambiguity
