@@ -396,6 +396,9 @@ const OWNER_ACTION_PATHS = {
   ownerSaveClient: '/owner/clients',
   ownerDeleteClient: '/owner/clients/delete',
   ownerGetDocuments: '/owner/documents',
+  ownerCrew: '/owner/crew',
+  ownerSaveCrew: '/owner/crew',
+  ownerDeleteCrew: '/owner/crew/delete',
 };
 // The only *Fresh-style action on the owner side -- ownerLoadAllFresh
 // maps to the same path as ownerLoadAll, just with force=1 added,
@@ -624,6 +627,7 @@ function switchTab(tab) {
   // Lazy-load on first visit
   if (tab === 'notes'   && !notesData)    loadNotes();
   if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
+  if (tab === 'crew'    && !crewLoaded)   loadCrew();
 }
 
 function discardUnsavedNotes() {
@@ -1699,6 +1703,180 @@ async function saveNotes() {
 }
 
 // =============================================================
+// SECTION 6b — CREW TAB
+// =============================================================
+let crewLoaded    = false;
+let allCrew       = [];
+let crewTeamsList = [];
+
+async function loadCrew() {
+  const el = document.getElementById('crew-list');
+  el.innerHTML = '<div class="empty-state">Loading…</div>';
+  crewLoaded = false;
+
+  try {
+    const data = await ownerFetch('ownerCrew');
+    if (data.error) throw new Error(data.error);
+    allCrew = data.crew || [];
+    crewTeamsList = data.teams || [];
+    crewLoaded = true;
+    populateCrewTeamSelect();
+    renderCrew(document.getElementById('crew-search').value || '');
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state">Could not load crew: ${esc(e.message)}</div>`;
+  }
+}
+
+function populateCrewTeamSelect() {
+  const sel = document.getElementById('crf-team');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— select —</option>';
+  crewTeamsList.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;
+    opt.textContent = t;
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function renderCrew(query) {
+  const list = document.getElementById('crew-list');
+  const q = (query || '').toLowerCase().trim();
+
+  const filtered = q
+    ? allCrew.filter(c =>
+        (c.name||'').toLowerCase().includes(q) ||
+        (c.team||'').toLowerCase().includes(q) ||
+        (c.role||'').toLowerCase().includes(q) ||
+        (c.personalEmail||'').toLowerCase().includes(q) ||
+        (c.workEmail||'').toLowerCase().includes(q))
+    : allCrew;
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state">No crew found</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const emailLines = [];
+    if (c.personalEmail) emailLines.push(`<div><a href="mailto:${esc(c.personalEmail)}">${esc(c.personalEmail)}</a> <span style="color:var(--ink3)">(personal)</span></div>`);
+    if (c.workEmail)     emailLines.push(`<div><a href="mailto:${esc(c.workEmail)}">${esc(c.workEmail)}</a> <span style="color:var(--ink3)">(work)</span></div>`);
+
+    const phoneLines = [];
+    if (c.personalPhone) phoneLines.push(`<div>${esc(c.personalPhone)} <span style="color:var(--ink3)">(personal)</span></div>`);
+    if (c.mantisPhone)   phoneLines.push(`<div>${esc(c.mantisPhone)} <span style="color:var(--ink3)">(Mantis)</span></div>`);
+
+    const dateBits = [];
+    if (c.startDate) dateBits.push(`Start: ${esc(c.startDate)}`);
+    if (c.birthday)  dateBits.push(`Birthday: ${esc(c.birthday)}`);
+
+    return `<div class="crew-card">
+      <div class="crew-card-top">
+        <div>
+          <div class="crew-card-name">${esc(c.name)}</div>
+          ${c.role ? `<div class="crew-card-role">${esc(c.role)}</div>` : ''}
+        </div>
+        <span class="crew-team-badge">${esc(c.team)}</span>
+      </div>
+      <div class="crew-card-meta">
+        ${emailLines.join('')}
+        ${phoneLines.join('')}
+        ${dateBits.length ? `<div style="margin-top:2px;color:var(--ink3)">${dateBits.join(' &middot; ')}</div>` : ''}
+      </div>
+      <div class="crew-card-footer">
+        <button class="crew-remove-btn" onclick="removeCrewMember(${c.rowNum}, '${jsStr(c.name)}', this)">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterCrew(q) {
+  if (!crewLoaded) return;
+  renderCrew(q);
+}
+
+function openAddCrew() {
+  clearCrewForm();
+  document.getElementById('crew-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('crf-name').focus();
+}
+
+function closeCrewModal(e) {
+  if (e && (e.target !== document.getElementById('crew-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
+  document.getElementById('crew-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function clearCrewForm() {
+  ['crf-name','crf-role','crf-personal-email','crf-work-email',
+   'crf-personal-phone','crf-mantis-phone','crf-start-date','crf-birthday']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('crf-team').value = '';
+}
+
+async function saveCrewMember() {
+  const name = document.getElementById('crf-name').value.trim();
+  const team = document.getElementById('crf-team').value;
+  const role = document.getElementById('crf-role').value.trim();
+  if (!name) { showToast('Name is required'); return; }
+  if (!team) { showToast('Team is required'); return; }
+  if (!role) { showToast('Role is required'); return; }
+
+  const saveBtn = document.querySelector('#crew-modal .fbtn-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Adding…';
+
+  const payload = {
+    name, team, role,
+    personalEmail: document.getElementById('crf-personal-email').value.trim(),
+    workEmail:     document.getElementById('crf-work-email').value.trim(),
+    personalPhone: document.getElementById('crf-personal-phone').value.trim(),
+    mantisPhone:   document.getElementById('crf-mantis-phone').value.trim(),
+    startDate:     document.getElementById('crf-start-date').value,
+    birthday:      document.getElementById('crf-birthday').value,
+  };
+
+  try {
+    await ownerPost('ownerSaveCrew', payload, 15000);
+    showToast('Crew member added ✓');
+    closeCrewModal();
+    sessionStorage.removeItem('oc_cache_ownerCrew');
+    crewLoaded = false;
+    await loadCrew();
+  } catch(err) {
+    showToast('Add failed: ' + err.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Add Crew';
+  }
+}
+
+// A confirm() dialog gates this since it's a single click away with
+// no in-app undo -- same pattern as deleteCurrentClient()/
+// clearLoginLog(). Unlike Clients (which archives to a Retired
+// Clients tab), this is a real hard delete of the sheet row -- see
+// crewRoster.js's deleteCrewMember() header comment for why that's
+// an acceptable difference for crew records specifically.
+async function removeCrewMember(rowNum, name, btn) {
+  if (!confirm(`Remove ${name || 'this crew member'}? This deletes their row from the Crew Info sheet and can't be undone from within the app.`)) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing…'; }
+
+  try {
+    await ownerPost('ownerDeleteCrew', { rowNum });
+    showToast('Crew member removed ✓');
+    sessionStorage.removeItem('oc_cache_ownerCrew');
+    crewLoaded = false;
+    await loadCrew();
+  } catch(err) {
+    showToast('Remove failed: ' + err.message);
+    if (btn) { btn.disabled = false; btn.textContent = 'Remove'; }
+  }
+}
+
+// =============================================================
 // SECTION 8b — CREW LOGIN LOG
 // =============================================================
 let loginsLoaded   = false;
@@ -1792,6 +1970,17 @@ function esc(s) {
   return String(s || '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// For a value embedded inside a single-quoted JS string that's itself
+// inside an HTML onclick="..." attribute (e.g. the crew card's Remove
+// button, which needs a name for its confirm() prompt) -- crew/client
+// names can contain apostrophes ("O'Brien"), which esc() alone doesn't
+// escape since it's not otherwise special in an HTML attribute. Escapes
+// backslashes and single quotes for the JS-string layer first, then
+// esc() for the HTML-attribute layer around that.
+function jsStr(s) {
+  return esc(String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 }
 
 function showToast(msg) {
