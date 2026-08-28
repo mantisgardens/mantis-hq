@@ -281,6 +281,19 @@ body.login-page{
 .active-badge.active{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
 .active-badge.inactive{background:var(--bg2);color:var(--ink3);border:1px solid var(--bg3)}
 
+.crew-list{padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.crew-card{background:#fff;border:1px solid var(--bg3);border-left:3px solid var(--g4);border-radius:6px;padding:14px 16px;box-shadow:0 1px 3px rgba(28,26,20,0.07);display:flex;flex-direction:column;gap:8px}
+.crew-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.crew-card-name{font-weight:600;font-size:var(--fs-body);color:var(--ink)}
+.crew-card-role{font-size:var(--fs-label);color:var(--ink3);margin-top:1px}
+.crew-team-badge{font-size:var(--fs-label);padding:2px 8px;border-radius:10px;font-family:var(--font-mono);background:var(--g3);color:var(--g);border:1px solid var(--g4);white-space:nowrap;flex-shrink:0}
+.crew-card-meta{display:flex;flex-direction:column;gap:3px;font-size:var(--fs-body);color:var(--ink2)}
+.crew-card-meta a{color:var(--g)}
+.crew-card-footer{display:flex;justify-content:flex-end;margin-top:2px}
+.crew-remove-btn{font-size:var(--fs-label);color:#a33;background:none;border:1px solid #e0b0b0;padding:4px 10px;border-radius:4px;cursor:pointer;font-family:var(--font-mono)}
+.crew-remove-btn:hover{background:#fdecec}
+.crew-remove-btn:disabled{opacity:.5;cursor:default}
+
 /* =============================================================
    10. WORK RECORDS
    ============================================================= */
