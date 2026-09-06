@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<!--
+  mantis_timecard.html
+  Mantis Gardens — Time Card
+  Clock in/out, meal breaks, today's and this week's hours, recent
+  history. Styles → css/mantis_timecard.css. Logic → js/crew_timecard.js.
+
+  BREAK ATTESTATION FLOW (#tc-attest-modal below): implements the
+  meal/rest-break compliance prompt drafted for evaluation purposes,
+  so the owner can test-drive the actual crew-facing flow before
+  deciding whether to build this in-house or use a paid time-and-
+  attendance product for real payroll use. It is wired to real data
+  (a clock-out genuinely requires completing this, and the answers
+  are genuinely written to the Daily Attestations sheet) so what's
+  being evaluated is the real thing, not a mockup -- but see
+  timeCard.js's header comment on the backend for what's still
+  missing before this could be relied on for actual payroll
+  (the full CA daily/weekly/7th-day overtime tiers, premium-pay
+  payout mechanics, and a legal review of the exact wording below).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- See crew/index.html for why these are here — avoids a stale
+       cached page shell serving old ?v= script references. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>Mantis Gardens — Time Card</title>
+  <link rel="stylesheet" href="css/mantis_timecard.css?v=2"/>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="brand">
+    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+    <div>
+      <div class="brand-name">Mantis Gardens</div>
+      <div class="brand-sub">Time Card</div>
+    </div>
+  </div>
+  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+</div>
+
+<div class="tc-page">
+
+  <!-- ══ STATUS CARD — the main clock in/out control ══════════ -->
+  <div class="tc-status-card">
+    <div class="tc-status-label" id="tc-status-label">Not Clocked In</div>
+    <div class="tc-status-since" id="tc-status-since"></div>
+
+    <button class="tc-clock-btn in" id="tc-clock-btn" onclick="handleClockButton()">
+      Clock In
+    </button>
+
+    <div class="tc-meal-row" id="tc-meal-row" style="display:none">
+      <button class="tc-meal-btn" id="tc-meal-btn" onclick="handleMealButton()">Start Meal Break</button>
+    </div>
+  </div>
+
+  <!-- ══ TODAY / WEEK SUMMARY ══════════════════════════════════ -->
+  <div class="tc-summary-row">
+    <div class="tc-summary-card">
+      <div class="tc-summary-value" id="tc-today-hours">&mdash;</div>
+      <div class="tc-summary-label">Today</div>
+    </div>
+    <div class="tc-summary-card">
+      <div class="tc-summary-value" id="tc-week-hours">&mdash;</div>
+      <div class="tc-summary-label">This Week</div>
+    </div>
+  </div>
+
+  <!-- ══ RECENT HISTORY (read-only) ════════════════════════════ -->
+  <div class="tc-history-section">
+    <div class="tc-history-title">Recent Days</div>
+    <div class="tc-history-list" id="tc-history-list">
+      <div class="tc-empty-state">Loading…</div>
+    </div>
+    <div class="tc-history-note">
+      See a mistake? Let your manager know — corrections are made from the Owner Portal, not here.
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ BREAK ATTESTATION MODAL ═══════════════════════════════════
+     Blocks clock-out until answered — no X/outside-click dismissal
+     that lets a punch through unanswered. Canceling (the one
+     explicit Cancel action) abandons the clock-out attempt entirely
+     rather than saving a partial answer. ═══════════════════════ -->
+<div class="tc-modal-overlay" id="tc-attest-modal">
+  <div class="tc-modal">
+
+    <!-- Step: meal break question -->
+    <div class="tc-attest-step" id="tc-step-meal">
+      <div class="tc-attest-title">Daily Meal Break Verification</div>
+      <div class="tc-attest-body">
+        California law requires an uninterrupted, duty-free 30-minute meal break if you worked more than 5 hours today.
+      </div>
+      <div class="tc-attest-question">Today, were you provided the opportunity to take all required uninterrupted, duty-free 30-minute meal breaks?</div>
+      <div class="tc-attest-choices">
+        <button class="tc-attest-choice" onclick="attestAnswer('meal', true)">YES, I was provided my compliant meal breaks.</button>
+        <button class="tc-attest-choice no" onclick="attestAnswer('meal', false)">NO, I missed a meal break, it was late, or it was interrupted by work.</button>
+      </div>
+    </div>
+
+    <!-- Step: meal break reason (shown only if meal = No) -->
+    <div class="tc-attest-step" id="tc-step-meal-reason" style="display:none">
+      <div class="tc-attest-title">Why was your meal break missed?</div>
+      <div class="tc-attest-choices">
+        <button class="tc-attest-choice" onclick="attestReason('meal', 'employer_operational_demand', this)">The job site/work required me to miss it.</button>
+        <button class="tc-attest-choice" onclick="attestReason('meal', 'employee_voluntary', this)">I voluntarily chose to skip my break today.</button>
+        <button class="tc-attest-choice" onclick="attestReason('meal', 'employer_interrupted', this)">My break was cut short or interrupted.</button>
+      </div>
+      <label class="tc-attest-notes-label">Additional details (optional)</label>
+      <textarea class="tc-attest-notes" id="tc-meal-notes" rows="3" placeholder="Anything you'd like to add…"></textarea>
+      <button class="tc-attest-continue" id="tc-meal-reason-continue" onclick="goToStep('rest')" disabled>Continue</button>
+    </div>
+
+    <!-- Step: rest break question -->
+    <div class="tc-attest-step" id="tc-step-rest" style="display:none">
+      <div class="tc-attest-title">Daily Rest Break Verification</div>
+      <div class="tc-attest-body">
+        California law requires a paid, 10-minute rest break for every 4 hours (or major fraction thereof) worked today. These breaks are paid and do not require clocking out.
+      </div>
+      <div class="tc-attest-question">Today, were you provided the opportunity to take all required 10-minute rest breaks?</div>
+      <div class="tc-attest-choices">
+        <button class="tc-attest-choice" onclick="attestAnswer('rest', true)">YES, I was provided my compliant rest breaks.</button>
+        <button class="tc-attest-choice no" onclick="attestAnswer('rest', false)">NO, I was prevented from taking one or more of my required rest breaks.</button>
+      </div>
+    </div>
+
+    <!-- Step: rest break reason (shown only if rest = No) -->
+    <div class="tc-attest-step" id="tc-step-rest-reason" style="display:none">
+      <div class="tc-attest-title">Why was your rest break missed?</div>
+      <div class="tc-attest-choices">
+        <button class="tc-attest-choice" onclick="attestReason('rest', 'employer_operational_demand', this)">The job site/work required me to miss it.</button>
+        <button class="tc-attest-choice" onclick="attestReason('rest', 'employee_voluntary', this)">I voluntarily chose to skip my break today.</button>
+        <button class="tc-attest-choice" onclick="attestReason('rest', 'employer_interrupted', this)">My break was cut short or interrupted.</button>
+      </div>
+      <label class="tc-attest-notes-label">Additional details (optional)</label>
+      <textarea class="tc-attest-notes" id="tc-rest-notes" rows="3" placeholder="Anything you'd like to add…"></textarea>
+      <button class="tc-attest-continue" id="tc-rest-reason-continue" onclick="goToStep('certify')" disabled>Continue</button>
+    </div>
+
+    <!-- Step: certification + submit -->
+    <div class="tc-attest-step" id="tc-step-certify" style="display:none">
+      <div class="tc-attest-title">Confirm &amp; Submit</div>
+      <div class="tc-attest-summary" id="tc-attest-summary"></div>
+      <div class="tc-attest-cert-text">
+        By tapping "Submit", I certify that my reported time card hours and break attestations above are complete, accurate, and true to the best of my knowledge.
+      </div>
+      <button class="tc-attest-submit" onclick="submitClockOut()">Submit Time Card</button>
+    </div>
+
+    <button class="tc-attest-cancel" onclick="cancelClockOut()">Cancel</button>
+  </div>
+</div>
+
+<!-- ══ TOAST ══════════════════════════════════════════════════ -->
+<div class="tc-toast" id="tc-toast"></div>
+
+<script src="../config.js?v=1"></script>
+<script src="js/mantis_config.js?v=1"></script>
+<script src="js/session_timeout.js?v=1"></script>
+<script src="js/crew_timecard.js?v=2"></script>
+</body>
+</html>
