@@ -14,10 +14,11 @@
 // =============================================================
 // SECTION 1 — CONFIGURATION
 // =============================================================
-const CREW_URL   = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CREW_URL            : 'mantis_crew_panel.html';
-const MANUAL_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.MANUAL_URL          : 'mantis_service_manual.html';
-const CLIENT_ID  = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID    : '';
-const SCRIPT_URL = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL          : '';
+const CREW_URL      = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CREW_URL           : 'mantis_crew_panel.html';
+const MANUAL_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.MANUAL_URL         : 'mantis_service_manual.html';
+const TIMECARD_URL  = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.TIMECARD_URL       : 'mantis_timecard.html';
+const CLIENT_ID     = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID   : '';
+const SCRIPT_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL         : '';
 
 
 // =============================================================
@@ -299,6 +300,39 @@ function setupHome(userName, crewCategory) {
 
   document.getElementById('today-text').textContent =
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+
+  checkTimecardStatus();
+}
+
+// Updates the Time Card nav card's tag to reflect whether this crew
+// member is currently clocked in, so the answer is visible without
+// having to open the section at all -- see the design note in
+// mantis_timecard.js for why that matters here specifically. Fails
+// silently (leaves the default "Not Clocked In" tag in place) if the
+// backend endpoint isn't reachable/doesn't exist yet -- same
+// graceful-degradation pattern used elsewhere in this app (e.g.
+// prefetchClientFolder), never something that should block the home
+// screen from rendering.
+function checkTimecardStatus() {
+  const tag = document.getElementById('timecard-status-tag');
+  if (!tag || !SCRIPT_URL || SCRIPT_URL === 'PASTE_YOUR_CLOUD_RUN_URL_HERE') return;
+  const token = sessionStorage.getItem('mg_id_token') || '';
+  if (!token) return;
+
+  fetch(`${SCRIPT_URL}/timecard/summary?id_token=${encodeURIComponent(token)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.clockedIn) return; // leave the default "Not Clocked In" tag
+      tag.classList.add('clocked-in');
+      if (data.since) {
+        const since = new Date(data.since);
+        const label = since.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        tag.textContent = data.onMealBreak ? `On Break \u00b7 In at ${label}` : `Clocked In \u00b7 ${label}`;
+      } else {
+        tag.textContent = 'Clocked In';
+      }
+    })
+    .catch(() => {}); // silent -- see header comment
 }
 
 
@@ -306,8 +340,9 @@ function setupHome(userName, crewCategory) {
 // SECTION 5 — NAVIGATION
 // =============================================================
 function goTo(dest) {
-  if (dest === 'crew')   window.location.href = CREW_URL + '?fresh=1';
-  if (dest === 'manual') window.location.href = MANUAL_URL;
+  if (dest === 'crew')     window.location.href = CREW_URL + '?fresh=1';
+  if (dest === 'manual')   window.location.href = MANUAL_URL;
+  if (dest === 'timecard') window.location.href = TIMECARD_URL;
 }
 
 // ── Team picker modal ───────────────────────────────────────

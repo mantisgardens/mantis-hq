@@ -16,8 +16,9 @@ const MANTIS_CONFIG = {
   GOOGLE_CLIENT_ID: (typeof MANTIS_SHARED !== 'undefined') ? MANTIS_SHARED.GOOGLE_CLIENT_ID : '',
 
   // ── Page URLs ──────────────────────────────────────────────
-  CREW_URL:   'mantis_crew_panel.html',
-  MANUAL_URL: 'mantis_service_manual.html',
-  LOGIN_URL:  'index.html',
+  CREW_URL:      'mantis_crew_panel.html',
+  MANUAL_URL:    'mantis_service_manual.html',
+  TIMECARD_URL:  'mantis_timecard.html',
+  LOGIN_URL:     'index.html',
 
 };
