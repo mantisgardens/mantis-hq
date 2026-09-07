@@ -521,3 +521,45 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .ne-canvas{min-height:70px;border:1.5px solid var(--bg3);border-radius:6px;padding:12px 14px;font-size:var(--fs-body);color:var(--ink);line-height:1.5;outline:none;background:#fff}
 .ne-canvas:focus{border-color:var(--g)}
 .ne-hint{font-size:var(--fs-small);color:var(--ink3);margin-top:8px;font-style:italic}
+
+/* =============================================================
+   TIME CARDS TAB (owner weekly grid + needs-review)
+   ============================================================= */
+.tc-week-range{font-family:var(--font-mono);font-size:var(--fs-body);color:var(--ink2);
+  padding:0 4px;white-space:nowrap}
+
+.tc-needs-review{background:var(--a3);border:1px solid var(--a4);border-radius:8px;
+  padding:14px 16px;margin:0 16px 14px}
+.tc-needs-review-title{font-family:var(--font-mono);font-size:var(--fs-small);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--a);margin-bottom:8px}
+.tc-review-item{background:#fff;border:1px solid var(--a4);border-radius:6px;
+  padding:10px 12px;margin-bottom:8px;font-size:var(--fs-body)}
+.tc-review-item:last-child{margin-bottom:0}
+.tc-review-name{font-weight:600;color:var(--ink)}
+.tc-review-date{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);margin-left:6px}
+.tc-review-detail{margin-top:4px;color:var(--ink2);font-size:var(--fs-small);line-height:1.5}
+.tc-review-premium{display:inline-block;margin-top:6px;font-family:var(--font-mono);
+  font-size:var(--fs-small);background:var(--rd);color:#fff;padding:2px 8px;border-radius:4px}
+
+.tc-grid-wrap{overflow-x:auto;padding:0 16px}
+.tc-grid-table{width:100%;border-collapse:collapse;background:#fff;
+  border:1px solid var(--bg3);border-radius:8px;overflow:hidden;font-size:var(--fs-body)}
+.tc-grid-table th{background:var(--bg2);font-family:var(--font-mono);font-size:var(--fs-small);
+  letter-spacing:.04em;color:var(--ink2);padding:9px 10px;text-align:center;
+  border-bottom:1px solid var(--bg3);white-space:nowrap}
+.tc-grid-table th.tc-col-name{text-align:left}
+.tc-grid-table td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--bg2);color:var(--ink)}
+.tc-grid-table td.tc-col-name{text-align:left;font-weight:500}
+.tc-grid-table tr:last-child td{border-bottom:none}
+.tc-grid-table tr:hover td{background:var(--bg)}
+.tc-cell-flagged{background:var(--a3);font-weight:600;color:var(--a);border-radius:4px}
+.tc-col-total{font-weight:600;font-family:var(--font-mono)}
+.tc-empty-state{color:var(--ink3);text-align:center;padding:20px}
+.tc-grid-note{font-size:var(--fs-small);color:var(--ink3);padding:10px 16px 0;font-style:italic}
+
+.tc-correct-who{font-weight:600;font-size:var(--fs-title);color:var(--ink);margin-bottom:14px}
+.tc-correct-note{font-size:var(--fs-small);color:var(--ink3);font-style:italic;
+  margin-top:14px;line-height:1.5}
+.tc-cell-clickable{cursor:pointer}
+.tc-cell-clickable:hover{background:var(--g3)!important;outline:1px solid var(--g4)}
+.tc-corrected-mark{color:var(--a);font-size:var(--fs-tiny);margin-left:2px}
