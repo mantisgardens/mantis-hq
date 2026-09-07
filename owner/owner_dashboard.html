@@ -36,6 +36,7 @@
   <button class="nav-tab"        data-tab="notes"      onclick="switchTab('notes')">&#128221; Morning Notes</button>
   <button class="nav-tab"        data-tab="clients"    onclick="switchTab('clients')">&#128101; Clients</button>
   <button class="nav-tab"        data-tab="crew"       onclick="switchTab('crew')">&#128119; Crew</button>
+  <button class="nav-tab"        data-tab="timecards"  onclick="switchTab('timecards')">&#9201; Time Cards</button>
   <button class="nav-tab"        data-tab="records"    onclick="switchTab('records')">&#128196; Work Documents</button>
   <button class="nav-tab"        data-tab="logins"     onclick="switchTab('logins')">&#128274; Crew Logins</button>
 </nav>
@@ -101,6 +102,65 @@
       </div>
     </div>
     <div id="crew-list" class="crew-list"></div>
+  </div>
+
+  <!-- ── TIME CARDS TAB ───────────────────────────────────────── -->
+  <div id="tab-timecards" class="tab-panel">
+    <div class="panel-header">
+      <div class="panel-title">Time Cards</div>
+      <div class="panel-actions">
+        <button class="action-btn" onclick="changeTimeCardWeek(-7)">&#8592; Prev Week</button>
+        <span class="tc-week-range" id="tc-week-range">&mdash;</span>
+        <button class="action-btn" onclick="changeTimeCardWeek(7)">Next Week &#8594;</button>
+        <button class="action-btn primary" onclick="exportTimeCardsCsv()">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="tc-needs-review" id="tc-needs-review" style="display:none">
+      <div class="tc-needs-review-title">&#9888; Needs Review</div>
+      <div id="tc-needs-review-list"></div>
+    </div>
+
+    <div class="tc-grid-wrap">
+      <table class="tc-grid-table" id="tc-grid-table">
+        <thead><tr><td colspan="9" class="tc-empty-state">Loading&hellip;</td></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="tc-grid-note">
+      Only shows fully closed days (clocked out). A day still in progress shows blank here until it's completed.
+      Click any day to correct its hours.
+    </div>
+  </div>
+
+  <!-- ══ TIME CARD CORRECTION MODAL ══════════════════════════════ -->
+  <div class="modal-overlay" id="tc-correct-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeTcCorrectModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Correct Hours</div>
+        <button class="modal-close" onclick="closeTcCorrectModal()">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tc-correct-who" id="tc-correct-who"></div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Corrected Hours <span class="required">*</span></label>
+            <input class="form-input" id="tcc-hours" type="number" step="0.25" min="0" max="24"/>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Reason <span class="required">*</span></label>
+            <textarea class="form-input" id="tcc-reason" rows="3" placeholder="e.g. Forgot to clock out -- confirmed actual end time with employee"></textarea>
+          </div>
+        </div>
+        <div class="tc-correct-note">
+          This only adjusts total hours. Break attestation answers can't be changed here &mdash; if one of those was answered incorrectly, it needs to be re-verified with the employee directly, not overridden.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="fbtn fbtn-cancel" onclick="closeTcCorrectModal()">Cancel</button>
+        <button class="fbtn fbtn-save" onclick="saveTcCorrection()">Save Correction</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── WORK DOCUMENTS TAB ──────────────────────────────────── -->
