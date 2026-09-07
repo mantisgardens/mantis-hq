@@ -399,6 +399,8 @@ const OWNER_ACTION_PATHS = {
   ownerCrew: '/owner/crew',
   ownerSaveCrew: '/owner/crew',
   ownerDeleteCrew: '/owner/crew/delete',
+  ownerTimecards: '/owner/timecards',
+  ownerCorrectTimeCard: '/owner/timecards/correct',
 };
 // The only *Fresh-style action on the owner side -- ownerLoadAllFresh
 // maps to the same path as ownerLoadAll, just with force=1 added,
@@ -604,6 +606,24 @@ async function loadAll(forceFresh) {
     setStatus('schedule', 'error', `Schedule: ${scheduleRes.reason.message}`);
   }
 
+  // The bundle above only ever covered Clients/Schedule/Manager
+  // Schedule. Crew, Time Cards, Login Log, and Notes are each loaded
+  // lazily on first tab visit (see switchTab()) and, once loaded,
+  // never re-fetch on their own -- without this, clicking Refresh
+  // while looking at any of those tabs does nothing visible at all,
+  // despite the button implying it refreshes the whole dashboard.
+  // Only forces the one tab actually being looked at, not all four,
+  // so Refresh doesn't fire needless requests for tabs the owner
+  // isn't even on.
+  if (forceFresh) {
+    const activeTab = document.querySelector('.nav-tab.active');
+    const tab = activeTab && activeTab.dataset.tab;
+    if (tab === 'crew')      { crewLoaded = false; loadCrew(); }
+    if (tab === 'timecards') { timeCardsLoaded = false; loadTimeCards(); }
+    if (tab === 'logins')    { loginsLoaded = false; loadLoginLog(); }
+    if (tab === 'notes')     { notesData = null; loadNotes(); }
+  }
+
   document.querySelector('.reload-btn').disabled = false;
 }
 
@@ -628,6 +648,7 @@ function switchTab(tab) {
   if (tab === 'notes'   && !notesData)    loadNotes();
   if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
   if (tab === 'crew'    && !crewLoaded)   loadCrew();
+  if (tab === 'timecards' && !timeCardsLoaded) loadTimeCards();
 }
 
 function discardUnsavedNotes() {
@@ -1874,6 +1895,194 @@ async function removeCrewMember(rowNum, name, btn) {
     showToast('Remove failed: ' + err.message);
     if (btn) { btn.disabled = false; btn.textContent = 'Remove'; }
   }
+}
+
+// =============================================================
+// SECTION 6c — TIME CARDS TAB (owner weekly grid)
+// =============================================================
+let timeCardsLoaded = false;
+let _tcData = null;
+let _tcRefDate = null; // any date within the currently-displayed week
+
+function _tcTodayLocalDate() {
+  // Same Pacific-timezone anchoring as the backend (timeCard.js) --
+  // deliberately not just `new Date().toISOString().slice(0,10)`,
+  // which would give the UTC date and could disagree with the
+  // backend's own "today" near midnight Pacific.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date()).reduce((o, p) => (o[p.type] = p.value, o), {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+async function loadTimeCards() {
+  if (!_tcRefDate) _tcRefDate = _tcTodayLocalDate();
+  const table = document.getElementById('tc-grid-table');
+  timeCardsLoaded = false;
+  table.querySelector('thead').innerHTML = '<tr><td colspan="9" class="tc-empty-state">Loading…</td></tr>';
+  table.querySelector('tbody').innerHTML = '';
+
+  try {
+    const data = await ownerFetch('ownerTimecards', `&date=${_tcRefDate}`);
+    _tcData = data;
+    timeCardsLoaded = true;
+    renderTimeCardWeekRange();
+    renderTimeCardGrid();
+    renderNeedsReview();
+  } catch (e) {
+    table.querySelector('thead').innerHTML =
+      `<tr><td colspan="9" class="tc-empty-state">Could not load time cards: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function changeTimeCardWeek(deltaDays) {
+  const d = new Date(_tcRefDate + 'T12:00:00');
+  d.setDate(d.getDate() + deltaDays);
+  _tcRefDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  loadTimeCards();
+}
+
+function renderTimeCardWeekRange() {
+  const fmt = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const year = _tcData.weekEnd.slice(0, 4);
+  document.getElementById('tc-week-range').textContent =
+    `${fmt(_tcData.weekStart)} \u2013 ${fmt(_tcData.weekEnd)}, ${year}`;
+}
+
+function renderTimeCardGrid() {
+  const table = document.getElementById('tc-grid-table');
+  const dayLabels = _tcData.days.map(d => {
+    const dt = new Date(d + 'T12:00:00');
+    return { short: dt.toLocaleDateString('en-US', { weekday: 'short' }), num: dt.getDate() };
+  });
+
+  const thead = `<tr>
+    <th class="tc-col-name">Crew Member</th>
+    ${dayLabels.map(d => `<th>${d.short}<br>${d.num}</th>`).join('')}
+    <th class="tc-col-total">Total</th>
+  </tr>`;
+
+  if (!_tcData.rows.length) {
+    table.querySelector('thead').innerHTML = thead;
+    table.querySelector('tbody').innerHTML = `<tr><td colspan="9" class="tc-empty-state">No crew found.</td></tr>`;
+    return;
+  }
+
+  const rowsHtml = _tcData.rows.map(r => `
+    <tr>
+      <td class="tc-col-name">${esc(r.name)}</td>
+      ${r.days.map(d => `<td class="${d.flagged ? 'tc-cell-flagged ' : ''}${d.hours == null ? '' : 'tc-cell-clickable'}"
+          ${d.hours == null ? '' : `onclick="openTcCorrectModal('${jsStr(r.name)}','${d.date}',${d.hours})"`}>${
+            d.hours == null ? '\u2014' : d.hours}${d.corrected ? '<span class="tc-corrected-mark" title="Manually corrected">&#9998;</span>' : ''}</td>`).join('')}
+      <td class="tc-col-total">${r.weekTotalHours}</td>
+    </tr>
+  `).join('');
+
+  table.querySelector('thead').innerHTML = thead;
+  table.querySelector('tbody').innerHTML = rowsHtml;
+}
+
+// ── Correction modal ─────────────────────────────────────────
+let _tcCorrectTarget = null; // { name, date }
+
+function openTcCorrectModal(name, date, currentHours) {
+  _tcCorrectTarget = { name, date };
+  document.getElementById('tc-correct-who').textContent = `${name} \u2014 ${esc(fmtTcDate(date))}`;
+  document.getElementById('tcc-hours').value = currentHours;
+  document.getElementById('tcc-reason').value = '';
+  document.getElementById('tc-correct-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTcCorrectModal(e) {
+  if (e && (e.target !== document.getElementById('tc-correct-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
+  document.getElementById('tc-correct-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _tcCorrectTarget = null;
+}
+
+function fmtTcDate(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+async function saveTcCorrection() {
+  const hours = document.getElementById('tcc-hours').value;
+  const reason = document.getElementById('tcc-reason').value.trim();
+  if (hours === '' || isNaN(parseFloat(hours))) { showToast('Enter a valid number of hours'); return; }
+  if (!reason) { showToast('A reason is required'); return; }
+
+  const saveBtn = document.querySelector('#tc-correct-modal .fbtn-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving\u2026';
+
+  try {
+    await ownerPost('ownerCorrectTimeCard', {
+      name: _tcCorrectTarget.name,
+      date: _tcCorrectTarget.date,
+      hours: parseFloat(hours),
+      reason,
+    });
+    showToast('Correction saved \u2713');
+    closeTcCorrectModal();
+    await loadTimeCards();
+  } catch (err) {
+    showToast('Could not save correction: ' + err.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Correction';
+  }
+}
+
+const TC_REASON_LABELS = {
+  employer_operational_demand: 'The job site/work required it',
+  employee_voluntary: 'Voluntarily skipped',
+  employer_interrupted: 'Cut short / interrupted',
+};
+
+function renderNeedsReview() {
+  const section = document.getElementById('tc-needs-review');
+  const list = document.getElementById('tc-needs-review-list');
+  const items = _tcData.needsReview || [];
+
+  if (!items.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+
+  list.innerHTML = items.map(item => {
+    const details = [];
+    if (item.meal && item.meal.compliant === false) {
+      details.push(`Meal break missed \u2014 ${esc(TC_REASON_LABELS[item.meal.reasonCode] || 'no reason given')}` +
+        (item.meal.notes ? `: "${esc(item.meal.notes)}"` : ''));
+    }
+    if (item.rest && item.rest.compliant === false) {
+      details.push(`Rest break missed \u2014 ${esc(TC_REASON_LABELS[item.rest.reasonCode] || 'no reason given')}` +
+        (item.rest.notes ? `: "${esc(item.rest.notes)}"` : ''));
+    }
+    if (item.ot > 0) details.push(`${item.ot}h of daily overtime`);
+
+    return `<div class="tc-review-item">
+      <span class="tc-review-name">${esc(item.name)}</span>
+      <span class="tc-review-date">${esc(item.date)}</span>
+      <div class="tc-review-detail">${details.join('<br>')}</div>
+      ${item.premiumPayHours ? `<span class="tc-review-premium">${item.premiumPayHours}h premium pay flagged</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function exportTimeCardsCsv() {
+  if (!_tcData) return;
+  const header = ['Name', ...(_tcData.days.map(d => d)), 'Total'];
+  const lines = [header.join(',')];
+  _tcData.rows.forEach(r => {
+    const cells = [r.name, ...r.days.map(d => d.hours == null ? '' : d.hours), r.weekTotalHours];
+    lines.push(cells.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `time-cards-${_tcData.weekStart}-to-${_tcData.weekEnd}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // =============================================================
