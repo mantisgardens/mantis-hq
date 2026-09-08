@@ -149,7 +149,12 @@ function findClient(name, intervalHint) {
     // \s+ (not \s*) before the dash — a dash with no space in front of it
     // is a mid-word hyphen (e.g. a street name like "Cross-Creek Lane"),
     // not a "- suffix" delimiter, and shouldn't cut the match short there.
-    const _addrM = name.match(/^(\d+)\s+(.+?)(?:\s+[-–—]|$)/);
+    // A colon doesn't have that ambiguity (no real street name uses one),
+    // so it's allowed to stop the match with or without a leading space --
+    // "2305 Laredo: monthly" needs this same as "2305 Laredo - monthly",
+    // and requiring \s+ there would let "monthly" get swept into the
+    // street-name candidate and blow the Levenshtein comparison below.
+    const _addrM = name.match(/^(\d+)\s+(.+?)(?:\s*:|\s+[-–—]|$)/);
     if (_addrM) {
       const _evNum = _addrM[1];
       const _evStreetRaw = _addrM[2].replace(/,.*$/, '').trim();
