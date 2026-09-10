@@ -75,6 +75,20 @@
         <button class="wk-btn" onclick="schedWeekOffset(+1)">&#8250;</button>
       </div>
     </div>
+
+    <!-- Hidden by default; populated/shown by loadMissingWorkRecords()
+         only if there are jobs 2+ days old with no Work Record. -->
+    <div class="mwr-needs-attention" id="mwr-needs-attention" style="display:none">
+      <div class="mwr-title mwr-title-clickable" onclick="toggleMwrCard()">
+        <span>&#9888; Needs Attention &mdash; Missing Work Records (last 2&ndash;3 days) <span class="mwr-count-badge" id="mwr-count-badge"></span></span>
+        <span class="mwr-toggle-icon" id="mwr-toggle-icon">&#9660;</span>
+      </div>
+      <div id="mwr-body">
+        <div class="mwr-subtitle">Jobs older than 3 days won&#39;t show here even if still missing &mdash; check the Ready to Invoice sheet directly for anything further back.</div>
+        <div id="mwr-list"></div>
+      </div>
+    </div>
+
     <div id="schedule-grid" class="schedule-grid"></div>
   </div>
 
