@@ -127,6 +127,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .reload-btn.is-loading .reload-icon{animation:reload-spin 0.7s linear infinite}
 @keyframes reload-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--a);letter-spacing:0.04em}
+.missing-wr-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:9px 16px;display:flex;align-items:center;gap:8px;font-size:var(--fs-body);color:var(--a)}
+.missing-wr-icon{font-size:var(--fs-title);line-height:1}
 .offline-icon{font-size:var(--fs-body);flex-shrink:0}
 .offline-banner span:nth-child(2){flex:1}
 .offline-retry{cursor:pointer;text-decoration:underline;font-weight:600;white-space:nowrap}
