@@ -99,6 +99,7 @@
       <div class="panel-actions">
         <input id="client-search" class="search-input" type="search"
                placeholder="Search clients…" oninput="filterClients(this.value)"/>
+        <button class="action-btn" onclick="openClientEmailsModal()">&#128231; Copy Client Emails</button>
         <button class="action-btn primary" onclick="openAddClient()">&#43; Add Client</button>
       </div>
     </div>
@@ -173,6 +174,36 @@
       <div class="modal-footer">
         <button class="fbtn fbtn-cancel" onclick="closeTcCorrectModal()">Cancel</button>
         <button class="fbtn fbtn-save" onclick="saveTcCorrection()">Save Correction</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CLIENT EMAILS MODAL ═════════════════════════════════════
+       No email is ever sent from within the app -- this just builds
+       a copy-paste-ready list. See the design conversation this was
+       built from for why: no OAuth scope changes, no Google review,
+       and no risk of the app itself ever misfiring a bulk send. ══ -->
+  <div class="modal-overlay" id="client-emails-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientEmailsModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Copy Client Emails</div>
+        <button class="modal-close" onclick="closeClientEmailsModal()">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ce-count" id="ce-count">Loading&hellip;</div>
+        <div class="ce-bcc-warning">
+          &#9888; Paste this into <strong>BCC</strong>, not To or CC &mdash; pasting it anywhere else shows every client everyone else's email address.
+        </div>
+        <textarea class="ce-textarea" id="ce-textarea" readonly onclick="this.select()"></textarea>
+
+        <div class="ce-missing-section" id="ce-missing-section" style="display:none">
+          <div class="ce-missing-title">Active clients with no email on file (<span id="ce-missing-count"></span>)</div>
+          <div id="ce-missing-list"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="fbtn fbtn-cancel" onclick="closeClientEmailsModal()">Close</button>
+        <button class="fbtn fbtn-save" onclick="copyClientEmailsToClipboard()">Copy to Clipboard</button>
       </div>
     </div>
   </div>
