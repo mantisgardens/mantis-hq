@@ -563,3 +563,29 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-cell-clickable{cursor:pointer}
 .tc-cell-clickable:hover{background:var(--g3)!important;outline:1px solid var(--g4)}
 .tc-corrected-mark{color:var(--a);font-size:var(--fs-tiny);margin-left:2px}
+
+/* =============================================================
+   MISSING WORK RECORDS (Schedule tab, owner "Needs Attention")
+   ============================================================= */
+.mwr-needs-attention{background:var(--a3);border:1px solid var(--a4);border-radius:8px;
+  padding:14px 16px;margin:0 16px 14px}
+.mwr-title{font-family:var(--font-mono);font-size:var(--fs-small);
+  letter-spacing:.06em;text-transform:uppercase;color:var(--a);margin-bottom:8px}
+.mwr-title-clickable{cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  user-select:none}
+.mwr-title-clickable:hover{color:#8a4a08}
+.mwr-toggle-icon{font-size:var(--fs-label);transition:transform 0.15s;flex-shrink:0;margin-left:10px}
+.mwr-toggle-icon.collapsed{transform:rotate(-90deg)}
+.mwr-count-badge{font-family:var(--font-mono);background:var(--a);color:#fff;
+  padding:1px 7px;border-radius:10px;font-size:var(--fs-tiny);letter-spacing:0;
+  text-transform:none;margin-left:4px}
+.mwr-subtitle{font-size:var(--fs-tiny);color:var(--ink3);font-style:italic;margin:-4px 0 10px}
+.mwr-item{background:#fff;border:1px solid var(--a4);border-radius:6px;
+  padding:10px 12px;margin-bottom:8px;font-size:var(--fs-body);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mwr-item:last-child{margin-bottom:0}
+.mwr-item-main{display:flex;flex-direction:column;gap:2px}
+.mwr-item-client{font-weight:600;color:var(--ink)}
+.mwr-item-meta{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3)}
+.mwr-days-late{font-family:var(--font-mono);font-size:var(--fs-small);
+  background:var(--rd);color:#fff;padding:2px 8px;border-radius:4px;white-space:nowrap}
