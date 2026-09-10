@@ -401,6 +401,7 @@ const OWNER_ACTION_PATHS = {
   ownerDeleteCrew: '/owner/crew/delete',
   ownerTimecards: '/owner/timecards',
   ownerCorrectTimeCard: '/owner/timecards/correct',
+  ownerMissingWorkRecords: '/owner/missing-work-records',
 };
 // The only *Fresh-style action on the owner side -- ownerLoadAllFresh
 // maps to the same path as ownerLoadAll, just with force=1 added,
@@ -2211,4 +2212,57 @@ function showToast(msg) {
 // adjacency of "just finished a Google sign-in redirect" and "already
 // hitting Google's infrastructure again" is the cause, but it's cheap
 // to test and easy to remove if it doesn't help.
+// ── Missing Work Records ("Needs Attention", Schedule tab) ────
+// Independent of loadAll()'s combined bundle, same reasoning as the
+// crew panel's version of this same check -- a slow/failed request
+// here should never block or delay the main dashboard load. 2-day
+// threshold (vs. the crew view's 1-day) is enforced server-side.
+async function loadMissingWorkRecords() {
+  const section = document.getElementById('mwr-needs-attention');
+  const list = document.getElementById('mwr-list');
+  if (!section || !list) return;
+  try {
+    const data = await ownerFetch('ownerMissingWorkRecords', '&maxDaysLate=3');
+    const missing = data.missing || [];
+    if (!missing.length) { section.style.display = 'none'; return; }
+
+    list.innerHTML = missing.map(item => {
+      const dateLabel = new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return `<div class="mwr-item">
+        <div class="mwr-item-main">
+          <span class="mwr-item-client">${esc(item.client)}</span>
+          <span class="mwr-item-meta">${esc(item.team)} \u00b7 ${esc(dateLabel)}</span>
+        </div>
+        <span class="mwr-days-late">${item.daysLate}d late</span>
+      </div>`;
+    }).join('');
+    document.getElementById('mwr-count-badge').textContent = missing.length;
+
+    // Always starts fully expanded on (re)load -- toggleMwrCard()
+    // below only affects the current viewing session, nothing is
+    // remembered between page loads/refreshes, so the owner never
+    // has to wonder whether a collapsed card just has nothing in it.
+    document.getElementById('mwr-body').style.display = '';
+    document.getElementById('mwr-toggle-icon').classList.remove('collapsed');
+
+    section.style.display = '';
+  } catch (e) {
+    // Silent -- a helpful nudge, not something worth an error toast
+    // over; the section just stays hidden if the check itself fails.
+  }
+}
+
+// Collapse/expand only -- the card itself is never dismissed
+// entirely, so the count badge stays visible either way as a
+// reminder something still needs attention even while collapsed to
+// see the schedule underneath.
+function toggleMwrCard() {
+  const body = document.getElementById('mwr-body');
+  const icon = document.getElementById('mwr-toggle-icon');
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  icon.classList.toggle('collapsed', !collapsed);
+}
+
 setTimeout(loadAll, 400);
+setTimeout(loadMissingWorkRecords, 600);
