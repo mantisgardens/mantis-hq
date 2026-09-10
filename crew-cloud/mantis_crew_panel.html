@@ -55,6 +55,14 @@
   <div class="status-pill"><div class="sdot" id="sd-calendar"></div><span id="sl-calendar">Calendar: not loaded</span></div>
 </div>
 
+<!-- Hidden by default; populated/shown by checkMissingWorkRecords()
+     (crew_app.js) only if this crew member's team has a job from
+     yesterday or earlier with no Work Record submitted yet. -->
+<div class="missing-wr-banner" id="missing-wr-banner" style="display:none">
+  <span class="missing-wr-icon">&#9888;</span>
+  <span id="missing-wr-text"></span>
+</div>
+
 <div class="day-tabs" id="day-tabs"></div>
 <!-- Debug panel: change display:none to display:block to enable -->
 <div id="debug-panel" style="display:none;background:#1a1208;color:#c9a84c;font-family:var(--font-mono);font-size:var(--fs-small);padding:10px 16px;line-height:1.8;border-bottom:1px solid #3d2a10;"></div>
