@@ -402,6 +402,7 @@ const OWNER_ACTION_PATHS = {
   ownerTimecards: '/owner/timecards',
   ownerCorrectTimeCard: '/owner/timecards/correct',
   ownerMissingWorkRecords: '/owner/missing-work-records',
+  ownerClientEmails: '/owner/client-emails',
 };
 // The only *Fresh-style action on the owner side -- ownerLoadAllFresh
 // maps to the same path as ownerLoadAll, just with force=1 added,
@@ -2031,6 +2032,67 @@ async function saveTcCorrection() {
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save Correction';
+  }
+}
+
+// =============================================================
+// SECTION 6d — CLIENT EMAILS (copy-paste list, no send capability)
+// =============================================================
+async function openClientEmailsModal() {
+  const modal = document.getElementById('client-emails-modal');
+  const countEl = document.getElementById('ce-count');
+  const textarea = document.getElementById('ce-textarea');
+  const missingSection = document.getElementById('ce-missing-section');
+  const missingList = document.getElementById('ce-missing-list');
+
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  countEl.textContent = 'Loading\u2026';
+  textarea.value = '';
+  missingSection.style.display = 'none';
+  missingList.innerHTML = '';
+
+  try {
+    const data = await ownerFetch('ownerClientEmails');
+    countEl.textContent = `${data.count} active client${data.count === 1 ? '' : 's'} with an email on file`;
+    textarea.value = data.emails || '';
+
+    const missing = data.missingEmail || [];
+    if (missing.length) {
+      document.getElementById('ce-missing-count').textContent = missing.length;
+      missingList.innerHTML = missing.map(m => `
+        <div class="ce-missing-item">
+          <span class="ce-missing-name">${esc(m.name)}</span>
+          <span class="ce-missing-address">${esc(m.address)}</span>
+        </div>
+      `).join('');
+      missingSection.style.display = '';
+    }
+  } catch (err) {
+    countEl.textContent = 'Could not load client emails: ' + err.message;
+  }
+}
+
+function closeClientEmailsModal(e) {
+  if (e && (e.target !== document.getElementById('client-emails-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
+  document.getElementById('client-emails-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function copyClientEmailsToClipboard() {
+  const textarea = document.getElementById('ce-textarea');
+  if (!textarea.value) { showToast('Nothing to copy yet'); return; }
+  try {
+    await navigator.clipboard.writeText(textarea.value);
+    showToast('Copied \u2713 \u2014 paste into BCC');
+  } catch (e) {
+    // Clipboard API can be blocked in some browser contexts --
+    // fall back to the textarea's own select-all, which still lets
+    // the owner copy manually (Ctrl/Cmd+C) even if the automatic
+    // path fails silently.
+    textarea.focus();
+    textarea.select();
+    showToast('Selected \u2014 press Ctrl/Cmd+C to copy');
   }
 }
 
