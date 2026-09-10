@@ -89,6 +89,36 @@ if (sessionStorage.getItem('mg_auth') === '1') {
   }
 })();
 
+// ── Missing Work Record banner ──────────────────────────────
+// Independent of loadAll()'s combined bundle (a separate, small
+// endpoint -- see routes/missingWorkRecords.js) so a slow/failed
+// check here never blocks or delays the main schedule load. Grace
+// period (never flags today, only yesterday-or-earlier) is enforced
+// server-side; this just displays whatever comes back. Silent on
+// failure -- this is a helpful nudge, not something worth cluttering
+// the panel with an error over.
+async function checkMissingWorkRecords() {
+  const banner = document.getElementById('missing-wr-banner');
+  const text = document.getElementById('missing-wr-text');
+  if (!banner || !text) return;
+  try {
+    const idToken = sessionStorage.getItem('mg_id_token') || localStorage.getItem('mg_id_token') || '';
+    if (!idToken) return;
+    const res = await fetch(`${SCRIPT_URL}/missing-work-records?id_token=${encodeURIComponent(idToken)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const missing = data.missing || [];
+    if (!missing.length) { banner.style.display = 'none'; return; }
+
+    const oldest = missing[0]; // sorted oldest-first by the backend
+    const dateLabel = new Date(oldest.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    text.textContent = missing.length === 1
+      ? `${oldest.client} (${dateLabel}) has no Work Record submitted yet.`
+      : `${missing.length} jobs have no Work Record submitted yet \u2014 oldest is ${oldest.client} from ${dateLabel}.`;
+    banner.style.display = '';
+  } catch (e) { /* silent -- see header comment */ }
+}
+
 // ── Start: load all data ──────────────────────────────────────
 // Force a fresh server fetch on the first load after login
 // (?fresh=1 is appended by mantis_landing.js on redirect), so crew
@@ -114,6 +144,7 @@ const _staleData = Date.now() - _lastFresh > 4 * 60 * 60 * 1000;
 const _forceFresh = _isFreshLogin || _staleData;
 if (_forceFresh) localStorage.setItem('mg_last_fresh_load', Date.now().toString());
 setTimeout(() => loadAll(_forceFresh), 400);
+setTimeout(checkMissingWorkRecords, 600);
 
 // Proactive token-expiry banner removed -- no longer needed now that
 // login exchanges the 1-hour Google JWT for a 10-hour Mantis session

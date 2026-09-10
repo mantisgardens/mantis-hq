@@ -1419,6 +1419,7 @@ function submitForm() {
           showToast('⚠ ' + json.warning, 8000);
           savedRecords[currentJobId] = { submitted: true, savedAt: new Date().toISOString(), client: data.client || '', date: data.date || '' };
           safeLocalSave();
+          if (typeof checkMissingWorkRecords === 'function') checkMissingWorkRecords();
           setTimeout(() => closeModal(), 8000);
           if (submitBtn) { submitBtn.disabled = false; }
           return;
@@ -1442,6 +1443,7 @@ function submitForm() {
           };
           safeLocalSave();
           if (currentJobId) setSt(currentJobId, 'done');
+          if (typeof checkMissingWorkRecords === 'function') checkMissingWorkRecords();
 
           if (failed && total > 0) {
             hideSubmitProgress();
