@@ -19,6 +19,7 @@ const MANTIS_CONFIG = {
   CREW_URL:      'mantis_crew_panel.html',
   MANUAL_URL:    'mantis_service_manual.html',
   TIMECARD_URL:  'mantis_timecard.html',
+  CLIENTS_URL:   'mantis_clients.html',
   LOGIN_URL:     'index.html',
 
 };

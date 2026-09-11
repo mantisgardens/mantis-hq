@@ -17,6 +17,7 @@
 const CREW_URL      = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CREW_URL           : 'mantis_crew_panel.html';
 const MANUAL_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.MANUAL_URL         : 'mantis_service_manual.html';
 const TIMECARD_URL  = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.TIMECARD_URL       : 'mantis_timecard.html';
+const CLIENTS_URL   = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CLIENTS_URL        : 'mantis_clients.html';
 const CLIENT_ID     = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID   : '';
 const SCRIPT_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL         : '';
 
@@ -301,7 +302,25 @@ function setupHome(userName, crewCategory) {
   document.getElementById('today-text').textContent =
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
+  showClientsCardIfOperationsManager();
   checkTimecardStatus();
+}
+
+// The Clients card is hidden by default in index.html -- shown only
+// when this crew member's Crew Info role is "Operations Manager"
+// (case-insensitive). This is a UI convenience only, not a security
+// boundary: the actual data access on mantis_clients.html is
+// controlled entirely by requireOwner on the backend (the Operations
+// Manager's account already being in OWNER_EMAILS), same category as
+// TECH_EMAILS hiding the QuickBooks reconnect button in the Owner
+// Portal. Someone could still navigate to mantis_clients.html
+// directly without this role -- they'd just hit "Unauthorized" from
+// the backend, same as anyone else not in OWNER_EMAILS would.
+function showClientsCardIfOperationsManager() {
+  const role = (sessionStorage.getItem('mg_user_role') || '').trim().toLowerCase();
+  console.log(role);
+  const card = document.getElementById('clients-nav-card');
+  if (card && role === 'operations manager') card.style.display = '';
 }
 
 // Updates the Time Card nav card's tag to reflect whether this crew
@@ -343,6 +362,7 @@ function goTo(dest) {
   if (dest === 'crew')     window.location.href = CREW_URL + '?fresh=1';
   if (dest === 'manual')   window.location.href = MANUAL_URL;
   if (dest === 'timecard') window.location.href = TIMECARD_URL;
+  if (dest === 'clients')  window.location.href = CLIENTS_URL;
 }
 
 // ── Team picker modal ───────────────────────────────────────
