@@ -177,6 +177,9 @@ body.login-page{
 .panel-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .search-input{padding:7px 12px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);font-family:inherit;background:#fff;color:var(--ink);outline:none;min-width:200px;transition:border-color .15s}
 .search-input:focus{border-color:var(--g)}
+.client-sort-select{padding:7px 10px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);
+  font-family:inherit;background:#fff;color:var(--ink2);outline:none;max-width:170px;cursor:pointer}
+.client-sort-select:focus{border-color:var(--g)}
 .filter-select{padding:7px 10px;border:1.5px solid var(--bg3);border-radius:6px;font-size:var(--fs-body);font-family:var(--font-mono);background:#fff;color:var(--ink);cursor:pointer;outline:none}
 .action-btn{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;padding:7px 14px;border-radius:6px;border:1.5px solid var(--bg3);background:var(--bg2);color:var(--ink2);cursor:pointer;text-transform:uppercase;transition:all .15s}
 .action-btn:hover{background:var(--bg3)}
@@ -268,6 +271,9 @@ body.login-page{
    9. CLIENT LIST
    ============================================================= */
 .client-list{padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.client-group-header{font-family:var(--font-mono);font-size:var(--fs-small);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink3);margin:10px 0 2px;padding-top:6px;border-top:1px solid var(--bg2)}
+.client-group-header:first-child{margin-top:0;padding-top:0;border-top:none}
 .client-row{background:#fff;border:1px solid var(--bg3);border-left:3px solid var(--bg3);border-radius:6px;padding:12px 16px;display:flex;align-items:flex-start;justify-content:space-between;cursor:pointer;transition:all .15s;gap:12px;box-shadow:0 1px 3px rgba(28,26,20,0.07)}
 .client-row.is-active{border-left-color:var(--g)}
 .client-row:hover{border-color:var(--g);border-left-color:var(--g);background:var(--g3);box-shadow:0 2px 6px rgba(28,26,20,0.1)}
