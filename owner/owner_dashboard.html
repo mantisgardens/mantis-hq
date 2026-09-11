@@ -99,6 +99,11 @@
       <div class="panel-actions">
         <input id="client-search" class="search-input" type="search"
                placeholder="Search clients…" oninput="filterClients(this.value)"/>
+        <select id="client-sort" class="client-sort-select" onchange="setClientSortOrder(this.value)">
+          <option value="name">Sort: Name (A&ndash;Z)</option>
+          <option value="active">Sort: Active first</option>
+          <option value="interval">Sort: Visit Interval</option>
+        </select>
         <button class="action-btn" onclick="openClientEmailsModal()">&#128231; Copy Client Emails</button>
         <button class="action-btn primary" onclick="openAddClient()">&#43; Add Client</button>
       </div>
