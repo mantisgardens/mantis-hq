@@ -789,6 +789,54 @@ function renderSchedule() {
 // =============================================================
 // SECTION 6 — CLIENTS TAB
 // =============================================================
+let _clientSortOrder = 'name'; // 'name' | 'active' | 'interval'
+
+// Not alphabetical -- "Annual, Bi-Monthly, Monthly, Quarterly" isn't a
+// meaningful order for a human scanning by visit frequency. Ranked
+// most-to-least frequent instead; anything unrecognized (blank, a
+// typo, "Install") sorts after all the known ones, alphabetically
+// among themselves so it's still predictable rather than random.
+const VISIT_INTERVAL_RANK = { 'monthly': 0, 'bi-monthly': 1, 'quarterly': 2, 'annual': 3, 'install': 4 };
+
+function setClientSortOrder(order) {
+  _clientSortOrder = order;
+  renderClients(document.getElementById('client-search').value);
+}
+
+function sortClients(list, order) {
+  const byName = (a, b) => (a['Name(s)'] || '').localeCompare(b['Name(s)'] || '');
+  const sorted = [...list];
+
+  if (order === 'active') {
+    sorted.sort((a, b) => {
+      const aActive = a['Active'] === '\u2713' ? 0 : 1;
+      const bActive = b['Active'] === '\u2713' ? 0 : 1;
+      return aActive !== bActive ? aActive - bActive : byName(a, b);
+    });
+  } else if (order === 'interval') {
+    sorted.sort((a, b) => {
+      const aRank = VISIT_INTERVAL_RANK[(a['Visit Interval'] || '').trim().toLowerCase()];
+      const bRank = VISIT_INTERVAL_RANK[(b['Visit Interval'] || '').trim().toLowerCase()];
+      const aR = aRank === undefined ? 99 : aRank;
+      const bR = bRank === undefined ? 99 : bRank;
+      return aR !== bR ? aR - bR : byName(a, b);
+    });
+  } else {
+    sorted.sort(byName);
+  }
+  return sorted;
+}
+
+// Group header shown above the first card of each group when sorted
+// by Active or Visit Interval -- makes the grouping visible rather
+// than just implicit in the ordering. No header for plain name sort,
+// where grouping doesn't apply.
+function clientGroupLabel(c, order) {
+  if (order === 'active') return c['Active'] === '\u2713' ? 'Active' : 'Inactive';
+  if (order === 'interval') return (c['Visit Interval'] || '').trim() || 'No interval set';
+  return null;
+}
+
 function renderClients(query) {
   const list = document.getElementById('client-list');
   const q    = (query || '').toLowerCase().trim();
@@ -800,12 +848,15 @@ function renderClients(query) {
         (c['Phone']||'').toLowerCase().includes(q))
     : allClients;
 
-  if (!filtered.length) {
+  const sorted = sortClients(filtered, _clientSortOrder);
+
+  if (!sorted.length) {
     list.innerHTML = `<div class="empty-state">No clients found</div>`;
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  let lastGroup = undefined;
+  list.innerHTML = sorted.map(c => {
     const active = c['Active'] === '✓';
     const name   = c['Name(s)'] || '—';
     const addr   = c['Address'] || '';
@@ -813,7 +864,13 @@ function renderClients(query) {
     const notes  = c['General Service Notes'] || '';
     const cid    = c['Client ID'] || '';
 
-    return `<div class="client-row" onclick="openProfile('${esc(cid)}')">
+    const group = clientGroupLabel(c, _clientSortOrder);
+    const groupHtml = (group !== null && group !== lastGroup)
+      ? `<div class="client-group-header">${esc(group)}</div>`
+      : '';
+    lastGroup = group;
+
+    return `${groupHtml}<div class="client-row" onclick="openProfile('${esc(cid)}')">
       <div class="client-row-main">
         <div class="client-row-name">${esc(name)}</div>
         <div class="client-row-meta">
