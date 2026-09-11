@@ -102,6 +102,17 @@
         <div class="nav-card-tag">Reference</div>
         <div class="nav-card-arrow">&#8250;</div>
       </div>
+      <!-- Hidden by default; shown only for the Operations Manager
+           (showClientsCardIfOperationsManager(), mantis_landing.js).
+           UI convenience only -- see that function's header comment
+           for why this isn't the real access control. -->
+      <div class="nav-card clients" id="clients-nav-card" style="display:none" onclick="goTo('clients')">
+        <div class="nav-card-icon">&#128100;</div>
+        <div class="nav-card-title">Clients</div>
+        <div class="nav-card-desc">Add, edit, and manage client records &mdash; same tool the Owner Portal uses.</div>
+        <div class="nav-card-tag">Operations Manager</div>
+        <div class="nav-card-arrow">&#8250;</div>
+      </div>
     </div>
 
   </div>
@@ -130,9 +141,9 @@
   </div>
 </div>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="../config.js?v=22"></script>
-<script src="js/mantis_config.js?v=22"></script>
+<script src="../config.js?v=23"></script>
+<script src="js/mantis_config.js?v=23"></script>
 <script src="js/session_timeout.js?v=22"></script>
-<script src="js/mantis_landing.js?v=30"></script>
+<script src="js/mantis_landing.js?v=31"></script>
 </body>
 </html>

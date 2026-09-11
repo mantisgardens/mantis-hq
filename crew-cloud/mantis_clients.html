@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<!--
+  mantis_clients.html
+  Mantis Gardens — Clients (Operations Manager)
+
+  This page is the crew-app equivalent of the Owner Portal's Clients
+  tab, reusing its markup/CSS/JS almost verbatim (see crew_clients.js's
+  header comment). It exists because the Operations Manager works
+  primarily out of the crew app day to day, not the Owner Portal, and
+  the owner wanted her to have client edit/add/delete access without
+  needing to switch apps. Entry point is a card on the crew landing
+  page (index.html), shown ONLY when the signed-in person's Crew Info
+  role is "Operations Manager" -- see mantis_landing.js's setupHome().
+
+  IMPORTANT: that role check only controls whether the CARD is shown.
+  The actual backend authorization for every call this page makes is
+  requireOwner (OWNER_EMAILS), completely independent of role or this
+  page's existence. The Operations Manager's account already being in
+  OWNER_EMAILS is what makes this page actually work end to end, not
+  anything on this page itself -- if that ever changes, this page
+  would start failing with "Unauthorized" even though the card still
+  shows (see crew_clients.js's auth guard note).
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>Mantis Gardens — Clients</title>
+  <link rel="stylesheet" href="css/mantis_clients.css?v=1"/>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+    <div>
+      <div class="brand-name">Mantis Gardens</div>
+      <div class="brand-sub">Clients</div>
+    </div>
+  </div>
+  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+</div>
+
+<div class="cl-page">
+  <div class="panel-header">
+    <div class="panel-title">Client Database</div>
+    <div class="panel-actions">
+      <input id="client-search" class="search-input" type="search"
+             placeholder="Search clients…" oninput="filterClients(this.value)"/>
+      <select id="client-sort" class="client-sort-select" onchange="setClientSortOrder(this.value)">
+        <option value="name">Sort: Name (A&ndash;Z)</option>
+        <option value="active">Sort: Active first</option>
+        <option value="interval">Sort: Visit Interval</option>
+      </select>
+      <button class="action-btn" onclick="openClientEmailsModal()">&#128231; Copy Client Emails</button>
+      <button class="action-btn primary" onclick="openAddClient()">&#43; Add Client</button>
+    </div>
+  </div>
+  <div id="client-list" class="client-list"></div>
+</div>
+
+<!-- ══ ADD/EDIT CLIENT MODAL ═══════════════════════════════ -->
+<div class="modal-overlay" id="client-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="client-modal-title">Add Client</div>
+      <button class="modal-close" onclick="closeClientModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-grid">
+        <div class="form-group full">
+          <label class="form-label">Full Name(s) <span class="required">*</span></label>
+          <input class="form-input" id="cf-name" type="text" placeholder="Last, First &amp; Last, First"/>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Property Address</label>
+          <input class="form-input" id="cf-address" type="text" placeholder="123 Main St, Sacramento"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number(s)</label>
+          <input class="form-input" id="cf-phone" type="text" placeholder="916-555-0100"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address(es)</label>
+          <input class="form-input" id="cf-email" type="text" placeholder="email@example.com"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Service Frequency</label>
+          <select class="form-input" id="cf-interval">
+            <option value="">— select —</option>
+            <option>Weekly</option>
+            <option>Bi-weekly</option>
+            <option>Monthly</option>
+            <option>Bi-monthly</option>
+            <option>Quarterly</option>
+            <option>Bi-annual</option>
+            <option>On-call</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Labor Hours per Service</label>
+          <input class="form-input" id="cf-hours" type="text" placeholder="e.g. 4-6"/>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Property Notes</label>
+          <textarea class="form-textarea" id="cf-service-notes"
+            placeholder="Dogs onsite, gate codes, general property notes…"></textarea>
+        </div>
+      </div>
+
+      <details class="form-extra-details">
+        <summary class="form-extra-summary">Additional Details</summary>
+        <div class="form-grid" style="padding-top:12px">
+          <div class="form-group full">
+            <label class="form-label">Gate / Access</label>
+            <input class="form-input" id="cf-gate" type="text" placeholder="Gate code, key location, etc."/>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Irrigation Notes</label>
+            <textarea class="form-textarea" id="cf-irrigation"
+              placeholder="Controller type, zone notes, known issues…"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dogs / Animals</label>
+            <input class="form-input" id="cf-dogs" type="text" placeholder="e.g. 2 dogs, keep gate closed"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Scheduling Notes</label>
+            <input class="form-input" id="cf-scheduling" type="text" placeholder="e.g. Not before 9am"/>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Billing Notes</label>
+            <input class="form-input" id="cf-billing" type="text" placeholder="Invoice details, billing contact…"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Active</label>
+            <select class="form-input" id="cf-active">
+              <option value="✓">✓ Active</option>
+              <option value="">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-delete" id="cf-delete-btn" onclick="deleteCurrentClient()" style="display:none">Delete Client</button>
+      <button class="fbtn fbtn-cancel" onclick="closeClientModal()">Cancel</button>
+      <button class="fbtn fbtn-save" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT PROFILE MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="profile-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeProfileModal(event)">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title" id="profile-modal-title">Client Profile</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="action-btn" id="profile-edit-btn" onclick="editCurrentClient()">&#9998; Edit</button>
+        <button class="modal-close" onclick="closeProfileModal()">&#10005;</button>
+      </div>
+    </div>
+    <div class="modal-body" id="profile-modal-body"></div>
+  </div>
+</div>
+
+<!-- ══ CLIENT EMAILS MODAL ═════════════════════════════════════
+     No email is ever sent from within the app — this just builds
+     a copy-paste-ready list. ══ -->
+<div class="modal-overlay" id="client-emails-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientEmailsModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Copy Client Emails</div>
+      <button class="modal-close" onclick="closeClientEmailsModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="ce-count" id="ce-count">Loading&hellip;</div>
+      <div class="ce-bcc-warning">
+        &#9888; Paste this into <strong>BCC</strong>, not To or CC &mdash; pasting it anywhere else shows every client everyone else's email address.
+      </div>
+      <textarea class="ce-textarea" id="ce-textarea" readonly onclick="this.select()"></textarea>
+
+      <div class="ce-missing-section" id="ce-missing-section" style="display:none">
+        <div class="ce-missing-title">Active clients with no email on file (<span id="ce-missing-count"></span>)</div>
+        <div id="ce-missing-list"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-cancel" onclick="closeClientEmailsModal()">Close</button>
+      <button class="fbtn fbtn-save" onclick="copyClientEmailsToClipboard()">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="cl-toast" id="toast"></div>
+
+<script src="../config.js?v=1"></script>
+<script src="js/mantis_config.js?v=1"></script>
+<script src="js/session_timeout.js?v=1"></script>
+<script src="js/crew_clients.js?v=1"></script>
+</body>
+</html>
