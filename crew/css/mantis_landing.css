@@ -235,7 +235,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
    ============================================================= */
 
 .nav-cards{
-  display:grid;grid-template-columns:1fr 1fr 1fr;
+  display:grid;grid-template-columns:1fr 1fr;
   gap:14px;width:100%;max-width:1000px;
 }
 .nav-card{
