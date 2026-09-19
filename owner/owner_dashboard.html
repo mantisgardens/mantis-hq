@@ -453,6 +453,7 @@
       <div class="ne-toolbar">
         <button type="button" class="ne-btn" onclick="neBold()" title="Bold"><b>B</b></button>
         <button type="button" class="ne-btn" onclick="neItalic()" title="Italic"><i>I</i></button>
+        <button type="button" class="ne-btn" onclick="neLink()" title="Add or edit link (web addresses only)">&#128279;</button>
         <span class="ne-sep"></span>
         <button type="button" class="ne-btn ne-size" onclick="neSizeDown()" title="Decrease text size">&minus;</button>
         <button type="button" class="ne-btn ne-size" onclick="neSizeUp()" title="Increase text size">+</button>
@@ -466,7 +467,7 @@
         <button type="button" class="ne-swatch" style="background:#5c3a7a" onclick="neColor('#5c3a7a')" title="Purple"></button>
       </div>
       <div class="ne-canvas" id="note-editor-canvas" contenteditable="true" onmouseup="neResetActiveSpan()" onkeyup="neResetActiveSpan()"></div>
-      <div class="ne-hint">Select text, then choose a style — with nothing selected, styles apply to the whole note.</div>
+      <div class="ne-hint">Select text, then choose a style or the &#128279; link button — with nothing selected, styles apply to the whole note.</div>
     </div>
     <div class="modal-footer">
       <button class="fbtn fbtn-cancel" onclick="closeNoteEditor()">Cancel</button>
