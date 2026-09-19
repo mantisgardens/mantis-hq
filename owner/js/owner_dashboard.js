@@ -1230,7 +1230,7 @@ const NOTES_TEAM_LABELS = {
 
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Note items are stored as small HTML fragments (bold/italic/font-size/
-// color, plus http(s) hyperlinks) instead of plain text, so the owner can format them via
+// color, http(s) hyperlinks, line breaks) instead of plain text, so the owner can format them via
 // the Note Editor popup below. This allow-list keeps that safe and
 // keeps the stored HTML predictable — nothing else survives a save,
 // including anything pasted in from elsewhere. It's applied again at
@@ -1259,6 +1259,22 @@ function sanitizeNoteHtml(html) {
         const tag = node.tagName;
         if (tag === 'SCRIPT' || tag === 'STYLE') {
           parent.removeChild(node);
+        } else if (tag === 'DIV' || tag === 'P') {
+          // Block elements = line breaks. Browsers wrap every line in a
+          // <div> when Enter is pressed in a contenteditable, and pasted
+          // multi-line text arrives as <div>/<p>. Unwrapping these
+          // without a <br> is what made line returns disappear. A block
+          // holding only a <br> is an empty line (the <br> is just the
+          // browser's placeholder, so drop it — the separator <br>s
+          // added below already produce the blank line).
+          const kids = [...node.childNodes];
+          if (kids.length === 1 && kids[0].nodeName === 'BR') node.removeChild(kids[0]);
+          const nx = node.nextSibling;
+          if (node.previousSibling) parent.insertBefore(tmp.ownerDocument.createElement('br'), node);
+          if (nx && !(nx.nodeType === Node.ELEMENT_NODE && (nx.tagName === 'DIV' || nx.tagName === 'P'))) {
+            parent.insertBefore(tmp.ownerDocument.createElement('br'), nx);
+          }
+          next = unwrap(parent, node) || next;
         } else if (!NOTE_ALLOWED_TAGS.has(tag)) {
           // Disallowed element — unwrap it, keep its text/children
           next = unwrap(parent, node) || next;
@@ -1303,6 +1319,26 @@ function sanitizeNoteHtml(html) {
     }
   }
   walk(tmp);
+  // A line break at the very start or end of a note (including one left
+  // inside a trailing <b>/<i>/<a>) shows as an empty line, so trim them.
+  // The Enter key handler adds a trailing placeholder <br> on purpose —
+  // this is what removes it again on save.
+  (function trimBr(el, last) {
+    let n = last ? el.lastChild : el.firstChild;
+    while (n && n.nodeName === 'BR') {
+      el.removeChild(n);
+      n = last ? el.lastChild : el.firstChild;
+    }
+    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
+  })(tmp, false);
+  (function trimBr(el, last) {
+    let n = last ? el.lastChild : el.firstChild;
+    while (n && n.nodeName === 'BR') {
+      el.removeChild(n);
+      n = last ? el.lastChild : el.firstChild;
+    }
+    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
+  })(tmp, true);
   return tmp.innerHTML.trim();
 }
 
@@ -1414,6 +1450,49 @@ function _neNormalizeUrl(raw) {
   } catch (e) {
     return null;
   }
+}
+
+// ── Line breaks ──────────────────────────────────────────────────
+// Enter inserts a real <br> instead of letting the browser wrap each
+// line in a <div> (Chrome/Edge/Safari do; Firefox differs), which the
+// sanitizer used to unwrap — that's why line returns vanished. This
+// gives the same markup in every browser.
+//
+// A <br> at the very end of a contenteditable renders no new line until
+// something follows it, so when the break lands at the end of the note a
+// second placeholder <br> is added after it. The caret sits between the
+// two, and sanitizeNoteHtml() trims the trailing <br> when saving.
+function neKeydown(e) {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  const canvas = document.getElementById('note-editor-canvas');
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (!canvas.contains(range.commonAncestorContainer)) return;
+  e.preventDefault();
+
+  range.deleteContents();
+  const br = document.createElement('br');
+  range.insertNode(br);
+
+  // Is there anything after this <br> anywhere in the note? (insertNode()
+  // splits a text node and can leave an empty one behind, so empty text
+  // nodes don't count as "something after".)
+  const after = node => {
+    let s = node.nextSibling;
+    while (s && s.nodeType === Node.TEXT_NODE && s.data === '') s = s.nextSibling;
+    return s;
+  };
+  let n = br;
+  while (n && n !== canvas && !after(n)) n = n.parentNode;
+  if (n === canvas) br.parentNode.insertBefore(document.createElement('br'), br.nextSibling);
+
+  const caret = document.createRange();
+  caret.setStartAfter(br);
+  caret.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(caret);
+  _neActiveSpan = null;
 }
 
 // Link button. Three cases:
