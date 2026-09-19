@@ -440,50 +440,72 @@ function esc(s) {
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Morning-brief note items are written by the owner via the Note
 // Editor popup in the Owner Portal (owner_dashboard.js) as small HTML
-// fragments — bold/italic/font-size/color only, nothing else. This is
-// the same allow-list used there, applied again here before rendering
-// so a note only ever shows exactly that limited formatting, however
-// the underlying sheet cell was actually edited.
-const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
+// fragments — bold/italic/font-size/color plus http(s) hyperlinks,
+// nothing else. This is the same allow-list used there, applied again
+// here before rendering so a note only ever shows exactly that limited
+// formatting, however the underlying sheet cell was actually edited.
+const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR','A']);
 function sanitizeNoteHtml(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html || '';
+  // DOMParser builds an inert document, so nothing in `html` (e.g. an
+  // <img onerror=...>) can execute while it is being parsed.
+  const tmp = new DOMParser().parseFromString('<body>' + (html || '') + '</body>', 'text/html').body;
+
+  // Replace `node` with its children and return the first child, so the
+  // walk continues INTO the moved children (they must be sanitized too).
+  function unwrap(parent, node) {
+    const first = node.firstChild;
+    while (node.firstChild) parent.insertBefore(node.firstChild, node);
+    parent.removeChild(node);
+    return first;
+  }
 
   function walk(parent) {
     let node = parent.firstChild;
     while (node) {
-      const next = node.nextSibling;
+      let next = node.nextSibling;
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
-          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
-            parent.removeChild(node);
-            node = next;
-            continue;
-          }
-          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+        const tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE') {
           parent.removeChild(node);
-        } else {
-          if (node.tagName === 'SPAN') {
-            const color    = node.style.color;
-            const fontSize = node.style.fontSize;
-            [...node.attributes].forEach(a => node.removeAttribute(a.name));
-            let style = '';
-            if (color)    style += `color:${color};`;
-            if (fontSize) style += `font-size:${fontSize};`;
-            if (style) {
-              node.setAttribute('style', style);
-              walk(node);
-            } else {
-              while (node.firstChild) parent.insertBefore(node.firstChild, node);
-              parent.removeChild(node);
-            }
-          } else {
-            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+        } else if (!NOTE_ALLOWED_TAGS.has(tag)) {
+          // Disallowed element — unwrap it, keep its text/children
+          next = unwrap(parent, node) || next;
+        } else if (tag === 'SPAN') {
+          const color    = node.style.color;
+          const fontSize = node.style.fontSize;
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          let style = '';
+          if (color)    style += `color:${color};`;
+          if (fontSize) style += `font-size:${fontSize};`;
+          if (style) {
+            node.setAttribute('style', style);
             walk(node);
+          } else {
+            // Empty span (no allowed style survived) — unwrap
+            next = unwrap(parent, node) || next;
           }
+        } else if (tag === 'A') {
+          // Hyperlinks: http(s) only (blocks javascript:/data:/etc.),
+          // no nested links, every other attribute dropped, always
+          // opens in a new tab. A link that fails any check is
+          // unwrapped to plain text rather than deleted.
+          const href   = (node.getAttribute('href') || '').trim();
+          const nested = !!parent.closest('a');
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          if (!nested && /^https?:\/\/\S+$/i.test(href)) {
+            node.setAttribute('href', href);
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer');
+            walk(node);
+          } else {
+            next = unwrap(parent, node) || next;
+          }
+        } else {
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          walk(node);
         }
       } else if (node.nodeType !== Node.TEXT_NODE) {
-        parent.removeChild(node);
+        parent.removeChild(node); // comments, etc.
       }
       node = next;
     }
