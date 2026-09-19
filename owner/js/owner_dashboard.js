@@ -1230,51 +1230,71 @@ const NOTES_TEAM_LABELS = {
 
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Note items are stored as small HTML fragments (bold/italic/font-size/
-// color only) instead of plain text, so the owner can format them via
+// color, plus http(s) hyperlinks) instead of plain text, so the owner can format them via
 // the Note Editor popup below. This allow-list keeps that safe and
 // keeps the stored HTML predictable — nothing else survives a save,
 // including anything pasted in from elsewhere. It's applied again at
 // render time too (defensively — in case a cell was ever hand-edited
 // directly in Google Sheets rather than through this editor).
-const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
+const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR','A']);
 function sanitizeNoteHtml(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html || '';
+  // DOMParser builds an inert document, so nothing in `html` (e.g. an
+  // <img onerror=...>) can execute while it is being parsed.
+  const tmp = new DOMParser().parseFromString('<body>' + (html || '') + '</body>', 'text/html').body;
+
+  // Replace `node` with its children and return the first child, so the
+  // walk continues INTO the moved children (they must be sanitized too).
+  function unwrap(parent, node) {
+    const first = node.firstChild;
+    while (node.firstChild) parent.insertBefore(node.firstChild, node);
+    parent.removeChild(node);
+    return first;
+  }
 
   function walk(parent) {
     let node = parent.firstChild;
     while (node) {
-      const next = node.nextSibling;
+      let next = node.nextSibling;
       if (node.nodeType === Node.ELEMENT_NODE) {
-        if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
-          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
-            parent.removeChild(node);
-            node = next;
-            continue;
-          }
-          // Disallowed element — unwrap it, keep its text/children
-          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+        const tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE') {
           parent.removeChild(node);
-        } else {
-          if (node.tagName === 'SPAN') {
-            const color    = node.style.color;
-            const fontSize = node.style.fontSize;
-            [...node.attributes].forEach(a => node.removeAttribute(a.name));
-            let style = '';
-            if (color)    style += `color:${color};`;
-            if (fontSize) style += `font-size:${fontSize};`;
-            if (style) {
-              node.setAttribute('style', style);
-              walk(node);
-            } else {
-              // Empty span (no allowed style survived) — unwrap
-              while (node.firstChild) parent.insertBefore(node.firstChild, node);
-              parent.removeChild(node);
-            }
-          } else {
-            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+        } else if (!NOTE_ALLOWED_TAGS.has(tag)) {
+          // Disallowed element — unwrap it, keep its text/children
+          next = unwrap(parent, node) || next;
+        } else if (tag === 'SPAN') {
+          const color    = node.style.color;
+          const fontSize = node.style.fontSize;
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          let style = '';
+          if (color)    style += `color:${color};`;
+          if (fontSize) style += `font-size:${fontSize};`;
+          if (style) {
+            node.setAttribute('style', style);
             walk(node);
+          } else {
+            // Empty span (no allowed style survived) — unwrap
+            next = unwrap(parent, node) || next;
           }
+        } else if (tag === 'A') {
+          // Hyperlinks: http(s) only (blocks javascript:/data:/etc.),
+          // no nested links, every other attribute dropped, always
+          // opens in a new tab. A link that fails any check is
+          // unwrapped to plain text rather than deleted.
+          const href   = (node.getAttribute('href') || '').trim();
+          const nested = !!parent.closest('a');
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          if (!nested && /^https?:\/\/\S+$/i.test(href)) {
+            node.setAttribute('href', href);
+            node.setAttribute('target', '_blank');
+            node.setAttribute('rel', 'noopener noreferrer');
+            walk(node);
+          } else {
+            next = unwrap(parent, node) || next;
+          }
+        } else {
+          [...node.attributes].forEach(a => node.removeAttribute(a.name));
+          walk(node);
         }
       } else if (node.nodeType !== Node.TEXT_NODE) {
         parent.removeChild(node); // comments, etc.
@@ -1372,6 +1392,107 @@ function neWrapSelection(makeEl) {
 
 function neBold()          { neWrapSelection(() => document.createElement('b')); }
 function neItalic()        { neWrapSelection(() => document.createElement('i')); }
+
+// ── Hyperlinks ───────────────────────────────────────────────────
+// Only http(s) links are allowed (sanitizeNoteHtml enforces the same
+// rule on save and on every render, this just gives the owner a
+// friendly message up front). Typed addresses with no scheme, e.g.
+// "www.example.com", get https:// added. Returns the normalized URL,
+// or null if it isn't a usable http(s) address.
+function _neNormalizeUrl(raw) {
+  let u = (raw || '').trim();
+  if (!u) return null;
+  if (!/^https?:\/\//i.test(u)) {
+    if (/^(javascript|data|vbscript|mailto|tel|file|ftp|blob):/i.test(u)) return null;
+    u = 'https://' + u;
+  }
+  try {
+    const parsed = new URL(u);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname) return null;
+    return parsed.href;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Link button. Three cases:
+//  1. Cursor/selection is inside an existing link → edit its address
+//     (blank address removes the link, keeping the text).
+//  2. Text selected → wrap it in a new link.
+//  3. Nothing selected → link the whole note (same convention as the
+//     other toolbar buttons).
+function neLink() {
+  const canvas = document.getElementById('note-editor-canvas');
+  const sel = window.getSelection();
+
+  // Capture the range BEFORE prompt(), which can disturb the selection.
+  let range = null;
+  if (sel.rangeCount) {
+    const r = sel.getRangeAt(0);
+    if (canvas.contains(r.commonAncestorContainer)) range = r.cloneRange();
+  }
+
+  // Case 1: already inside a link?
+  if (range) {
+    let n = range.commonAncestorContainer;
+    if (n.nodeType === Node.TEXT_NODE) n = n.parentNode;
+    const existing = n && n.closest ? n.closest('a') : null;
+    if (existing && canvas.contains(existing)) {
+      const answer = prompt('Link address (leave blank to remove the link):',
+                            existing.getAttribute('href') || '');
+      if (answer === null) return;
+      if (answer.trim() === '') {
+        while (existing.firstChild) existing.parentNode.insertBefore(existing.firstChild, existing);
+        existing.remove();
+      } else {
+        const url = _neNormalizeUrl(answer);
+        if (!url) { alert('Please enter a valid web address starting with http:// or https://'); return; }
+        existing.setAttribute('href', url);
+      }
+      _neActiveSpan = null;
+      canvas.focus();
+      return;
+    }
+  }
+
+  // Cases 2 and 3: create a new link
+  if (!range || range.collapsed) {
+    range = document.createRange();
+    range.selectNodeContents(canvas);
+  }
+  if (!range.toString().trim()) {
+    alert('Type or select some text to turn into a link first.');
+    return;
+  }
+  const answer = prompt('Link address (https://…):', 'https://');
+  if (answer === null) return;
+  const url = _neNormalizeUrl(answer);
+  if (!url) { alert('Please enter a valid web address starting with http:// or https://'); return; }
+
+  const a = document.createElement('a');
+  a.setAttribute('href', url);
+  try {
+    range.surroundContents(a);
+  } catch (e) {
+    // Range crosses element boundaries — extract-then-wrap instead
+    const frag = range.extractContents();
+    a.appendChild(frag);
+    range.insertNode(a);
+  }
+  // Links can't nest — flatten any anchors that ended up inside this one
+  a.querySelectorAll('a').forEach(inner => {
+    while (inner.firstChild) inner.parentNode.insertBefore(inner.firstChild, inner);
+    inner.remove();
+  });
+
+  const newRange = document.createRange();
+  newRange.selectNodeContents(a);
+  sel.removeAllRanges();
+  sel.addRange(newRange);
+  _neActiveSpan = null;
+  canvas.focus();
+}
 function neSize(size)      { neApplyStyle('fontSize', size); }
 function neColor(color)    { neApplyStyle('color', color); }
 
