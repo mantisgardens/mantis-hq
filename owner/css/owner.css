@@ -527,6 +527,9 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .ne-canvas{min-height:70px;border:1.5px solid var(--bg3);border-radius:6px;padding:12px 14px;font-size:var(--fs-body);color:var(--ink);line-height:1.5;outline:none;background:#fff}
 .ne-canvas:focus{border-color:var(--g)}
 .ne-hint{font-size:var(--fs-small);color:var(--ink3);margin-top:8px;font-style:italic}
+.ne-canvas a{color:#1a3a5c;text-decoration:underline}
+/* Links in the note list preview are display-only: clicking the row opens the editor */
+.notes-item-input a{color:#1a3a5c;text-decoration:underline;pointer-events:none}
 
 /* =============================================================
    TIME CARDS TAB (owner weekly grid + needs-review)
