@@ -127,6 +127,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 .reload-btn.is-loading .reload-icon{animation:reload-spin 0.7s linear infinite}
 @keyframes reload-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .offline-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:7px 16px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--a);letter-spacing:0.04em}
+.missing-wr-banner{background:var(--a3);border-bottom:1px solid var(--a4);padding:9px 16px;display:flex;align-items:center;gap:8px;font-size:var(--fs-body);color:var(--a)}
+.missing-wr-icon{font-size:var(--fs-title);line-height:1}
 .offline-icon{font-size:var(--fs-body);flex-shrink:0}
 .offline-banner span:nth-child(2){flex:1}
 .offline-retry{cursor:pointer;text-decoration:underline;font-weight:600;white-space:nowrap}
@@ -260,6 +262,7 @@ body.team-locked .team-tabs{display:none}
 /* Notes */
 .note-item{font-size:var(--fs-small);color:var(--ink);line-height:1.6;padding:5px 9px;border-left:2px solid var(--a4);background:var(--a3);border-radius:0 4px 4px 0}
 .note-item + .note-item{margin-top:4px}
+.note-item a{color:#1a3a5c;text-decoration:underline;word-break:break-word}
 .note-item.hi{border-left-color:var(--g4);background:var(--g3);color:var(--g)}
 /* Manager note — slightly different accent */
 .note-mgr{border-left-color:var(--b4);background:var(--b3);color:var(--b)}
