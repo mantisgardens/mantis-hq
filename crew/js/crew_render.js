@@ -440,8 +440,8 @@ function esc(s) {
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Morning-brief note items are written by the owner via the Note
 // Editor popup in the Owner Portal (owner_dashboard.js) as small HTML
-// fragments — bold/italic/font-size/color plus http(s) hyperlinks,
-// nothing else. This is the same allow-list used there, applied again
+// fragments — bold/italic/font-size/color, http(s) hyperlinks and line
+// breaks, nothing else. This is the same allow-list used there, applied again
 // here before rendering so a note only ever shows exactly that limited
 // formatting, however the underlying sheet cell was actually edited.
 const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR','A']);
@@ -467,6 +467,22 @@ function sanitizeNoteHtml(html) {
         const tag = node.tagName;
         if (tag === 'SCRIPT' || tag === 'STYLE') {
           parent.removeChild(node);
+        } else if (tag === 'DIV' || tag === 'P') {
+          // Block elements = line breaks. Browsers wrap every line in a
+          // <div> when Enter is pressed in a contenteditable, and pasted
+          // multi-line text arrives as <div>/<p>. Unwrapping these
+          // without a <br> is what made line returns disappear. A block
+          // holding only a <br> is an empty line (the <br> is just the
+          // browser's placeholder, so drop it — the separator <br>s
+          // added below already produce the blank line).
+          const kids = [...node.childNodes];
+          if (kids.length === 1 && kids[0].nodeName === 'BR') node.removeChild(kids[0]);
+          const nx = node.nextSibling;
+          if (node.previousSibling) parent.insertBefore(tmp.ownerDocument.createElement('br'), node);
+          if (nx && !(nx.nodeType === Node.ELEMENT_NODE && (nx.tagName === 'DIV' || nx.tagName === 'P'))) {
+            parent.insertBefore(tmp.ownerDocument.createElement('br'), nx);
+          }
+          next = unwrap(parent, node) || next;
         } else if (!NOTE_ALLOWED_TAGS.has(tag)) {
           // Disallowed element — unwrap it, keep its text/children
           next = unwrap(parent, node) || next;
@@ -511,6 +527,26 @@ function sanitizeNoteHtml(html) {
     }
   }
   walk(tmp);
+  // A line break at the very start or end of a note (including one left
+  // inside a trailing <b>/<i>/<a>) shows as an empty line, so trim them.
+  // The Enter key handler adds a trailing placeholder <br> on purpose —
+  // this is what removes it again on save.
+  (function trimBr(el, last) {
+    let n = last ? el.lastChild : el.firstChild;
+    while (n && n.nodeName === 'BR') {
+      el.removeChild(n);
+      n = last ? el.lastChild : el.firstChild;
+    }
+    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
+  })(tmp, false);
+  (function trimBr(el, last) {
+    let n = last ? el.lastChild : el.firstChild;
+    while (n && n.nodeName === 'BR') {
+      el.removeChild(n);
+      n = last ? el.lastChild : el.firstChild;
+    }
+    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
+  })(tmp, true);
   return tmp.innerHTML.trim();
 }
 
