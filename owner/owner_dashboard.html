@@ -466,8 +466,8 @@
         <button type="button" class="ne-swatch" style="background:#1a3a5c" onclick="neColor('#1a3a5c')" title="Blue"></button>
         <button type="button" class="ne-swatch" style="background:#5c3a7a" onclick="neColor('#5c3a7a')" title="Purple"></button>
       </div>
-      <div class="ne-canvas" id="note-editor-canvas" contenteditable="true" onmouseup="neResetActiveSpan()" onkeyup="neResetActiveSpan()"></div>
-      <div class="ne-hint">Select text, then choose a style or the &#128279; link button — with nothing selected, styles apply to the whole note.</div>
+      <div class="ne-canvas" id="note-editor-canvas" contenteditable="true" onmouseup="neResetActiveSpan()" onkeyup="neResetActiveSpan()" onkeydown="neKeydown(event)"></div>
+      <div class="ne-hint">Select text, then choose a style or the &#128279; link button — with nothing selected, styles apply to the whole note. Press Enter for a new line.</div>
     </div>
     <div class="modal-footer">
       <button class="fbtn fbtn-cancel" onclick="closeNoteEditor()">Cancel</button>
