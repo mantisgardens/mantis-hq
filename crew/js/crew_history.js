@@ -45,6 +45,7 @@ function openHistoryForClient(clientName, cardId) {
 // ── Load history ───────────────────────────────────────────────
 
 async function loadHistory(clientName, cardId) {
+  closePhotoLightbox();
   if (!clientName) {
     _historyShowEmpty('Select a client above to view their historical data.');
     return;
@@ -347,12 +348,34 @@ function toggleRecord(i) {
 // Flat list of photos with date and filename. Filename links to
 // the file in Google Drive.
 
+// Thumbnails are fetched through our own backend, not linked to Drive
+// directly -- Historical Data photo folders are shared with the app's
+// service account only, not "Anyone with the link", so a browser hitting
+// drive.google.com's thumbnail endpoint gets a 403 no matter which crew
+// account is signed in. The backend already has service-account Drive
+// access for everything else in this panel, so it proxies the image
+// through instead. Needs the same id_token every other call here uses,
+// since an <img> tag can't send an Authorization header.
+function _hpThumbUrl(fileId, size) {
+  const idToken = sessionStorage.getItem('mg_id_token') || '';
+  return `${SCRIPT_URL}/historical-data/photo-thumbnail?fileId=${encodeURIComponent(fileId)}`
+       + `&sz=${size}&id_token=${encodeURIComponent(idToken)}`;
+}
+
+// _historyPhotos holds the currently-filtered list in display order so
+// the lightbox can page through exactly what's on screen (Prev/Next stay
+// in sync with an active search instead of the full unfiltered set).
+let _historyPhotos = [];
+let _historyPhotoIndex = -1;
+
 function _renderPhotos(body, q) {
   let photos = (_historyData.photos || []).filter(p => p.fileId || p.filename);
   if (q) photos = photos.filter(p =>
     (p.date     || '').toLowerCase().includes(q) ||
     (p.filename || '').toLowerCase().includes(q)
   );
+
+  _historyPhotos = photos;
 
   if (!photos.length) {
     body.innerHTML = q
@@ -361,22 +384,100 @@ function _renderPhotos(body, q) {
     return;
   }
 
-  body.innerHTML = `<div class="hp-list">` +
-    photos.map(p => {
-      const driveUrl = p.fileId
-        ? `https://drive.google.com/file/d/${esc(p.fileId)}/view`
-        : '#';
-      const name = _hl(p.filename || p.fileId || '(unnamed)', q);
+  body.innerHTML = `<div class="hp-grid">` +
+    photos.map((p, i) => {
+      const name = p.filename || p.fileId || '(unnamed)';
+      if (!p.fileId) {
+        // No Drive file to show a thumbnail for — keep it in the grid
+        // (still searchable/visible) but as a plain icon tile, not a
+        // broken thumbnail.
+        return `
+          <div class="hp-tile hp-tile-nofile" title="${esc(name)}">
+            <div class="hp-thumb hp-thumb-fallback">&#128247;</div>
+            <div class="hp-cap">
+              <span class="hp-cap-date">${esc(p.date)}</span>
+              <span class="hp-cap-name">${_hl(name, q)}</span>
+            </div>
+          </div>`;
+      }
       return `
-        <div class="hp-row">
-          <span class="hp-date">${esc(p.date)}</span>
-          <a class="hp-link" href="${driveUrl}" target="_blank" rel="noopener">
-            &#128247; ${name}
-          </a>
+        <div class="hp-tile" onclick="openPhotoLightbox(${i})" title="${esc(name)}">
+          <div class="hp-thumb">
+            <img src="${_hpThumbUrl(p.fileId, 300)}" alt="${esc(name)}" loading="lazy"
+                 onerror="this.parentElement.classList.add('hp-thumb-fallback');this.replaceWith(Object.assign(document.createElement('div'),{className:'hp-thumb-fallback-icon',innerHTML:'&#128247;'}))">
+          </div>
+          <div class="hp-cap">
+            <span class="hp-cap-date">${esc(p.date)}</span>
+            <span class="hp-cap-name">${_hl(name, q)}</span>
+          </div>
         </div>`;
     }).join('') +
   `</div>`;
 }
+
+// ── Photo lightbox ───────────────────────────────────────────────
+// Opens the tapped photo full-size in place, with Prev/Next to step
+// through the rest of the grid — the point being crew never have to
+// leave Historical Data and reopen a photo from Drive to see the next
+// one.
+
+function openPhotoLightbox(i) {
+  _historyPhotoIndex = i;
+  _renderPhotoLightbox();
+  document.getElementById('photo-lightbox').classList.add('open');
+}
+
+function closePhotoLightbox() {
+  document.getElementById('photo-lightbox').classList.remove('open');
+  _historyPhotoIndex = -1;
+}
+
+function closePhotoLightboxOutside(e) {
+  if (e.target.id === 'photo-lightbox') closePhotoLightbox();
+}
+
+function photoLightboxStep(delta) {
+  if (!_historyPhotos.length) return;
+  let i = _historyPhotoIndex + delta;
+  // Skip fileId-less entries — nothing to show full-size for those.
+  while (i >= 0 && i < _historyPhotos.length && !_historyPhotos[i].fileId) i += delta;
+  if (i < 0 || i >= _historyPhotos.length) return;
+  _historyPhotoIndex = i;
+  _renderPhotoLightbox();
+}
+
+function _renderPhotoLightbox() {
+  const p = _historyPhotos[_historyPhotoIndex];
+  if (!p) return;
+  const img   = document.getElementById('photo-lightbox-img');
+  const cap   = document.getElementById('photo-lightbox-caption');
+  const link  = document.getElementById('photo-lightbox-drive-link');
+  const prev  = document.getElementById('photo-lightbox-prev');
+  const next  = document.getElementById('photo-lightbox-next');
+  const count = document.getElementById('photo-lightbox-count');
+
+  img.src = _hpThumbUrl(p.fileId, 1600);
+  cap.textContent = [p.date, p.filename].filter(Boolean).join(' — ');
+  link.href = `https://drive.google.com/file/d/${encodeURIComponent(p.fileId)}/view`;
+  count.textContent = `${_historyPhotoIndex + 1} of ${_historyPhotos.length}`;
+
+  const hasFileAt = delta => {
+    let i = _historyPhotoIndex + delta;
+    while (i >= 0 && i < _historyPhotos.length && !_historyPhotos[i].fileId) i += delta;
+    return i >= 0 && i < _historyPhotos.length;
+  };
+  prev.style.visibility = hasFileAt(-1) ? '' : 'hidden';
+  next.style.visibility = hasFileAt(1)  ? '' : 'hidden';
+}
+
+function _photoLightboxKeydown(e) {
+  const lb = document.getElementById('photo-lightbox');
+  if (!lb || !lb.classList.contains('open')) return;
+  if (e.key === 'Escape')      closePhotoLightbox();
+  else if (e.key === 'ArrowLeft')  photoLightboxStep(-1);
+  else if (e.key === 'ArrowRight') photoLightboxStep(1);
+}
+document.addEventListener('keydown', _photoLightboxKeydown);
 
 // ── Open / close ──────────────────────────────────────────────
 function openHistory() {
@@ -388,6 +489,7 @@ function openHistory() {
 function closeHistory() {
   document.getElementById('history-modal').classList.remove('open');
   document.body.style.overflow = '';
+  closePhotoLightbox();
 }
 
 function closeHistoryOutside(e) {
