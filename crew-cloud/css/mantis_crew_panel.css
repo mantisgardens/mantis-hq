@@ -857,13 +857,44 @@ mark.hl{background:var(--a2);color:var(--ink);border-radius:2px;padding:0 1px}
 .hr-item{font-size:var(--fs-body);color:var(--ink2);line-height:1.7;padding:4px 0;border-bottom:1px solid var(--bg3)}
 .hr-item:last-child{border-bottom:none}
 .hr-preview{font-size:var(--fs-small);color:var(--ink3);flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-/* Photos tab */
-.hp-list{display:flex;flex-direction:column;gap:2px}
-.hp-row{display:flex;align-items:baseline;gap:12px;padding:8px 12px;border-radius:6px;background:#fff;border:1px solid var(--bg3)}
-.hp-row:hover{background:var(--bg)}
-.hp-date{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--a);letter-spacing:0.06em;white-space:nowrap;flex-shrink:0;min-width:70px}
-.hp-link{font-size:var(--fs-body);color:var(--ink2);text-decoration:none;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.hp-link:hover{color:var(--a);text-decoration:underline}
+/* Photos tab — thumbnail grid */
+.hp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.hp-tile{cursor:pointer;border-radius:8px;overflow:hidden;background:#fff;border:1px solid var(--bg3);transition:border-color .12s,transform .12s}
+.hp-tile:hover{border-color:var(--a);transform:translateY(-1px)}
+.hp-tile-nofile{cursor:default}
+.hp-tile-nofile:hover{border-color:var(--bg3);transform:none}
+.hp-thumb{aspect-ratio:1/1;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.hp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.hp-thumb-fallback,.hp-thumb-fallback-icon{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--ink3)}
+.hp-cap{padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px}
+.hp-cap-date{font-family:var(--font-mono);font-size:0.72rem;color:var(--a);letter-spacing:0.06em}
+.hp-cap-name{font-size:0.78rem;color:var(--ink2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+
+/* Photo lightbox — sits above the Historical Data modal so a photo can
+   be viewed full-size, with Prev/Next, without leaving the Photos tab. */
+.photo-lightbox{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(10,8,5,0.92);align-items:center;justify-content:center;
+}
+.photo-lightbox.open{display:flex}
+.photo-lightbox-inner{position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.photo-lightbox-img{max-width:100%;max-height:78vh;object-fit:contain;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,0.5)}
+.photo-lightbox-close{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,0.12);color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-lightbox-close:hover{background:rgba(255,255,255,0.22)}
+.photo-lightbox-count{position:absolute;top:20px;left:16px;color:rgba(255,255,255,0.75);font-family:var(--font-mono);font-size:0.8rem;letter-spacing:0.05em}
+.photo-lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.12);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-lightbox-nav:hover{background:rgba(255,255,255,0.22)}
+.photo-lightbox-prev{left:12px}
+.photo-lightbox-next{right:12px}
+.photo-lightbox-footer{margin-top:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;max-width:90%}
+.photo-lightbox-caption{color:rgba(255,255,255,0.85);font-size:var(--fs-small);text-align:center;word-break:break-word}
+.photo-lightbox-drive-link{color:#9ec4ff;font-size:var(--fs-small);text-decoration:none;white-space:nowrap}
+.photo-lightbox-drive-link:hover{text-decoration:underline}
+@media (max-width:520px){
+  .photo-lightbox-nav{width:38px;height:38px;font-size:1rem}
+  .photo-lightbox-prev{left:6px}
+  .photo-lightbox-next{right:6px}
+}
 
 
 /* =============================================================
