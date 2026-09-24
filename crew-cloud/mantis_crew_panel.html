@@ -23,7 +23,7 @@
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Panel</title>
-  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=63">
+  <link rel="stylesheet" href="css/mantis_crew_panel.css?v=64">
   <!-- GIS loaded here (as well as index.html) so the crew panel
        can silently refresh expired tokens mid-session, matching
        the owner portal which also loads GIS on its dashboard page. -->
@@ -360,6 +360,25 @@
   </div>
 </div>
 
+<!-- ── Photo Lightbox — opens over Historical Data's Photos tab so a
+     crew member can step through a client's photos in place, instead
+     of opening each one in Drive and coming back for the next. ── -->
+<div class="photo-lightbox" id="photo-lightbox" onclick="closePhotoLightboxOutside(event)">
+  <div class="photo-lightbox-inner">
+    <button class="photo-lightbox-close" onclick="closePhotoLightbox()" aria-label="Close">&#10005;</button>
+    <div class="photo-lightbox-count" id="photo-lightbox-count"></div>
+    <button class="photo-lightbox-nav photo-lightbox-prev" id="photo-lightbox-prev"
+            onclick="photoLightboxStep(-1)" aria-label="Previous photo">&#10094;</button>
+    <img class="photo-lightbox-img" id="photo-lightbox-img" alt="">
+    <button class="photo-lightbox-nav photo-lightbox-next" id="photo-lightbox-next"
+            onclick="photoLightboxStep(1)" aria-label="Next photo">&#10095;</button>
+    <div class="photo-lightbox-footer">
+      <span class="photo-lightbox-caption" id="photo-lightbox-caption"></span>
+      <a class="photo-lightbox-drive-link" id="photo-lightbox-drive-link" href="#" target="_blank" rel="noopener">Open in Drive</a>
+    </div>
+  </div>
+</div>
+
 
 <div class="toast" id="toast"></div>
 
@@ -381,7 +400,7 @@
 <script src="js/crew_render.js?v=77"></script>
 <script src="js/crew_ui.js?v=42"></script>
 <script src="js/crew_workrecord.js?v=86"></script>
-<script src="js/crew_history.js?v=58"></script>
+<script src="js/crew_history.js?v=60"></script>
 <!-- crew_app.js must be last script tag on the page so all other
    modules are defined before startup code runs.  -->
 <script src="js/crew_app.js?v=50"></script>
