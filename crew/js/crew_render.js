@@ -249,6 +249,32 @@ function findClient(name, intervalHint) {
   if (tied.length) {
     const _candidates = [best, ...tied];
 
+    // Colon-prefix tiebreaker: "ClientName: note" is a common crew
+    // convention for tacking on an extra note in the same calendar slot
+    // -- e.g. "Anselmo: Bender edging & plants complete", where the
+    // visit itself is Anselmo's and "Bender" only shows up because the
+    // note happens to mention also doing Bender's edging that day. Since
+    // Bender is a real client's surname too, both "anselmo" and "bender"
+    // score identically and the match ties. Tried first, before the
+    // address tiebreaker below, because it's the strongest signal here:
+    // a human deliberately put one name before the colon to label the
+    // event, same way "CI - Schwarz" already privileges the name after
+    // a dash prefix elsewhere in this function's cousin, parseEvent().
+    const _colonM = name.match(/^\s*([^:]+):/);
+    if (_colonM) {
+      const _prefixWords = _colonM[1].toLowerCase()
+        .split(/[\s,&()+\-\/]+/).filter(w => w.length > 1);
+      if (_prefixWords.length) {
+        const _colonMatches = _candidates.filter(c => {
+          const cName = (c['Name(s)'] || '').toLowerCase();
+          return _prefixWords.some(w => cName.includes(w));
+        });
+        if (_colonMatches.length === 1) {
+          return _colonMatches[0];
+        }
+      }
+    }
+
     // Address tiebreaker: some event titles add extra text after the
     // client's name specifically to disambiguate manually -- e.g.
     // "Lewis (Wyndgate)" when there are multiple Lewis clients. Any
@@ -440,113 +466,55 @@ function esc(s) {
 // ── Note item rich-text sanitizer ───────────────────────────────
 // Morning-brief note items are written by the owner via the Note
 // Editor popup in the Owner Portal (owner_dashboard.js) as small HTML
-// fragments — bold/italic/font-size/color, http(s) hyperlinks and line
-// breaks, nothing else. This is the same allow-list used there, applied again
-// here before rendering so a note only ever shows exactly that limited
-// formatting, however the underlying sheet cell was actually edited.
-const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR','A']);
+// fragments — bold/italic/font-size/color only, nothing else. This is
+// the same allow-list used there, applied again here before rendering
+// so a note only ever shows exactly that limited formatting, however
+// the underlying sheet cell was actually edited.
+const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
 function sanitizeNoteHtml(html) {
-  // DOMParser builds an inert document, so nothing in `html` (e.g. an
-  // <img onerror=...>) can execute while it is being parsed.
-  const tmp = new DOMParser().parseFromString('<body>' + (html || '') + '</body>', 'text/html').body;
-
-  // Replace `node` with its children and return the first child, so the
-  // walk continues INTO the moved children (they must be sanitized too).
-  function unwrap(parent, node) {
-    const first = node.firstChild;
-    while (node.firstChild) parent.insertBefore(node.firstChild, node);
-    parent.removeChild(node);
-    return first;
-  }
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
 
   function walk(parent) {
     let node = parent.firstChild;
     while (node) {
-      let next = node.nextSibling;
+      const next = node.nextSibling;
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const tag = node.tagName;
-        if (tag === 'SCRIPT' || tag === 'STYLE') {
+        if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
+          if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE') {
+            parent.removeChild(node);
+            node = next;
+            continue;
+          }
+          while (node.firstChild) parent.insertBefore(node.firstChild, node);
           parent.removeChild(node);
-        } else if (tag === 'DIV' || tag === 'P') {
-          // Block elements = line breaks. Browsers wrap every line in a
-          // <div> when Enter is pressed in a contenteditable, and pasted
-          // multi-line text arrives as <div>/<p>. Unwrapping these
-          // without a <br> is what made line returns disappear. A block
-          // holding only a <br> is an empty line (the <br> is just the
-          // browser's placeholder, so drop it — the separator <br>s
-          // added below already produce the blank line).
-          const kids = [...node.childNodes];
-          if (kids.length === 1 && kids[0].nodeName === 'BR') node.removeChild(kids[0]);
-          const nx = node.nextSibling;
-          if (node.previousSibling) parent.insertBefore(tmp.ownerDocument.createElement('br'), node);
-          if (nx && !(nx.nodeType === Node.ELEMENT_NODE && (nx.tagName === 'DIV' || nx.tagName === 'P'))) {
-            parent.insertBefore(tmp.ownerDocument.createElement('br'), nx);
-          }
-          next = unwrap(parent, node) || next;
-        } else if (!NOTE_ALLOWED_TAGS.has(tag)) {
-          // Disallowed element — unwrap it, keep its text/children
-          next = unwrap(parent, node) || next;
-        } else if (tag === 'SPAN') {
-          const color    = node.style.color;
-          const fontSize = node.style.fontSize;
-          [...node.attributes].forEach(a => node.removeAttribute(a.name));
-          let style = '';
-          if (color)    style += `color:${color};`;
-          if (fontSize) style += `font-size:${fontSize};`;
-          if (style) {
-            node.setAttribute('style', style);
-            walk(node);
-          } else {
-            // Empty span (no allowed style survived) — unwrap
-            next = unwrap(parent, node) || next;
-          }
-        } else if (tag === 'A') {
-          // Hyperlinks: http(s) only (blocks javascript:/data:/etc.),
-          // no nested links, every other attribute dropped, always
-          // opens in a new tab. A link that fails any check is
-          // unwrapped to plain text rather than deleted.
-          const href   = (node.getAttribute('href') || '').trim();
-          const nested = !!parent.closest('a');
-          [...node.attributes].forEach(a => node.removeAttribute(a.name));
-          if (!nested && /^https?:\/\/\S+$/i.test(href)) {
-            node.setAttribute('href', href);
-            node.setAttribute('target', '_blank');
-            node.setAttribute('rel', 'noopener noreferrer');
-            walk(node);
-          } else {
-            next = unwrap(parent, node) || next;
-          }
         } else {
-          [...node.attributes].forEach(a => node.removeAttribute(a.name));
-          walk(node);
+          if (node.tagName === 'SPAN') {
+            const color    = node.style.color;
+            const fontSize = node.style.fontSize;
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            let style = '';
+            if (color)    style += `color:${color};`;
+            if (fontSize) style += `font-size:${fontSize};`;
+            if (style) {
+              node.setAttribute('style', style);
+              walk(node);
+            } else {
+              while (node.firstChild) parent.insertBefore(node.firstChild, node);
+              parent.removeChild(node);
+            }
+          } else {
+            [...node.attributes].forEach(a => node.removeAttribute(a.name));
+            walk(node);
+          }
         }
       } else if (node.nodeType !== Node.TEXT_NODE) {
-        parent.removeChild(node); // comments, etc.
+        parent.removeChild(node);
       }
       node = next;
     }
   }
   walk(tmp);
-  // A line break at the very start or end of a note (including one left
-  // inside a trailing <b>/<i>/<a>) shows as an empty line, so trim them.
-  // The Enter key handler adds a trailing placeholder <br> on purpose —
-  // this is what removes it again on save.
-  (function trimBr(el, last) {
-    let n = last ? el.lastChild : el.firstChild;
-    while (n && n.nodeName === 'BR') {
-      el.removeChild(n);
-      n = last ? el.lastChild : el.firstChild;
-    }
-    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
-  })(tmp, false);
-  (function trimBr(el, last) {
-    let n = last ? el.lastChild : el.firstChild;
-    while (n && n.nodeName === 'BR') {
-      el.removeChild(n);
-      n = last ? el.lastChild : el.firstChild;
-    }
-    if (n && n.nodeType === Node.ELEMENT_NODE) trimBr(n, last);
-  })(tmp, true);
   return tmp.innerHTML.trim();
 }
 
