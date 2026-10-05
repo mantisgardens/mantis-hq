@@ -504,9 +504,17 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
      -- scoped to this media query only, so the desktop 4-column rule
      above is untouched. */
   .login-row{
-    grid-template-columns:80px 1fr 1fr;
+    /* Same 96px as the desktop rule above, and for the same reason --
+       .login-time is still 18px (--fs-small) DM Mono here (that rule
+       isn't inside this media query), so it needs the same width or an
+       8-char time overflows the column and eats the gap next to it,
+       which is what made time and name look like they had no gap. */
+    grid-template-columns:96px 1fr 1fr;
     grid-template-areas:"time name team" ". email email";
-    row-gap:2px;gap:8px;
+    /* column-gap/row-gap set separately, not via the "gap" shorthand --
+       "gap:8px" resets BOTH longhands, so a "row-gap:2px" before it (as
+       this used to read) got silently overwritten back to 8px. */
+    column-gap:8px;row-gap:2px;
   }
   .login-time{grid-area:time}
   .login-name{grid-area:name}
