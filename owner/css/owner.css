@@ -489,15 +489,33 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .logins-error{color:var(--rd)}
 .login-date-group{margin-bottom:18px}
 .login-date-header{font-family:var(--font-mono);font-size:var(--fs-small);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g);background:var(--bg2);padding:6px 12px;border-left:3px solid var(--g);margin-bottom:2px;border-radius:0 4px 4px 0}
-.login-row{display:grid;grid-template-columns:72px 160px 1fr 1fr;align-items:center;gap:12px;padding:7px 12px;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);transition:background .1s}
+/* Time column was 72px -- too narrow for an 8-char time like "11:42 PM"
+   in 18px (--fs-small) DM Mono, so it overflowed into the name column
+   next to it. 96px gives that the room it needs with a little to spare. */
+.login-row{display:grid;grid-template-columns:96px 160px 1fr 1fr;align-items:center;gap:12px;padding:7px 12px;border-bottom:1px solid var(--bg3);font-size:var(--fs-body);transition:background .1s}
 .login-row:hover{background:var(--bg2)}
 .login-time{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3);white-space:nowrap}
 .login-name{font-weight:600;color:var(--ink)}
 .login-team{font-size:var(--fs-body);color:var(--g2)}
 .login-email{font-size:var(--fs-body);color:var(--ink3)}
 @media(max-width:680px){
-  .login-row{grid-template-columns:60px 1fr 1fr;gap:8px}
-  .login-email{display:none}
+  /* Email used to just be hidden here for space. Now it drops to a
+     second line under the name/team row instead, via named grid areas
+     -- scoped to this media query only, so the desktop 4-column rule
+     above is untouched. */
+  .login-row{
+    grid-template-columns:80px 1fr 1fr;
+    grid-template-areas:"time name team" ". email email";
+    row-gap:2px;gap:8px;
+  }
+  .login-time{grid-area:time}
+  .login-name{grid-area:name}
+  .login-team{grid-area:team}
+  .login-email{
+    grid-area:email;display:block;
+    font-size:var(--fs-tiny);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
 }
 
 
@@ -527,9 +545,6 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .ne-canvas{min-height:70px;border:1.5px solid var(--bg3);border-radius:6px;padding:12px 14px;font-size:var(--fs-body);color:var(--ink);line-height:1.5;outline:none;background:#fff}
 .ne-canvas:focus{border-color:var(--g)}
 .ne-hint{font-size:var(--fs-small);color:var(--ink3);margin-top:8px;font-style:italic}
-.ne-canvas a{color:#1a3a5c;text-decoration:underline}
-/* Links in the note list preview are display-only: clicking the row opens the editor */
-.notes-item-input a{color:#1a3a5c;text-decoration:underline;pointer-events:none}
 
 /* =============================================================
    TIME CARDS TAB (owner weekly grid + needs-review)
