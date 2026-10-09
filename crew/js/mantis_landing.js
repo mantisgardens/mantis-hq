@@ -303,7 +303,7 @@ function setupHome(userName, crewCategory) {
     now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
   showClientsCardIfOperationsManager();
-  checkTimecardStatus();
+  showTimecardCardIfTesting();
 }
 
 // The Clients card is hidden by default in index.html -- shown only
@@ -318,7 +318,6 @@ function setupHome(userName, crewCategory) {
 // the backend, same as anyone else not in OWNER_EMAILS would.
 function showClientsCardIfOperationsManager() {
   const role = (sessionStorage.getItem('mg_user_role') || '').trim().toLowerCase();
-  console.log(role);
   const card = document.getElementById('clients-nav-card');
   if (card && role === 'operations manager') card.style.display = '';
 }
@@ -332,6 +331,18 @@ function showClientsCardIfOperationsManager() {
 // graceful-degradation pattern used elsewhere in this app (e.g.
 // prefetchClientFolder), never something that should block the home
 // screen from rendering.
+// Time Card is test-only until released: shown only when this browser
+// has the tester flag (see js/mantis_flags.js, open the app with ?test=1).
+function showTimecardCardIfTesting() {
+  if (!window.MANTIS_TEST) return;
+  const card = document.getElementById('timecard-nav-card');
+  if (!card) return;
+  card.style.display = '';
+  const grid = document.querySelector('.nav-cards');
+  if (grid) grid.classList.add('has-timecard');
+  checkTimecardStatus();
+}
+
 function checkTimecardStatus() {
   const tag = document.getElementById('timecard-status-tag');
   if (!tag || !SCRIPT_URL || SCRIPT_URL === 'PASTE_YOUR_CLOUD_RUN_URL_HERE') return;
