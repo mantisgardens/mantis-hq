@@ -541,12 +541,12 @@ function renderPruning() {
       </div>
       ${g.rationale ? `
       <div class="pg-row">
-        <span class="pg-row-label">&#127807; Why</span>
+        <span class="pg-row-label">&#127807; Notes</span>
         <span class="pg-row-val">${esc(g.rationale)}</span>
       </div>` : ''}
       ${g.crew_notes ? `
       <div class="pg-row">
-        <span class="pg-row-label">&#9888; Crew notes</span>
+        <span class="pg-row-label">&#9888; Care Instructions</span>
         <span class="pg-row-val">${esc(g.crew_notes)}</span>
       </div>` : ''}
       ${g.maintenance ? `
