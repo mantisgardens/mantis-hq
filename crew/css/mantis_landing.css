@@ -238,6 +238,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   display:grid;grid-template-columns:1fr 1fr;
   gap:14px;width:100%;max-width:1000px;
 }
+.nav-cards.has-timecard{grid-template-columns:1fr 1fr 1fr}
 .nav-card{
   background:#fff;border:1px solid var(--bg3);
   border-radius:12px;padding:28px 22px 24px;
@@ -303,7 +304,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
    ============================================================= */
 
 @media(max-width:520px){
-  .nav-cards{grid-template-columns:1fr}
+  .nav-cards,.nav-cards.has-timecard{grid-template-columns:1fr}
   .login-card{padding:36px 24px 30px}
   .date-bar{flex-direction:column;align-items:flex-start;gap:6px}
   .date-today{text-align:left}
