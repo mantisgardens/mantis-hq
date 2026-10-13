@@ -1327,7 +1327,7 @@ function submitForm() {
 
     // Photos are sent separately, after the main record succeeds — see below.
     data.photos = [];
-    data.cachedFolderId = _folderIdCache[data.client] || null;
+    data.cachedFolderId = data.cachedFolderId || _folderIdCache[data.client] || null;
     const idToken   = sessionStorage.getItem('mg_id_token') || '';
     const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
 
