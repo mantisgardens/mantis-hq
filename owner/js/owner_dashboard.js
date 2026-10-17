@@ -1237,10 +1237,32 @@ const NOTES_TEAM_LABELS = {
 // render time too (defensively — in case a cell was ever hand-edited
 // directly in Google Sheets rather than through this editor).
 const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR','A']);
+
+// Pressing Enter in a contenteditable makes the browser wrap each line in
+// a <div> (or <p>), which the allow-list below would otherwise unwrap and
+// so glue the lines together. Turn those wrappers into <br> line breaks
+// first. Each block counts as one line: a <br> goes before it if text
+// precedes it, and after it unless it already ends in its own <br>
+// (Chrome's empty line is <div><br></div>).
+function _noteBlocksToBreaks(root) {
+  const isBlock = n => n && n.nodeType === 1 && (n.tagName === 'DIV' || n.tagName === 'P');
+  root.querySelectorAll('div, p').forEach(b => {
+    const doc = b.ownerDocument;
+    const prev = b.previousSibling;
+    if (prev && !isBlock(prev) && !(prev.nodeType === 1 && prev.tagName === 'BR')) {
+      b.parentNode.insertBefore(doc.createElement('br'), b);
+    }
+    const last = b.lastChild;
+    const endsWithBr = last && last.nodeType === 1 && last.tagName === 'BR';
+    if (b.nextSibling && !endsWithBr) {
+      b.parentNode.insertBefore(doc.createElement('br'), b.nextSibling);
+    }
+  });
+}
+
 function sanitizeNoteHtml(html) {
-  // DOMParser builds an inert document, so nothing in `html` (e.g. an
-  // <img onerror=...>) can execute while it is being parsed.
   const tmp = new DOMParser().parseFromString('<body>' + (html || '') + '</body>', 'text/html').body;
+  _noteBlocksToBreaks(tmp);   // <-- the added line
 
   // Replace `node` with its children and return the first child, so the
   // walk continues INTO the moved children (they must be sanitized too).
