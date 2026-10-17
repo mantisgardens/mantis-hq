@@ -487,7 +487,8 @@ function _noteBlocksToBreaks(root) {
   });
 }
 
-const tmp = document.createElement('div');
+function sanitizeNoteHtml(html) {
+  const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
   _noteBlocksToBreaks(tmp);  
 
