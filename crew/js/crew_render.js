@@ -471,9 +471,25 @@ function esc(s) {
 // so a note only ever shows exactly that limited formatting, however
 // the underlying sheet cell was actually edited.
 const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
-function sanitizeNoteHtml(html) {
-  const tmp = document.createElement('div');
+
+function _noteBlocksToBreaks(root) {
+  const isBlock = n => n && n.nodeType === 1 && (n.tagName === 'DIV' || n.tagName === 'P');
+  root.querySelectorAll('div, p').forEach(b => {
+    const prev = b.previousSibling;
+    if (prev && !isBlock(prev) && !(prev.nodeType === 1 && prev.tagName === 'BR')) {
+      b.parentNode.insertBefore(document.createElement('br'), b);
+    }
+    const last = b.lastChild;
+    const endsWithBr = last && last.nodeType === 1 && last.tagName === 'BR';
+    if (b.nextSibling && !endsWithBr) {
+      b.parentNode.insertBefore(document.createElement('br'), b.nextSibling);
+    }
+  });
+}
+
+const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
+  _noteBlocksToBreaks(tmp);  
 
   function walk(parent) {
     let node = parent.firstChild;
