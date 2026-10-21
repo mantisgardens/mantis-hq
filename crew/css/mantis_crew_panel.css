@@ -390,6 +390,11 @@ body.team-locked .team-tabs{display:none}
 .dval.warn{background:var(--a3);border:1px solid var(--a4);padding:4px 8px;border-radius:4px;color:var(--a)}
 .dval.note{background:var(--g3);border:1px solid var(--g4);padding:4px 8px;border-radius:4px;color:var(--g)}
 .dval.note a{color:inherit;font-weight:600;text-decoration:underline}
+.dval.note{overflow-x:auto}
+.dval.note table{border-collapse:collapse;margin:4px 0}
+.dval.note th,.dval.note td{padding:1px 14px 1px 0;vertical-align:top;text-align:left;font-weight:inherit}
+.dval.note th{font-weight:700;text-decoration:underline}
+.dval.note ul,.dval.note ol{margin:4px 0 4px 18px;padding:0}
 .phone-a{color:var(--g2);font-family:var(--font-mono);font-size:var(--fs-label);text-decoration:none}
 .addr-a{color:var(--g2);text-decoration:underline;text-underline-offset:2px}
 .action-row{display:flex;gap:5px;margin-top:2px;flex-wrap:wrap}
