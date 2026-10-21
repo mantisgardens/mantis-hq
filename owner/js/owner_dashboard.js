@@ -395,6 +395,9 @@ const OWNER_ACTION_PATHS = {
   ownerSaveNotes: '/owner/notes',
   ownerSaveClient: '/owner/clients',
   ownerDeleteClient: '/owner/clients/delete',
+  ownerClientDocs: '/owner/clients/docs',
+  ownerUploadClientDoc: '/owner/clients/docs',
+  ownerDeleteClientDoc: '/owner/clients/docs/delete',
   ownerGetDocuments: '/owner/documents',
   ownerCrew: '/owner/crew',
   ownerSaveCrew: '/owner/crew',
@@ -537,6 +540,8 @@ async function loadAll(forceFresh) {
     .then(data => {
       const btn = document.getElementById('qb-reconnect-btn');
       if (btn && data && data.isTech) btn.style.display = '';
+      const fbtn = document.getElementById('folder-check-btn');
+      if (fbtn && data && data.isTech) fbtn.style.display = '';
     })
     .catch(()=>{});
 
@@ -960,11 +965,37 @@ function openProfile(clientId) {
       <span class="profile-val">${display}</span>
     </div>`;
   });
+  // Reference files (Client Docs): row stays hidden until the live list
+  // arrives, and is only shown if the client has any.
+  body += `<div class="profile-row" id="profile-docs-row" style="display:none">
+      <span class="profile-label">Reference Files</span>
+      <span class="profile-val" id="profile-docs-list"></span>
+    </div>`;
   body += `</div>`;
 
   document.getElementById('profile-modal-body').innerHTML = body;
   document.getElementById('profile-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
+  loadProfileReferenceFiles(clientId);
+}
+
+async function loadProfileReferenceFiles(clientId) {
+  try {
+    const r = await ownerFetch('ownerClientDocs', '&clientId=' + encodeURIComponent(clientId));
+    if (currentEditId !== clientId) return;            // another client was opened meanwhile
+    const row = document.getElementById('profile-docs-row');
+    const list = document.getElementById('profile-docs-list');
+    const files = r.files || [];
+    if (!row || !list || !files.length) return;
+    list.innerHTML = files.map(f => {
+      const url = `${SCRIPT_URL}/owner/clients/docs/file/${encodeURIComponent(f.id)}?id_token=${encodeURIComponent(getIdToken())}`;
+      return `<div><a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--g)">${esc(f.name)}</a>` +
+             ` <span style="color:var(--ink3);font-size:var(--fs-small)">${esc(_cfSizeLabel(f.size || 0))}</span></div>`;
+    }).join('');
+    row.style.display = '';
+  } catch (e) {
+    console.warn('Reference files unavailable:', e.message);   // profile still works without them
+  }
 }
 
 // ── Modal overlay click-to-dismiss ──────────────────────────────
@@ -1001,6 +1032,7 @@ function openAddClient() {
   currentEditId = null;
   document.getElementById('client-modal-title').textContent = 'Add Client';
   clearClientForm();
+  cfDocsReset(null);
   document.getElementById('cf-delete-btn').style.display = 'none';
   document.getElementById('client-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1027,6 +1059,7 @@ function editCurrentClient() {
   document.getElementById('cf-scheduling').value   = c['Scheduling Notes']     || '';
   document.getElementById('cf-billing').value      = c['Billing Notes']        || '';
 
+  cfDocsReset(currentEditId);
   document.getElementById('cf-delete-btn').style.display = 'inline-block';
   document.getElementById('client-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -1046,6 +1079,140 @@ function clearClientForm() {
       if (el) el.value = '';
     });
   document.getElementById('cf-active').value = '✓';
+}
+
+// ── Client Docs (attach reference files to a client) ───────────────
+// Files picked here are held in memory until Save Client, then uploaded
+// one request each into the client's "Reference Docs" Drive folder (so a
+// brand-new client's folder exists by then). Existing files are listed
+// live from Drive when an existing client is opened. Crew see them in the
+// "Client Docs" drop-down on the client card (crew/js/client_docs.js).
+const CF_DOC_MAX_BYTES = 8 * 1024 * 1024;
+// Any file type except web pages, scripts and programs (the server enforces
+// the same list; this just gives the message up front).
+const CF_DOC_BLOCKED_EXT = new Set(['html','htm','xhtml','shtml','svg','svgz','xml','xsl','xslt','mht','mhtml',
+  'js','mjs','cjs','jsx','ts','wasm','swf','exe','msi','bat','cmd','com','scr','ps1','psm1','vbs','vbe','wsf','jar','apk','app','dmg','sh','lnk','reg','dll','php','asp','aspx','jsp']);
+let cfStagedDocs = [];       // File objects waiting for Save Client
+let cfDocsClientId = null;   // client whose existing files are listed
+
+function _cfDocExt(name) { return (String(name).split('.').pop() || '').toLowerCase(); }
+function _cfDocMime(file) { return file.type || 'application/octet-stream'; }
+function _cfSizeLabel(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+
+async function cfDocsReset(clientId) {
+  cfStagedDocs = [];
+  cfDocsClientId = clientId || null;
+  const input = document.getElementById('cf-docs-input');
+  if (input) input.value = '';
+  cfDocsRenderStaged();
+  const box = document.getElementById('cf-docs-existing');
+  box.innerHTML = '';
+  if (!clientId) return;
+  box.innerHTML = '<div class="cf-docs-hint">Loading files…</div>';
+  try {
+    const r = await ownerFetch('ownerClientDocs', '&clientId=' + encodeURIComponent(clientId));
+    if (cfDocsClientId !== clientId) return;   // modal moved on to another client
+    cfDocsRenderExisting(r.files || []);
+  } catch (e) {
+    box.innerHTML = '<div class="cf-docs-hint">Could not load this client\'s files: ' + esc(e.message) + '</div>';
+  }
+}
+
+function cfDocsRenderExisting(files) {
+  const box = document.getElementById('cf-docs-existing');
+  box.innerHTML = files.map(f => {
+    const url = `${SCRIPT_URL}/owner/clients/docs/file/${encodeURIComponent(f.id)}?id_token=${encodeURIComponent(getIdToken())}`;
+    return `<div class="cf-doc-row">
+      <a class="cf-doc-name" href="${esc(url)}" target="_blank" rel="noopener" title="${esc(f.name)}">${esc(f.name)}</a>
+      <span class="cf-doc-meta">${esc(_cfSizeLabel(f.size || 0))}</span>
+      <button type="button" class="cf-doc-x" title="Remove" onclick="cfDocsDelete('${esc(f.id)}', this)">&#10005;</button>
+    </div>`;
+  }).join('');
+}
+
+function cfDocsRenderStaged() {
+  document.getElementById('cf-docs-staged').innerHTML = cfStagedDocs.map((f, i) =>
+    `<div class="cf-doc-row staged">
+      <span class="cf-doc-name" style="color:var(--ink)" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="cf-doc-meta">${esc(_cfSizeLabel(f.size))} &middot; added on Save</span>
+      <button type="button" class="cf-doc-x" title="Don't add" onclick="cfDocsUnstage(${i})">&#10005;</button>
+    </div>`).join('');
+}
+
+function cfDocsPicked(input) {
+  Array.from(input.files || []).forEach(f => {
+    if (CF_DOC_BLOCKED_EXT.has(_cfDocExt(f.name))) { showToast(`${f.name}: .${_cfDocExt(f.name)} files can't be attached (web pages, scripts and programs). Save it as a PDF or photo instead.`); return; }
+    if (!f.type.startsWith('image/') && f.size > CF_DOC_MAX_BYTES) { showToast(`${f.name} is over 8 MB`); return; }
+    cfStagedDocs.push(f);
+  });
+  input.value = '';
+  cfDocsRenderStaged();
+}
+
+function cfDocsUnstage(i) { cfStagedDocs.splice(i, 1); cfDocsRenderStaged(); }
+
+async function cfDocsDelete(fileId, btn) {
+  if (!confirm('Remove this file from the client\'s documents? It goes to the Drive Trash and can be restored from there.')) return;
+  btn.disabled = true;
+  try {
+    await ownerPost('ownerDeleteClientDoc', { fileId }, 20000);
+    btn.closest('.cf-doc-row').remove();
+    showToast('File removed ✓');
+  } catch (e) {
+    btn.disabled = false;
+    showToast('Could not remove file: ' + e.message);
+  }
+}
+
+// Reads a File as base64. Large photos are downsized (max 2000px, JPEG)
+// so a 6 MB phone picture becomes a few hundred KB; anything that can't
+// be decoded in the browser (e.g. HEIC) is sent as-is if it fits.
+function _cfDocPayload(file) {
+  const readBase64 = (blob) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error('could not read file'));
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.readAsDataURL(blob);
+  });
+  const asIs = async () => {
+    if (file.size > CF_DOC_MAX_BYTES) throw new Error('over 8 MB');
+    return { name: file.name, mimeType: _cfDocMime(file), base64: await readBase64(file) };
+  };
+  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.size < 1.2 * 1048576) return asIs();
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(asIs()); };
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const max = 2000;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > max || h > max) { if (w >= h) { h = Math.round(h * max / w); w = max; } else { w = Math.round(w * max / h); h = max; } }
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const data = c.toDataURL('image/jpeg', 0.85).split(',')[1] || '';
+      resolve({ name: file.name.replace(/\.[^.]+$/, '') + '.jpg', mimeType: 'image/jpeg', base64: data });
+    };
+    img.src = url;
+  });
+}
+
+// Uploads everything staged for `clientId`; returns a list of
+// "name (reason)" strings for the ones that failed (empty = all good).
+async function cfDocsUploadStaged(clientId, btn) {
+  const files = cfStagedDocs.slice();
+  const failures = [];
+  for (let i = 0; i < files.length; i++) {
+    if (btn) btn.textContent = `Uploading ${i + 1}/${files.length}…`;
+    try {
+      const payload = await _cfDocPayload(files[i]);
+      await ownerPost('ownerUploadClientDoc', { clientId, ...payload }, 60000);
+    } catch (e) {
+      failures.push(`${files[i].name} (${e.message})`);
+    }
+  }
+  cfStagedDocs = [];
+  return failures;
 }
 
 async function saveClient() {
@@ -1080,7 +1247,14 @@ async function saveClient() {
     // and the default timeout was tight enough for it to occasionally
     // time out client-side even though the server finished fine.
     const result = await ownerPost('ownerSaveClient', payload, 20000);
-    showToast(currentEditId ? 'Client updated ✓' : `Client added ✓ (${result.clientId})`);
+    const docFailures = await cfDocsUploadStaged(result.clientId || currentEditId, saveBtn);
+    if (docFailures.length) {
+      showToast((currentEditId ? 'Client updated' : `Client added (${result.clientId})`) +
+        `, but ${docFailures.length} file(s) did not upload: ` + docFailures.join('; ') +
+        '. Open the client and add them again.');
+    } else {
+      showToast(currentEditId ? 'Client updated ✓' : `Client added ✓ (${result.clientId})`);
+    }
     closeClientModal();
     // Clear cache and reload clients
     sessionStorage.removeItem('oc_cache_ownerClients');
@@ -1261,8 +1435,10 @@ function _noteBlocksToBreaks(root) {
 }
 
 function sanitizeNoteHtml(html) {
+  // DOMParser builds an inert document, so nothing in `html` (e.g. an
+  // <img onerror=...>) can execute while it is being parsed.
   const tmp = new DOMParser().parseFromString('<body>' + (html || '') + '</body>', 'text/html').body;
-  _noteBlocksToBreaks(tmp);   // <-- the added line
+  _noteBlocksToBreaks(tmp);
 
   // Replace `node` with its children and return the first child, so the
   // walk continues INTO the moved children (they must be sanitized too).
@@ -1721,7 +1897,7 @@ function renderNotesEditor() {
 
   const sections = (notesData[currentTeam] || []);
   let html = `<div class="notes-sections" id="notes-sections">`;
-  sections.forEach((sec, si) => { html += noteSectionHtml(sec, si); });
+  sections.forEach((sec, si) => { html += noteSectionHtml(sec, si, sections.length); });
   html += `</div>
     <button class="notes-add-section" onclick="addSection()">+ Add Section</button>`;
   editor.innerHTML = html;
@@ -1789,7 +1965,7 @@ function moveLeadItem(ci, ii, dir) {
   renderLeadsEditor();
 }
 
-function noteSectionHtml(sec, si) {
+function noteSectionHtml(sec, si, sectionCount) {
   const items = (sec.items || []);
   const itemsHtml = items.map((item, ii) => `
     <div class="notes-item-row" data-si="${si}" data-ii="${ii}">
@@ -1807,7 +1983,11 @@ function noteSectionHtml(sec, si) {
       <input class="notes-title-input" value="${esc(sec.title || '')}"
         placeholder="Section title…"
         oninput="updateTitle(${si},this.value)"/>
-      <button class="notes-section-del" onclick="deleteSection(${si})" title="Delete section">&#128465;</button>
+      <div class="notes-section-move">
+        <button class="notes-item-move-btn" onclick="moveSection(${si},-1)" title="Move section up" ${si === 0 ? 'disabled' : ''}>&#9650;</button>
+        <button class="notes-item-move-btn" onclick="moveSection(${si},1)" title="Move section down" ${si === sectionCount - 1 ? 'disabled' : ''}>&#9660;</button>
+      </div>
+      <button class="notes-section-del" onclick="deleteSection(${si})" title="Delete this whole section">&#128465;</button>
     </div>
     <div class="notes-items" id="items-${si}">
       ${itemsHtml}
@@ -1851,7 +2031,24 @@ function addSection() {
   if (sections.length) sections[sections.length - 1].focus();
 }
 
+function moveSection(si, dir) {
+  const arr = notesData[currentTeam];
+  const jj = si + dir;
+  if (!arr || jj < 0 || jj >= arr.length) return;
+  [arr[si], arr[jj]] = [arr[jj], arr[si]];
+  markDirty();
+  renderNotesEditor();
+}
+
 function deleteSection(si) {
+  // Deletes the heading AND every note under it, and a heading's trash
+  // can sits right beside the move arrows, so always confirm and say
+  // exactly what will go.
+  const sec = notesData[currentTeam][si];
+  const n = (sec.items || []).length;
+  const name = (sec.title || '').trim() || 'this untitled section';
+  const what = n === 0 ? 'It has no notes.' : (n === 1 ? 'Its 1 note will be deleted too.' : `Its ${n} notes will be deleted too.`);
+  if (!confirm(`Delete the section "${name}"?\n\n${what}\n\n(Nothing is final until you press Save.)`)) return;
   notesData[currentTeam].splice(si, 1);
   markDirty();
   renderNotesEditor();
@@ -2449,6 +2646,45 @@ function renderLogins(rows) {
 // =============================================================
 // SECTION 9 — UTILITIES
 // =============================================================
+// ── Client folder health check (tech users) ──────────────────
+// Calls GET /owner/diagnostics/client-folders and shows the result in
+// a simple overlay. Read-only on the backend (Drive metadata only).
+async function runClientFolderCheck() {
+  const old = document.getElementById('folder-check-overlay');
+  if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'folder-check-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = '<div style="background:#fff;color:#222;border-radius:8px;max-width:760px;width:100%;max-height:85vh;display:flex;flex-direction:column;font-family:system-ui,sans-serif">'
+    + '<div style="padding:14px 18px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center"><b>Client folder check</b>'
+    + '<button onclick="document.getElementById(\'folder-check-overlay\').remove()" style="border:0;background:none;font-size:20px;cursor:pointer">&times;</button></div>'
+    + '<div id="folder-check-body" style="padding:14px 18px;overflow:auto;font-size:14px;line-height:1.45">Checking every active client\u2026 this takes about 15\u201330 seconds.</div></div>';
+  ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+  const body = document.getElementById('folder-check-body');
+  try {
+    const res = await fetch(`${SCRIPT_URL}/owner/diagnostics/client-folders?id_token=${encodeURIComponent(getIdToken())}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const s = data.summary;
+    const sevColor = { error: '#B3261E', warning: '#B5651D', info: '#666' };
+    const sevLabel = { error: 'Fix', warning: 'Check', info: 'Note' };
+    let html = `<p><b>${s.checked}</b> active clients checked \u2014 <b style="color:#2E7D32">${s.ok} OK</b>, `
+      + `<b style="color:#B3261E">${s.errors} need fixing</b>, <b style="color:#B5651D">${s.warnings} to check</b>.</p>`;
+    const rows = (data.results || []).filter(r => r.status !== 'info');
+    if (!rows.length) html += '<p>No problems found.</p>';
+    rows.sort((a, b) => (a.status === b.status ? 0 : a.status === 'error' ? -1 : 1));
+    html += rows.map(r => `<div style="border-top:1px solid #eee;padding:8px 0"><b>${esc(r.name)}</b> <span style="color:#888">${esc(r.clientId)}</span>`
+      + r.issues.filter(i => i.severity !== 'info').map(i => `<div style="margin-left:10px;color:${sevColor[i.severity]}">`
+        + `<b>${sevLabel[i.severity]}:</b> ${esc(i.message)}</div>`).join('') + '</div>').join('');
+    html += `<p style="color:#888;font-size:12px;margin-top:12px">Checked ${esc(new Date(data.checkedAt).toLocaleString())}. `
+      + `${s.skippedInactive} inactive row(s) skipped. Read-only: nothing was changed.</p>`;
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<p style="color:#B3261E">The check could not run: ' + esc(e.message) + '</p>';
+  }
+}
+
 function esc(s) {
   return String(s || '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
