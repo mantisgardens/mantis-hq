@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=41">
+  <link rel="stylesheet" href="css/owner.css?v=44">
 </head>
 <body>
 
@@ -26,6 +26,7 @@
   <div class="header-right">
     <span class="user-name" id="user-name"></span>
     <button id="qb-reconnect-btn" class="qb-reconnect-btn" style="display:none" onclick="reconnectQuickBooks()" title="Only needed if invoice creation starts failing with a QuickBooks token error">&#128260; Reconnect QuickBooks</button>
+    <button id="folder-check-btn" class="qb-reconnect-btn" style="display:none" onclick="runClientFolderCheck()" title="Checks every active client's Drive folder and Historical Data file, so problems are found before a crew member hits them">&#128193; Check Client Folders</button>
     <button class="sign-out-btn" onclick="doSignOut()">Sign out</button>
   </div>
 </header>
@@ -325,6 +326,16 @@
           <textarea class="form-textarea" id="cf-service-notes"
             placeholder="Dogs onsite, gate codes, general property notes…"></textarea>
         </div>
+        <div class="form-group full" id="cf-docs-section">
+          <label class="form-label">Client Docs</label>
+          <div class="cf-docs-hint">Plant lists, site plans, photos &mdash; crew see these on the client card. Saved in the client's <b>Reference Docs</b> folder in Drive. Any file type except web pages (HTML, SVG) and programs; up to 8&nbsp;MB each.</div>
+          <div id="cf-docs-existing"></div>
+          <div id="cf-docs-staged"></div>
+          <input type="file" id="cf-docs-input" multiple
+                 style="display:none"
+                 onchange="cfDocsPicked(this)"/>
+          <div><button type="button" class="fbtn fbtn-cancel" onclick="document.getElementById('cf-docs-input').click()">+ Add files</button></div>
+        </div>
       </div>
 
       <details class="form-extra-details">
@@ -504,6 +515,6 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=58"></script>
+<script src="js/owner_dashboard.js?v=63"></script>
 </body>
 </html>
