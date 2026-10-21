@@ -296,7 +296,7 @@ function setupHome(userName, crewCategory) {
   document.getElementById('greeting-text').textContent =
     greeting + (name ? ', ' + name.split(' ')[0] : '');
   const catEl = document.getElementById('greeting-category');
-  const isLead = (sessionStorage.getItem('mg_user_role') || '').toLowerCase() === 'lead';
+  const isLead = /^lead\b/.test((sessionStorage.getItem('mg_user_role') || '').trim().toLowerCase());
   if (catEl) catEl.textContent = cat ? 'Team: ' + cat + (isLead ? ' (Lead)' : '') : '';
 
   document.getElementById('today-text').textContent =

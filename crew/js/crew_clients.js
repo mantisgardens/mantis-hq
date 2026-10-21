@@ -116,6 +116,7 @@ async function loadClients() {
     const data = await crewFetch('/owner/clients');
     allClients = _sortClientsByName(data.clients || []);
     renderClients(document.getElementById('client-search').value || '');
+    if (typeof loadClientDocsIndex === 'function') loadClientDocsIndex();   // Client Docs rows (client_docs.js)
   } catch (e) {
     list.innerHTML = `<div class="empty-state">Could not load clients: ${esc(e.message)}</div>`;
   }
@@ -276,6 +277,7 @@ function openProfile(clientId) {
       <span class="profile-val">${display}</span>
     </div>`;
   });
+  if (typeof clientDocsRowHtml === 'function') body += clientDocsRowHtml(c, 'profile');
   body += `</div>`;
 
   document.getElementById('profile-modal-body').innerHTML = body;

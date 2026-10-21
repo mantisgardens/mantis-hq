@@ -346,6 +346,7 @@ function applyClientsData(data, opts) {
   opts = opts || {};
   sheetClients = data.clients || [];
   clientCache  = {};
+  if (typeof loadClientDocsIndex === 'function') loadClientDocsIndex();   // Client Docs rows (client_docs.js)
   sheetClients.forEach(c => {
     const name = (c['Name(s)'] || '').toLowerCase();
     // Index by all words including short ones like "Rae"

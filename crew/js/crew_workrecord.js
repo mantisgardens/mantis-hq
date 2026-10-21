@@ -145,7 +145,9 @@ function openWorkRecord(jobId) {
                  : 'Install Team';
 
   document.getElementById('modal-title').textContent  = 'Work Record';
-  document.getElementById('modal-client').textContent = job.client + (job.addr ? '  ·  ' + job.addr : '');
+  document.getElementById('modal-client').textContent = job.client + (job.addr ? '  ·  ' + job.addr : '')
+    // A lead working another team's job: say which team the record is filed under.
+    + ((isLeadUser() && getUserTeamSlug() && getUserTeamSlug() !== teamKey) ? '  ·  Filing under ' + teamName : '');
   document.getElementById('wr-team').value        = teamName;
   // Restore the saved Service Start/End from an unsubmitted draft, if one
   // exists, instead of always resetting to today's day tab — otherwise
@@ -1001,6 +1003,7 @@ const PHOTO_MAX_DIM  = 1600;   // max width or height in pixels
 const PHOTO_QUALITY  = 0.80;   // JPEG quality 0–1
 const PHOTO_MAX_COUNT = 30;    // warn if more than this selected
 const PHOTO_BATCH_SIZE = 5;    // photos are uploaded in batches of this size
+const PHOTO_PARALLEL_BATCHES = 2; // batches in flight at once (one compressing while one uploads)
 
 // ── Compress a File to a JPEG data URL via canvas ─────────────
 function compressPhoto(file) {
@@ -1259,6 +1262,47 @@ function saveForm() {
   }
 }
 
+// ── Keep the screen awake while a record + photos upload ───────────
+// A phone that dozes off mid-upload suspends the page and kills the
+// in-flight request, which is how big photo batches used to get lost
+// right after the main record had saved. The Screen Wake Lock API keeps
+// the screen on until the upload finishes (supported by Chrome/Android
+// and iOS 16.4+ Safari; silently skipped elsewhere). The browser drops
+// the lock whenever the page is hidden, so it is re-acquired when the
+// page becomes visible again.
+let _wakeLock = null;
+let _wakeWanted = false;
+async function _acquireWakeLock() {
+  try {
+    if (!('wakeLock' in navigator) || _wakeLock) return;
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+  } catch (e) { _wakeLock = null; }
+}
+function keepScreenAwake()  { _wakeWanted = true;  _acquireWakeLock(); }
+function allowScreenSleep() {
+  _wakeWanted = false;
+  try { if (_wakeLock) _wakeLock.release(); } catch (e) {}
+  _wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (_wakeWanted && document.visibilityState === 'visible') _acquireWakeLock();
+});
+
+// Resolves right away if the page is visible, otherwise when it next is.
+function _waitUntilVisible() {
+  if (document.visibilityState === 'visible') return Promise.resolve();
+  return new Promise(resolve => {
+    const h = () => {
+      if (document.visibilityState === 'visible') {
+        document.removeEventListener('visibilitychange', h);
+        resolve();
+      }
+    };
+    document.addEventListener('visibilitychange', h);
+  });
+}
+
 // ── Submit ────────────────────────────────────────────────────
 // Note: a submit-side timeout was tried here twice (AbortController/
 // signal, then Promise.race()) and deliberately left back out — the
@@ -1327,6 +1371,11 @@ function submitForm() {
 
     // Photos are sent separately, after the main record succeeds — see below.
     data.photos = [];
+    // Prefer the folder ID already shown on the form (same client record that
+    // supplied histId), then the name-keyed cache. Overwriting it with only the
+    // cache left cachedFolderId null whenever the client was matched via
+    // findClient()/_override rather than job._sc, so Historical Data saved
+    // (histId was sent) but the Drive folder could not be found.
     data.cachedFolderId = data.cachedFolderId || _folderIdCache[data.client] || null;
     const idToken   = sessionStorage.getItem('mg_id_token') || '';
     const authParam = idToken ? `&id_token=${encodeURIComponent(idToken)}` : '';
@@ -1368,36 +1417,85 @@ function submitForm() {
       }).then(r => r.json());
     });
 
-    // Uploads all selected photos in batches of PHOTO_BATCH_SIZE, one
-    // batch at a time (not in parallel). Only one batch is ever
-    // compressed/held in memory at once, and a dropped connection or
-    // server error only costs that batch — everything already uploaded
-    // stays uploaded, and the record itself is unaffected either way
-    // since the Doc/Notes/Invoice row were already saved by the main POST.
-    function submitAllPhotoBatches() {
-      if (!photoFiles.length) return Promise.resolve({ uploaded: 0, total: 0, failed: false });
-      const batches = [];
-      for (let i = 0; i < photoFiles.length; i += PHOTO_BATCH_SIZE) {
-        batches.push(photoFiles.slice(i, i + PHOTO_BATCH_SIZE));
+    // One batch, with up to 3 attempts. An attempt only starts while the
+    // page is visible (a request fired while the phone is asleep just
+    // dies), and a failed attempt waits a little, then tries again.
+    async function uploadBatchWithRetry(batch) {
+      let lastErr;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await _waitUntilVisible();
+        try {
+          const json = await submitPhotoBatch(batch);
+          if (json && json.error) throw new Error(json.error);
+          return json;
+        } catch (e) {
+          lastErr = e;
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
       }
-      let uploaded = 0;
-      let failed   = false;
-      let chain    = Promise.resolve();
-      batches.forEach((batch, idx) => {
-        chain = chain.then(() => {
-          if (failed) return;
-          const from = uploaded + 1;
-          const to   = Math.min(uploaded + batch.length, photoFiles.length);
-          showSubmitProgress(`Uploading photos ${from}\u2013${to} of ${photoFiles.length}\u2026`,
-            50 + Math.round(40 * idx / batches.length));
-          return submitPhotoBatch(batch)
-            .then(json => { if (json && json.error) failed = true; else uploaded += batch.length; })
-            .catch(()  => { failed = true; });
-        });
-      });
-      return chain.then(() => ({ uploaded, total: photoFiles.length, failed }));
+      throw lastErr;
     }
 
+    // Uploads `files` in batches of PHOTO_BATCH_SIZE with up to
+    // PHOTO_PARALLEL_BATCHES batches in flight at once: while one batch is
+    // on the network the next is being compressed on the phone, instead of
+    // the two taking turns. Memory stays small (at most that many batches
+    // held at a time) and a dropped connection only costs the batches that
+    // were in flight -- everything already uploaded stays uploaded, and
+    // the record itself is unaffected since the Doc/Notes/Invoice row were
+    // saved by the main POST. Resolves { remaining: File[] }: the files of
+    // every batch that did not make it (failed after retries, or never
+    // started because an earlier one failed), in their original order.
+    async function uploadPhotos(files, grandTotal, alreadyDone) {
+      const batches = [];
+      for (let i = 0; i < files.length; i += PHOTO_BATCH_SIZE) batches.push(files.slice(i, i + PHOTO_BATCH_SIZE));
+      const ok = new Array(batches.length).fill(false);
+      let nextBatch = 0, doneFiles = alreadyDone, stop = false;
+      const showProgress = () => showSubmitProgress(
+        `Uploading photos ${Math.min(doneFiles + 1, grandTotal)}\u2013${Math.min(doneFiles + PHOTO_BATCH_SIZE * PHOTO_PARALLEL_BATCHES, grandTotal)} of ${grandTotal}\u2026`,
+        50 + Math.round(40 * doneFiles / grandTotal));
+      async function worker() {
+        while (!stop && nextBatch < batches.length) {
+          const idx = nextBatch++;
+          showProgress();
+          try {
+            await uploadBatchWithRetry(batches[idx]);
+            ok[idx] = true;
+            doneFiles += batches[idx].length;
+            showProgress();
+          } catch (e) {
+            console.warn('Photo batch failed after retries:', e && e.message);
+            stop = true;
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(PHOTO_PARALLEL_BATCHES, batches.length) }, worker));
+      const remaining = [];
+      batches.forEach((b, i) => { if (!ok[i]) remaining.push(...b); });
+      return { remaining };
+    }
+
+    // Uploads every selected photo; if some still fail after the automatic
+    // retries, asks whether to try the rest again (the photos are still in
+    // memory) instead of silently dropping them. Resolves
+    // { uploaded, total, failed }.
+    async function submitAllPhotoBatches() {
+      const all = photoFiles.slice();
+      const total = all.length;
+      if (!total) return { uploaded: 0, total: 0, failed: false };
+      let remaining = (await uploadPhotos(all, total, 0)).remaining;
+      while (remaining.length) {
+        hideSubmitProgress();
+        await _waitUntilVisible();   // a dialog raised while the phone is asleep gets dismissed unseen
+        const left = remaining.length;
+        if (!confirm(`${left} of ${total} photos did not upload (the phone may have lost signal or gone to sleep).\n\nThe work record itself IS saved.\n\nTry the remaining ${left} photos again now?`)) break;
+        remaining = (await uploadPhotos(remaining, total, total - left)).remaining;
+      }
+      const uploaded = total - remaining.length;
+      return { uploaded, total, failed: remaining.length > 0 };
+    }
+
+    keepScreenAwake();
     fetch(`${SCRIPT_URL}/work-records?${authParam.replace(/^&/, '')}`, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1419,6 +1517,7 @@ function submitForm() {
           showToast('⚠ ' + json.warning, 8000);
           savedRecords[currentJobId] = { submitted: true, savedAt: new Date().toISOString(), client: data.client || '', date: data.date || '' };
           safeLocalSave();
+          if (typeof checkMissingWorkRecords === 'function') checkMissingWorkRecords();
           setTimeout(() => closeModal(), 8000);
           if (submitBtn) { submitBtn.disabled = false; }
           return;
@@ -1442,10 +1541,11 @@ function submitForm() {
           };
           safeLocalSave();
           if (currentJobId) setSt(currentJobId, 'done');
+          if (typeof checkMissingWorkRecords === 'function') checkMissingWorkRecords();
 
           if (failed && total > 0) {
             hideSubmitProgress();
-            showToast(`Record saved — ${uploaded} of ${total} photos uploaded. Re-open the job to try attaching the rest.`, 8000);
+            showToast(`Record saved — ${uploaded} of ${total} photos uploaded. Add the other ${total - uploaded} as a photos-only record.`, 8000);
             setTimeout(() => closeModal(), 3000);
           } else {
             showSubmitProgress('Done ✓', 100);
@@ -1465,6 +1565,7 @@ function submitForm() {
         setTimeout(() => closeModal(), 2500);
       })
       .finally(() => {
+        allowScreenSleep();
         if (submitBtn) { submitBtn.disabled = false; }
       });
   } else {

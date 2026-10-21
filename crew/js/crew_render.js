@@ -472,6 +472,9 @@ function esc(s) {
 // the underlying sheet cell was actually edited.
 const NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','SPAN','BR']);
 
+// Notes saved before the owner-side fix may still contain <div>/<p> line
+// wrappers (what Enter produces in a contenteditable). Convert them to
+// <br> before the allow-list unwraps them, otherwise the lines run together.
 function _noteBlocksToBreaks(root) {
   const isBlock = n => n && n.nodeType === 1 && (n.tagName === 'DIV' || n.tagName === 'P');
   root.querySelectorAll('div, p').forEach(b => {
@@ -490,7 +493,7 @@ function _noteBlocksToBreaks(root) {
 function sanitizeNoteHtml(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
-  _noteBlocksToBreaks(tmp);  
+  _noteBlocksToBreaks(tmp);
 
   function walk(parent) {
     let node = parent.firstChild;
@@ -547,7 +550,11 @@ function sanitizeNoteHtml(html) {
 // tags/attributes) is stripped exactly the same way. Links get their
 // href re-validated to http(s) only — blocks javascript:/data: URIs —
 // and forced to open in a new tab.
-const CAL_NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','BR','A','DIV','P']);
+// TABLE/TR/TD/TH (and lists) are allowed too: a block of cells pasted from a
+// Google Sheet arrives as an HTML table, and unwrapping it ran every cell
+// together on one line. Attributes on all of these are stripped below.
+const CAL_NOTE_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','BR','A','DIV','P',
+  'TABLE','THEAD','TBODY','TFOOT','TR','TD','TH','UL','OL','LI']);
 function sanitizeCalNotesHtml(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html || '';
@@ -644,7 +651,7 @@ function renderBrief(wrapId, team) {
                         || localStorage.getItem('mg_user_category') || '').toLowerCase();
     const _userRole     = (sessionStorage.getItem('mg_user_role')
                         || localStorage.getItem('mg_user_role')     || '').toLowerCase();
-    const _isLead       = _userRole === 'lead';
+    const _isLead       = isLeadUser();   // 'Lead', 'Lead Gardener', ... (see crew_config.js)
 
     if (_isLead) {
       // Lead notes: only show on the lead's own team brief, not on other panels.
@@ -812,7 +819,8 @@ function renderJobs(cid, jobs, teamClass) {
 
   // Compute once per renderJobs call — which team's WR button to show
   const _slug   = getUserTeamSlug();
-  const _showWR = !_slug || teamClass.startsWith(_slug);
+  // Leads can file Work Records for any team's jobs, not just their own.
+  const _showWR = !_slug || teamClass.startsWith(_slug) || isLeadUser();
 
 
   jobs.forEach(j => {
@@ -1256,6 +1264,7 @@ function buildClientBlock(cardId, sc, description, rawTitle, matchedName) {
         ${resolved['General Service Notes'] ? `<div class="drow"><span class="dlabel">Notes</span><span class="dval note">${esc(resolved['General Service Notes'])}</span></div>` : ''}
         ${(resolved['Gate / Access']||resolved['Gate/Access']) ? `<div class="drow"><span class="dlabel">Gate</span><span class="dval">${esc(resolved['Gate / Access']||resolved['Gate/Access'])}</span></div>` : ''}
         ${resolved['Dogs / Animals']        ? `<div class="drow"><span class="dlabel">Dogs</span><span class="dval">${esc(resolved['Dogs / Animals'])}</span></div>` : ''}
+        ${typeof clientDocsRowHtml === 'function' ? clientDocsRowHtml(resolved, 'card') : ''}
       </div>`;
 
   } else if (sc && !sc._ambiguous) {

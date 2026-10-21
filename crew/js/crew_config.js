@@ -65,6 +65,20 @@ function isManagerUser() {
   return cat.includes('manager');
 }
 
+// ── isLeadUser ────────────────────────────────────────────────
+// True if the logged-in crew member's Crew Info role is "Lead" or starts
+// with the word Lead ("Lead Gardener", "Lead Installer"...). The role box
+// in the owner portal is free text, so an exact "lead" match missed
+// anything typed with a title after it. ("Leader" does not count.) Leads
+// may create Work Records for ANY team's jobs (e.g. when covering or
+// working alongside another team); everyone else only gets the Work
+// Record button on their own team's jobs (see renderJobs()).
+function isLeadUser() {
+  const role = (sessionStorage.getItem('mg_user_role')
+             || localStorage.getItem('mg_user_role') || '').trim().toLowerCase();
+  return /^lead\b/.test(role);
+}
+
 // Manager schedule — fetched only for managers, stays null for others.
 let MANAGER_SCHEDULE = null;   // { days: { "YYYY-MM-DD": { ashley:[], brooke:[], mgr:[] } } }
 let mgrBriefOpen     = true;   // morning brief accordion state on manager panel
