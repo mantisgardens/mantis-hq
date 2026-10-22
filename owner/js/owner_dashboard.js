@@ -45,9 +45,9 @@ if (sessionStorage.getItem('owner_auth') !== '1') {
 document.getElementById('user-name').textContent =
   sessionStorage.getItem('owner_user_name') || '';
 
-// Session timeout — 2 hours for owner portal (more sensitive data)
+// Session timeout — 4 hours of inactivity for the owner portal (keep OWNER_PERSIST_MS in owner_login.js the same)
 initSessionTimeout({
-  timeoutMs:  2 * 60 * 60 * 1000,
+  timeoutMs:  4 * 60 * 60 * 1000,
   warningMs:  5 * 60 * 1000,
   sessionKey: 'owner_auth',
   loginUrl:   (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.LOGIN_URL : 'index.html',

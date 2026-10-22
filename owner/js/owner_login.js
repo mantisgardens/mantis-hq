@@ -18,7 +18,7 @@ const SCRIPT_URL = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_U
 // the same known-intermittent Apps Script redirect glitch, not a
 // difference in per-attempt failure rate.
 //
-// 2 hours, not crew's 10 — matches the owner dashboard's own
+// 4 hours, not crew's 10 — matches the owner dashboard's own
 // inactivity timeout (initSessionTimeout call in owner_dashboard.js,
 // deliberately shorter than crew's given the more sensitive data this
 // portal exposes), so this "skip re-verification" trust window never
@@ -27,7 +27,7 @@ const SCRIPT_URL = (typeof OWNER_CONFIG !== 'undefined') ? OWNER_CONFIG.SCRIPT_U
 // ownerPost() already detect an expired token on the first real API
 // call and silently refresh it via _refreshOwnerToken(), same handling
 // as any mid-session token expiry.
-const OWNER_PERSIST_MS = 2 * 60 * 60 * 1000;
+const OWNER_PERSIST_MS = 4 * 60 * 60 * 1000;
 
 function _clearPersistedOwnerSession() {
   localStorage.removeItem('owner_auth');
