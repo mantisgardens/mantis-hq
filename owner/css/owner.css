@@ -630,3 +630,12 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .ce-missing-item:last-child{border-bottom:none}
 .ce-missing-name{color:var(--ink);font-weight:500}
 .ce-missing-address{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3)}
+
+/* Time card correction popup: punch list with GPS */
+.tc-punches{margin-bottom:14px;font-size:var(--fs-body)}
+.tc-punch-title{font-weight:600;color:var(--ink);margin-bottom:4px}
+.tc-punch-row{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+.tc-punch-type{flex:0 0 90px}
+.tc-punch-time{flex:0 0 80px;font-variant-numeric:tabular-nums}
+.tc-punch-where{flex:1}
+.tc-punch-nogps,.tc-punch-empty{color:#777}
