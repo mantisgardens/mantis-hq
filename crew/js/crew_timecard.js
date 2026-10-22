@@ -15,6 +15,10 @@
    every other crew route) — no employee ID is ever sent from the
    client.
 
+   GPS: every punch also sends { gps } -- the phone's position at the
+   moment of the tap, or { status } if location was refused/unavailable
+   (see getGpsFix()). It never blocks a punch.
+
    SCOPE NOTE: clock-out here is a plain confirm() dialog. The
    California meal/rest-break attestation flow (mandatory Yes/No
    prompts, reason codes, premium-pay flagging) is NOT implemented —
@@ -166,11 +170,36 @@ function renderHistory() {
 }
 
 // ── Actions ──────────────────────────────────────────────────
+// ── GPS ──────────────────────────────────────────────────────
+// Asks the phone for its position at the moment a punch button is
+// tapped (never in the background). ALWAYS resolves -- a refused,
+// failed or slow location request must not stop anyone from clocking
+// in or out, so the punch is sent with a status saying why there is no
+// fix instead. Fresh fix only (maximumAge 0); 8 s cap.
+function getGpsFix() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) { resolve({ status: 'unavailable' }); return; }
+    let done = false;
+    const finish = v => { if (!done) { done = true; resolve(v); } };
+    // Safety net in case the browser never calls back at all.
+    setTimeout(() => finish({ status: 'timeout' }), 9000);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        pos => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        err => finish({ status: err && err.code === 1 ? 'denied' : (err && err.code === 3 ? 'timeout' : 'unavailable') }),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    } catch (e) { finish({ status: 'unavailable' }); }
+  });
+}
+
 async function sendPunch(type, extra) {
   if (_busy) return;
   _busy = true;
   render();
   try {
+    const gps = await getGpsFix();
+    extra = Object.assign({}, extra || {}, { gps });
     const token = getIdToken();
     const res = await fetch(`${SCRIPT_URL}/timecard/punch?id_token=${encodeURIComponent(token)}`, {
       method: 'POST',
