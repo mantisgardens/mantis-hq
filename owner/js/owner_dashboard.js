@@ -404,6 +404,7 @@ const OWNER_ACTION_PATHS = {
   ownerDeleteCrew: '/owner/crew/delete',
   ownerTimecards: '/owner/timecards',
   ownerCorrectTimeCard: '/owner/timecards/correct',
+  ownerTimecardDay: '/owner/timecards/day',
   ownerMissingWorkRecords: '/owner/missing-work-records',
   ownerClientEmails: '/owner/client-emails',
 };
@@ -2397,6 +2398,48 @@ function openTcCorrectModal(name, date, currentHours) {
   document.getElementById('tcc-reason').value = '';
   document.getElementById('tc-correct-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
+  loadTcDayPunches(name, date);
+}
+
+// Punch list for the open correction popup: each punch with its time
+// (Pacific) and GPS fix -- a map link, or the reason there is none.
+async function loadTcDayPunches(name, date) {
+  const box = document.getElementById('tc-correct-punches');
+  box.innerHTML = '<div class="tc-punch-empty">Loading punches\u2026</div>';
+  try {
+    const d = await ownerFetch('ownerTimecardDay', `&name=${encodeURIComponent(name)}&date=${encodeURIComponent(date)}`);
+    // The popup may have been closed or re-opened for another day while loading.
+    if (!_tcCorrectTarget || _tcCorrectTarget.name !== name || _tcCorrectTarget.date !== date) return;
+    box.innerHTML = renderTcPunchList(d.punches || []);
+  } catch (e) {
+    box.innerHTML = `<div class="tc-punch-empty">Could not load punches: ${esc(e.message)}</div>`;
+  }
+}
+
+const TC_PUNCH_LABELS = { clock_in: 'Clock in', meal_out: 'Meal start', meal_in: 'Meal end', clock_out: 'Clock out' };
+const TC_GPS_STATUS_TEXT = {
+  denied: 'location refused on the phone',
+  unavailable: 'location not available',
+  timeout: 'location timed out',
+  invalid: 'location unreadable',
+};
+
+function renderTcPunchList(punches) {
+  if (!punches.length) return '<div class="tc-punch-empty">No individual punches on file for this day (hours were entered or corrected by hand, or the day predates punch records).</div>';
+  return '<div class="tc-punch-title">Punches</div>' + punches.map(p => {
+    const t = new Date(p.timestamp).toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' });
+    let where;
+    if (p.gps && typeof p.gps.lat === 'number' && typeof p.gps.lng === 'number') {
+      const url = `https://www.google.com/maps?q=${p.gps.lat},${p.gps.lng}`;
+      const acc = p.gps.accuracyM != null ? ` (\u00b1${Math.round(p.gps.accuracyM)} m)` : '';
+      where = `<a href="${url}" target="_blank" rel="noopener noreferrer">&#128205; map</a>${acc}`;
+    } else if (p.gps && p.gps.status) {
+      where = `<span class="tc-punch-nogps">${esc(TC_GPS_STATUS_TEXT[p.gps.status] || 'no location')}</span>`;
+    } else {
+      where = '<span class="tc-punch-nogps">no location recorded</span>';
+    }
+    return `<div class="tc-punch-row"><span class="tc-punch-type">${esc(TC_PUNCH_LABELS[p.type] || p.type)}</span><span class="tc-punch-time">${esc(t)}</span><span class="tc-punch-where">${where}</span></div>`;
+  }).join('');
 }
 
 function closeTcCorrectModal(e) {
