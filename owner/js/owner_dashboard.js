@@ -2376,7 +2376,7 @@ function renderTimeCardGrid() {
       <td class="tc-col-name">${esc(r.name)}</td>
       ${r.days.map(d => `<td class="${d.flagged ? 'tc-cell-flagged ' : ''}${d.hours == null ? '' : 'tc-cell-clickable'}"
           ${d.hours == null ? '' : `onclick="openTcCorrectModal('${jsStr(r.name)}','${d.date}',${d.hours})"`}>${
-            d.hours == null ? '\u2014' : d.hours}${d.corrected ? '<span class="tc-corrected-mark" title="Manually corrected">&#9998;</span>' : ''}</td>`).join('')}
+            d.hours == null ? '\u2014' : d.hours}${d.corrected ? '<span class="tc-corrected-mark" title="Manually corrected">&#9998;</span>' : ''}${d.employeeEdited ? '<span class="tc-corrected-mark" title="Edited by the employee">&#128100;</span>' : ''}</td>`).join('')}
       <td class="tc-col-total">${r.weekTotalHours}</td>
       <td class="tc-col-total">${r.pay ? r.pay.regularHours : ''}</td>
       <td class="tc-col-total">${r.pay ? r.pay.overtime15Hours : ''}</td>
@@ -2438,7 +2438,9 @@ function renderTcPunchList(punches) {
     } else {
       where = '<span class="tc-punch-nogps">no location recorded</span>';
     }
-    return `<div class="tc-punch-row"><span class="tc-punch-type">${esc(TC_PUNCH_LABELS[p.type] || p.type)}</span><span class="tc-punch-time">${esc(t)}</span><span class="tc-punch-where">${where}</span></div>`;
+    if (p.source === 'employee_edit') where = '<span class="tc-punch-nogps">entered by the employee in an edit</span>';
+    if (p.replaced) where = '<span class="tc-punch-nogps">replaced by an edit</span>';
+    return `<div class="tc-punch-row${p.replaced ? ' tc-punch-replaced' : ''}"><span class="tc-punch-type">${esc(TC_PUNCH_LABELS[p.type] || p.type)}</span><span class="tc-punch-time">${esc(t)}</span><span class="tc-punch-where">${where}</span></div>`;
   }).join('');
 }
 
@@ -2548,6 +2550,16 @@ const TC_REASON_LABELS = {
   employer_interrupted: 'Cut short / interrupted',
 };
 
+// "Clock in 7:00 AM, Clock out 3:30 PM" from [{type, time:'HH:MM'}].
+function tcPunchSummary(list) {
+  if (!list || !list.length) return 'no punches';
+  return list.map(p => {
+    const [h, m] = String(p.time).split(':').map(Number);
+    const t = `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+    return `${TC_PUNCH_LABELS[p.type] || p.type} ${t}`;
+  }).join(', ');
+}
+
 function renderNeedsReview() {
   const section = document.getElementById('tc-needs-review');
   const list = document.getElementById('tc-needs-review-list');
@@ -2571,6 +2583,10 @@ function renderNeedsReview() {
     });
     if (item.mealReview) details.push('Employee says the meal was skipped voluntarily, but punches show a violation \u2014 owner review needed');
     if (item.ot > 0) details.push(`${item.ot}h of daily overtime`);
+    if (item.employeeEdit) {
+      const e = item.employeeEdit;
+      details.push(`Edited by the employee \u2014 "${esc(e.reason)}"<br>&nbsp;&nbsp;Before: ${esc(tcPunchSummary(e.before))}<br>&nbsp;&nbsp;After: ${esc(tcPunchSummary(e.after))}`);
+    }
 
     return `<div class="tc-review-item">
       <span class="tc-review-name">${esc(item.name)}</span>
