@@ -205,3 +205,17 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
   text-align: center;
   line-height: 1.4;
 }
+
+/* ── Fix a day ── */
+.tc-fix-section{margin-top:22px}
+.tc-fix-text{color:var(--ink2);font-size:var(--fs-label);line-height:1.5;margin-bottom:10px}
+.tc-fix-row{display:flex;gap:10px;align-items:center}
+.tc-fix-select{flex:1;min-width:0;padding:10px;border:1.5px solid var(--bg3);border-radius:8px;font-size:var(--fs-body);background:#fff;color:var(--ink)}
+.tc-fix-btn{padding:10px 16px;border:none;border-radius:8px;background:var(--g);color:#fff;font-size:var(--fs-body);font-weight:500;cursor:pointer;white-space:nowrap}
+.tc-edit-note{color:var(--ink2);font-size:var(--fs-label);line-height:1.5;margin-bottom:12px}
+.tc-edit-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.tc-edit-type{flex:1;min-width:0;padding:10px;border:1.5px solid var(--bg3);border-radius:8px;font-size:var(--fs-body);background:#fff}
+.tc-edit-time{flex:0 0 120px;padding:9px;border:1.5px solid var(--bg3);border-radius:8px;font-size:var(--fs-body)}
+.tc-edit-remove{flex:0 0 36px;height:36px;border:none;border-radius:8px;background:var(--bg3);color:var(--ink2);cursor:pointer}
+.tc-edit-add{display:block;width:100%;padding:10px;margin:4px 0 14px;border:1.5px dashed var(--g4);border-radius:8px;background:none;color:var(--g);font-size:var(--fs-body);cursor:pointer}
+.tc-edit-error{color:#b3261e;font-size:var(--fs-label);min-height:1.2em;margin:8px 0}
