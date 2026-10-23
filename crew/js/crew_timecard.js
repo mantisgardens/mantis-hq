@@ -109,6 +109,7 @@ async function loadSummary() {
 }
 
 function render() {
+  if (typeof renderEditDates === 'function' && !document.getElementById('tc-fix-date').options.length) renderEditDates();
   if (!_state) return;
   renderStatusCard();
   renderSummaryRow();
@@ -243,6 +244,16 @@ function confirmClockOut() {
     showToast('End your meal break before clocking out.');
     return;
   }
+  startAttestation(null);
+}
+
+// Opens the break-attestation modal. `context` is null for a normal
+// clock-out, or a sentence such as "Certifying for Tuesday, October 20"
+// when the questions are being answered for an edited past day.
+function startAttestation(context) {
+  const ctxEl = document.getElementById('tc-attest-context');
+  ctxEl.textContent = context || '';
+  ctxEl.style.display = context ? '' : 'none';
   _attest = { meal: { answer: null, reason: null, notes: '' }, rest: { answer: null, reason: null, notes: '' } };
   document.getElementById('tc-meal-notes').value = '';
   document.getElementById('tc-rest-notes').value = '';
@@ -256,6 +267,7 @@ function confirmClockOut() {
 function cancelClockOut() {
   document.getElementById('tc-attest-modal').classList.remove('open');
   _attest = null;
+  _pendingEdit = null;   // abandon a pending day edit too
 }
 
 function goToStep(step) {
@@ -319,8 +331,15 @@ function renderAttestSummary() {
 }
 
 function submitClockOut() {
-  const payload = { attestation: _attest };
   document.getElementById('tc-attest-modal').classList.remove('open');
+  if (_pendingEdit) {            // finishing a day edit, not a live clock-out
+    const edit = _pendingEdit;
+    _pendingEdit = null;
+    sendEditDay(edit, _attest);
+    _attest = null;
+    return;
+  }
+  const payload = { attestation: _attest };
   sendPunch('clock_out', payload);
   showToast('Clocked out \u2713');
   _attest = null;
@@ -329,6 +348,120 @@ function submitClockOut() {
 function handleMealButton() {
   if (!_state || !_state.clockedIn) return;
   sendPunch(_state.onMealBreak ? 'meal_in' : 'meal_out');
+}
+
+// ── Fix a day (edit my own punches) ─────────────────────────
+// The person edits the COMPLETE list of punches for one day. The server
+// keeps the originals, records the reason, and tells the owner. If the
+// edited day ends with a clock out, the break questions are asked again.
+let _pendingEdit = null;   // { date, punches, reason } awaiting the attestation
+let _editDate = null;
+const EDIT_TYPES = [
+  ['clock_in', 'Clock in'], ['meal_out', 'Meal start'], ['meal_in', 'Meal end'], ['clock_out', 'Clock out'],
+];
+
+function fmtLongDate(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function renderEditDates() {
+  const sel = document.getElementById('tc-fix-date');
+  const dates = (_state && _state.editableDates) || [];
+  sel.innerHTML = dates.map((d, i) => `<option value="${esc(d)}">${i === 0 ? 'Today \u2014 ' : ''}${esc(fmtLongDate(d))}</option>`).join('');
+}
+
+function editRowHtml(type, time) {
+  const opts = EDIT_TYPES.map(([v, l]) => `<option value="${v}"${v === type ? ' selected' : ''}>${l}</option>`).join('');
+  return `<div class="tc-edit-row">
+    <select class="tc-edit-type">${opts}</select>
+    <input class="tc-edit-time" type="time" value="${esc(time || '')}" step="60"/>
+    <button class="tc-edit-remove" onclick="this.parentNode.remove()" aria-label="Remove this punch">&#10005;</button>
+  </div>`;
+}
+
+function addEditRow(type, time) {
+  document.getElementById('tc-edit-rows').insertAdjacentHTML('beforeend', editRowHtml(type || 'clock_in', time || ''));
+}
+
+async function openEditDay() {
+  const date = document.getElementById('tc-fix-date').value;
+  if (!date) return;
+  try {
+    const res = await fetch(`${SCRIPT_URL}/timecard/day?date=${encodeURIComponent(date)}&id_token=${encodeURIComponent(getIdToken())}`);
+    const info = await res.json().catch(() => ({}));
+    if (!res.ok || info.error) throw new Error(info.error || ('HTTP ' + res.status));
+    if (!info.editable) { showToast(info.reason || 'This day cannot be edited.'); return; }
+    _editDate = date;
+    document.getElementById('tc-edit-title').textContent = fmtLongDate(date);
+    document.getElementById('tc-edit-note').textContent = info.punches.length
+      ? 'Change a time, remove a punch, or add one. Times are Pacific time.'
+      : 'No punches are recorded for this day. Add what you worked. Times are Pacific time.';
+    document.getElementById('tc-edit-rows').innerHTML = '';
+    if (info.punches.length) info.punches.forEach(p => addEditRow(p.type, p.time));
+    else { addEditRow('clock_in', ''); addEditRow('clock_out', ''); }
+    document.getElementById('tc-edit-reason').value = '';
+    document.getElementById('tc-edit-error').textContent = '';
+    document.getElementById('tc-edit-modal').classList.add('open');
+  } catch (e) {
+    showToast('Could not open that day: ' + e.message);
+  }
+}
+
+function closeEditDay() {
+  document.getElementById('tc-edit-modal').classList.remove('open');
+  _editDate = null;
+}
+
+function saveEditDay() {
+  const errEl = document.getElementById('tc-edit-error');
+  errEl.textContent = '';
+  const punches = [...document.querySelectorAll('#tc-edit-rows .tc-edit-row')].map(r => ({
+    type: r.querySelector('.tc-edit-type').value,
+    time: r.querySelector('.tc-edit-time').value,
+  }));
+  const reason = document.getElementById('tc-edit-reason').value.trim();
+  if (!punches.length) { errEl.textContent = 'Add at least a clock in and a clock out.'; return; }
+  if (punches.some(p => !p.time)) { errEl.textContent = 'Every punch needs a time.'; return; }
+  if (reason.length < 3) { errEl.textContent = 'Please say why you are changing this day.'; return; }
+
+  const edit = { date: _editDate, punches, reason };
+  // The server decides what is legal; the screen only needs to know
+  // whether the day ends with a clock out, because that is when the
+  // break questions must be answered again.
+  const last = punches.slice().sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0)).pop();
+  document.getElementById('tc-edit-modal').classList.remove('open');
+  if (last.type === 'clock_out') {
+    _pendingEdit = edit;
+    startAttestation('Certifying for ' + fmtLongDate(edit.date) + '. Answer the questions below for that day.');
+  } else {
+    sendEditDay(edit, null);
+  }
+}
+
+async function sendEditDay(edit, attestation) {
+  if (_busy) return;
+  _busy = true;
+  render();
+  try {
+    const res = await fetch(`${SCRIPT_URL}/timecard/edit-day?id_token=${encodeURIComponent(getIdToken())}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: edit.date, punches: edit.punches, reason: edit.reason, attestation }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) throw new Error(json.error || ('HTTP ' + res.status));
+    showToast('Day updated \u2713 \u2014 the owner will see the change');
+    closeEditDay();
+    await loadSummary();
+  } catch (e) {
+    // Reopen the form with what was typed so nothing is lost.
+    document.getElementById('tc-edit-modal').classList.add('open');
+    document.getElementById('tc-edit-error').textContent = e.message;
+    _editDate = edit.date;
+  } finally {
+    _busy = false;
+    render();
+  }
 }
 
 // ── Startup ──────────────────────────────────────────────────
