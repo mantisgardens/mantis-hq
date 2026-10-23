@@ -639,3 +639,4 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-punch-time{flex:0 0 80px;font-variant-numeric:tabular-nums}
 .tc-punch-where{flex:1}
 .tc-punch-nogps,.tc-punch-empty{color:#777}
+.tc-punch-replaced .tc-punch-type,.tc-punch-replaced .tc-punch-time{text-decoration:line-through;color:#777}
