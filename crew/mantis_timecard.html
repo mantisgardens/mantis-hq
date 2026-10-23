@@ -28,7 +28,7 @@
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Time Card</title>
-  <link rel="stylesheet" href="css/mantis_timecard.css?v=3"/>
+  <link rel="stylesheet" href="css/mantis_timecard.css?v=4"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
@@ -87,10 +87,38 @@
       <div class="tc-empty-state">Loading…</div>
     </div>
     <div class="tc-history-note">
-      See a mistake? Let your manager know.
+      See a mistake? Use "Fix a day" below.
     </div>
   </div>
 
+  <!-- ══ FIX A DAY ══════════════════════════════════════════════
+       Lets the person correct their OWN punch times for today and the
+       previous two weeks. Every change keeps the original punches,
+       needs a reason, and is shown to the owner for review. ═══ -->
+  <div class="tc-fix-section">
+    <div class="tc-history-title">Fix a day</div>
+    <div class="tc-fix-text">Forgot to clock out, or a time is wrong? Pick the day and correct your punches. The owner is told about every change, along with your reason.</div>
+    <div class="tc-fix-row">
+      <select class="tc-fix-select" id="tc-fix-date"></select>
+      <button class="tc-fix-btn" onclick="openEditDay()">Edit this day</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ EDIT-DAY MODAL ═════════════════════════════════════════ -->
+<div class="tc-modal-overlay" id="tc-edit-modal">
+  <div class="tc-modal">
+    <div class="tc-attest-title" id="tc-edit-title">Edit day</div>
+    <div class="tc-edit-note" id="tc-edit-note"></div>
+    <div id="tc-edit-rows"></div>
+    <button class="tc-edit-add" onclick="addEditRow()">+ Add a punch</button>
+    <label class="tc-attest-notes-label">Why are you changing this? (required)</label>
+    <textarea class="tc-attest-notes" id="tc-edit-reason" rows="3" placeholder="e.g. Forgot to clock out; I left at 4:30 PM"></textarea>
+    <div class="tc-edit-error" id="tc-edit-error"></div>
+    <button class="tc-attest-submit" id="tc-edit-save" onclick="saveEditDay()">Save changes</button>
+    <button class="tc-attest-cancel" onclick="closeEditDay()">Cancel</button>
+  </div>
 </div>
 
 <!-- ══ BREAK ATTESTATION MODAL ═══════════════════════════════════
@@ -100,6 +128,7 @@
      rather than saving a partial answer. ═══════════════════════ -->
 <div class="tc-modal-overlay" id="tc-attest-modal">
   <div class="tc-modal">
+    <div class="tc-edit-note" id="tc-attest-context" style="display:none"></div>
 
     <!-- Step: meal break question -->
     <div class="tc-attest-step" id="tc-step-meal">
@@ -178,6 +207,6 @@
 <script src="../config.js?v=1"></script>
 <script src="js/mantis_config.js?v=1"></script>
 <script src="js/session_timeout.js?v=1"></script>
-<script src="js/crew_timecard.js?v=3"></script>
+<script src="js/crew_timecard.js?v=4"></script>
 </body>
 </html>
