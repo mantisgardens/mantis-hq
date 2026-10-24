@@ -15,6 +15,7 @@ OWNER_ACTION_PATHS.schedEdit    = '/owner/sched/edit';
 OWNER_ACTION_PATHS.schedMove    = '/owner/sched/move';
 OWNER_ACTION_PATHS.schedCancel  = '/owner/sched/cancel';
 OWNER_ACTION_PATHS.schedDone    = '/owner/sched/done';
+OWNER_ACTION_PATHS.schedChangeRepeat = '/owner/sched/change-repeat';
 
 const SCHED_LANES = [
   { id: 't1', label: 'Team 1' }, { id: 't2', label: 'Team 2' }, { id: 't3', label: 'Team 3' },
@@ -107,6 +108,15 @@ function schedRender() {
   document.getElementById('sch-grid').innerHTML = h;
 }
 
+// Short label for the card: Weekly, Every 2 wks, Monthly, Quarterly, Yearly...
+function schedFreqLabel(r) {
+  if (!r) return '';
+  if (r.unit === 'week') return r.every === 1 ? 'Weekly' : `Every ${r.every} wks`;
+  if (r.unit === 'month') return r.every === 1 ? 'Monthly' : r.every === 3 ? 'Quarterly' : `Every ${r.every} mo`;
+  if (r.unit === 'year') return r.every === 1 ? 'Yearly' : `Every ${r.every} yrs`;
+  return '';
+}
+
 function schedCard(v) {
   const time = v.start ? sdTime(v.start) + (v.end ? '–' + sdTime(v.end) : '') : '';
   const who = v.lane === 'managers' ? (v.person || '') : (v.crew || []).join(', ');
@@ -114,7 +124,8 @@ function schedCard(v) {
   return `<div class="sch-card${v.status === 'done' ? ' sch-done' : ''}${v.jobId ? ' sch-repeats' : ''}" draggable="true"
       ondragstart="event.dataTransfer.setData('text/plain','${esc(v.id)}')" onclick="event.stopPropagation();schedOpen('${esc(v.id)}')">
       ${time ? `<div class="sch-time">${esc(time)}</div>` : ''}
-      <div class="sch-name">${v.jobId ? '&#8635; ' : ''}${esc(name)}</div>
+      <div class="sch-name">${esc(name)}</div>
+      ${schedFreqLabel(v.repeat) ? `<span class="sch-freq" title="${esc(v.repeatText || '')}">&#8635; ${esc(schedFreqLabel(v.repeat))}</span>` : ''}
       ${v.lane !== 'managers' && v.title ? `<div class="sch-sub">${esc(v.title)}</div>` : ''}
       ${who ? `<div class="sch-sub">${esc(who)}</div>` : ''}
       ${v.notes ? '<div class="sch-sub sch-note">&#128221; notes</div>' : ''}
@@ -154,10 +165,20 @@ function schedOpen(id, date, lane) {
   $('sch-start').innerHTML = schedTimeOptions(v.start || '');
   $('sch-end').innerHTML = schedTimeOptions(v.end || '');
   $('sch-notes').value = v.notes || '';
-  $('sch-repeat').innerHTML = SCHED_REPEATS.map(r => `<option value="${r.v}">${esc(r.label)}</option>`).join('');
-  $('sch-until').value = '';
+  // Repeat: for a new job pick a pattern; for an existing visit it shows the
+  // current pattern and changing it restarts the series from this visit.
+  const cur = schedEditing && schedEditing.repeat ? schedEditing.repeat : null;
+  const curMatch = cur ? SCHED_REPEATS.find(r => r.r && r.r.every === cur.every && r.r.unit === cur.unit && (r.r.monthMode || null) === (cur.monthMode || null)) : null;
+  let opts = SCHED_REPEATS.map(r => `<option value="${r.v}">${esc(r.label)}</option>`).join('');
+  if (cur && !curMatch) opts += `<option value="custom">${esc(schedEditing.repeatText || 'Current pattern')} (current)</option>`;
+  $('sch-repeat').innerHTML = opts;
+  $('sch-repeat').value = !cur ? 'none' : (curMatch ? curMatch.v : 'custom');
+  $('sch-until').value = (cur && cur.until) || '';
+  $('sch-repeat').dataset.orig = $('sch-repeat').value;
+  $('sch-until').dataset.orig = $('sch-until').value;
+  $('sch-repeat-hint').style.display = schedEditing ? '' : 'none';
   const rep = !!(schedEditing && schedEditing.jobId);
-  $('sch-repeat-row').style.display = schedEditing ? 'none' : '';
+  $('sch-repeat-row').style.display = '';
   $('sch-scope-row').style.display = rep ? '' : 'none';
   document.querySelector('input[name="sch-scope"][value="this"]').checked = true;
   $('sch-btn-cancel-visit').style.display = schedEditing ? '' : 'none';
@@ -206,6 +227,12 @@ async function schedSave() {
       const scope = schedScope();
       await ownerPost('schedEdit', { id: schedEditing.id, scope, fields: f });
       if (date && date !== schedEditing.date) await ownerPost('schedMove', { id: schedEditing.id, date });
+      const rv = $('sch-repeat').value, un = $('sch-until').value;
+      if (rv !== $('sch-repeat').dataset.orig || (rv !== 'none' && un !== $('sch-until').dataset.orig)) {
+        const sel = SCHED_REPEATS.find(r => r.v === rv);
+        const base = rv === 'custom' ? schedEditing.repeat : (sel && sel.r);
+        await ownerPost('schedChangeRepeat', { id: schedEditing.id, repeat: base ? { ...base, until: un || null } : null });
+      }
     }
     schedClose(); showToast('Saved'); await schedLoad();
   } catch (e) { $('sch-error').textContent = e.message; }
