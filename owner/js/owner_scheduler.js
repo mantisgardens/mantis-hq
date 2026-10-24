@@ -47,13 +47,22 @@ function sdMondayOf(s) { const d = sdParse(s); d.setDate(d.getDate() - ((d.getDa
 function sdLabel(s) { return sdParse(s).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }
 function sdTime(t) { if (!t) return ''; const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}${h < 12 ? 'a' : 'p'}`; }
 
+// Start/End pickers are dropdowns in 15-minute steps (the browser's own
+// clock popup ignores step and offers every minute).
+function schedTimeOptions(selected) {
+  let o = '<option value="">—</option>', found = !selected;
+  for (let m = 5 * 60; m <= 21 * 60 + 45; m += 15) {
+    const v = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    if (v === selected) found = true;
+    o += `<option value="${v}"${v === selected ? ' selected' : ''}>${sdTime(v).replace(/([ap])$/, ' $1m').toUpperCase()}</option>`;
+  }
+  if (!found) o += `<option value="${selected}" selected>${selected}</option>`; // an older off-grid time stays visible
+  return o;
+}
+
 async function schedInit() {
   if (!schedMonday) schedMonday = sdMondayOf(sdFmt(new Date()));
   schedLoaded = true;
-  if (!schedCrewNames) {
-    try { const d = await ownerFetch('ownerCrew'); schedCrewNames = (d.crew || []).map(c => c.name).filter(Boolean).sort(); }
-    catch (e) { schedCrewNames = []; }
-  }
   await schedLoad();
 }
 
@@ -142,12 +151,9 @@ function schedOpen(id, date, lane) {
   $('sch-job-title').value = v.title || '';
   $('sch-person').innerHTML = '<option value="">—</option>' + SCHED_PEOPLE.map(p => `<option${p === v.person ? ' selected' : ''}>${p}</option>`).join('');
   $('sch-date').value = v.date;
-  $('sch-start').value = v.start || '';
-  $('sch-end').value = v.end || '';
+  $('sch-start').innerHTML = schedTimeOptions(v.start || '');
+  $('sch-end').innerHTML = schedTimeOptions(v.end || '');
   $('sch-notes').value = v.notes || '';
-  $('sch-crew').innerHTML = (schedCrewNames || []).map(n =>
-    `<label class="sch-crewchk"><input type="checkbox" value="${esc(n)}"${(v.crew || []).includes(n) ? ' checked' : ''}/> ${esc(n)}</label>`).join('')
-    || '<span style="color:var(--ink3)">No crew list loaded.</span>';
   $('sch-repeat').innerHTML = SCHED_REPEATS.map(r => `<option value="${r.v}">${esc(r.label)}</option>`).join('');
   $('sch-until').value = '';
   const rep = !!(schedEditing && schedEditing.jobId);
@@ -166,7 +172,6 @@ function schedLaneChanged() {
   const mg = document.getElementById('sch-lane').value === 'managers';
   document.getElementById('sch-client-row').style.display = mg ? 'none' : '';
   document.getElementById('sch-person-row').style.display = mg ? '' : 'none';
-  document.getElementById('sch-crew-row').style.display = mg ? 'none' : '';
 }
 function schedScope() { const r = document.querySelector('input[name="sch-scope"]:checked'); return r ? r.value : 'this'; }
 
@@ -182,7 +187,6 @@ function schedReadForm() {
     title: $('sch-job-title').value.trim(),
     person: $('sch-lane').value === 'managers' ? $('sch-person').value : '',
     start: $('sch-start').value, end: $('sch-end').value,
-    crew: $('sch-lane').value === 'managers' ? [] : [...document.querySelectorAll('#sch-crew input:checked')].map(i => i.value),
     notes: $('sch-notes').value,
   };
 }
