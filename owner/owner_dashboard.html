@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=49">
+  <link rel="stylesheet" href="css/owner.css?v=50">
 </head>
 <body>
 
@@ -306,11 +306,12 @@
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Team</label><select class="form-input" id="sch-lane" onchange="schedLaneChanged()"></select></div>
         <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="sch-date" type="date"/></div>
-        <div class="form-group full" id="sch-client-row"><label class="form-label">Client</label>
-          <input class="form-input" id="sch-client" list="sch-clients" placeholder="Start typing a client name…" autocomplete="off"/>
+        <div class="form-group full" id="sch-client-row"><label class="form-label">Client (or type any name)</label>
+          <input class="form-input" id="sch-client" list="sch-clients" placeholder="Pick a client, type a name, or leave blank" autocomplete="off"/>
           <datalist id="sch-clients"></datalist></div>
         <div class="form-group full" id="sch-person-row"><label class="form-label">Manager</label><select class="form-input" id="sch-person"></select></div>
-        <div class="form-group full"><label class="form-label">Title / job (optional for clients)</label><input class="form-input" id="sch-job-title" type="text" placeholder="e.g. Spring cleanup"/></div>
+        <div class="form-group full"><label class="form-label">Job / title</label><input class="form-input" id="sch-job-title" type="text" placeholder="e.g. Spring cleanup, or Clean the yard"/></div>
+        <div class="form-group full" id="sch-address-row"><label class="form-label">Address / location (for jobs not in the client list)</label><input class="form-input" id="sch-address" type="text" placeholder="Optional"/></div>
         <div class="form-group"><label class="form-label">Start</label><select class="form-input" id="sch-start"></select></div>
         <div class="form-group"><label class="form-label">End</label><select class="form-input" id="sch-end"></select></div>
         <div class="form-group full" id="sch-repeat-row"><label class="form-label">Repeat</label>
@@ -570,6 +571,6 @@
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
 <script src="js/owner_dashboard.js?v=68"></script>
-<script src="js/owner_scheduler.js?v=5"></script>
+<script src="js/owner_scheduler.js?v=9"></script>
 </body>
 </html>
