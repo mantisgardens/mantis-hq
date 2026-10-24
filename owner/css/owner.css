@@ -651,8 +651,8 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-cell{background:#fff;min-height:84px;padding:5px;position:relative;cursor:pointer}
 .sch-cell.sch-today{background:#fbfdf9}
 .sch-cell.sch-over{background:var(--g3);outline:2px dashed var(--g2)}
-.sch-add{position:absolute;right:6px;bottom:2px;color:var(--ink3);opacity:0;font-size:1.3rem}
-.sch-cell:hover .sch-add{opacity:.7}
+.sch-add{position:absolute;right:6px;bottom:4px;width:34px;height:34px;line-height:32px;text-align:center;border-radius:50%;background:var(--g3);color:var(--g);border:1px solid var(--g4);font-size:1.7rem;font-weight:600;opacity:.65}
+.sch-cell:hover .sch-add{opacity:1;background:var(--g);color:#fff}
 .sch-card{background:var(--g3);border-left:4px solid var(--g2);border-radius:4px;padding:5px 7px;margin-bottom:5px;cursor:grab;font-size:var(--fs-label);line-height:1.25}
 .sch-card.sch-repeats{background:var(--b3);border-left-color:var(--b)}
 .sch-card.sch-done{opacity:.5}
