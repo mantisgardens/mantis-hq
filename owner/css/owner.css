@@ -643,7 +643,7 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 
 /* ── Scheduler tab ─────────────────────────────────────────── */
 .sch-hint{color:var(--ink3);font-size:var(--fs-label);margin:0 0 10px}
-.sch-grid{overflow-x:auto}
+.sch-grid{overflow:auto;max-height:calc(100vh - 200px)} /* scrolls inside, so the day names can stay pinned */
 .sch-table{display:grid;gap:1px;background:var(--bg3);border:1px solid var(--bg3);min-width:900px}
 .sch-corner,.sch-dayhead,.sch-lane{background:var(--bg2);padding:8px 10px;font-weight:600;font-size:var(--fs-label)}
 .sch-dayhead.sch-today{background:var(--g3);color:var(--g)}
@@ -665,3 +665,7 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 @media (max-width:700px){.sch-table{min-width:760px}}
 
 .sch-freq{display:inline-block;margin:2px 0;padding:0 7px;border-radius:9px;background:var(--b);color:#fff;font-size:.8rem;line-height:1.5;font-family:var(--font-mono)}
+
+.sch-corner,.sch-dayhead{position:sticky;top:0;z-index:3}
+.sch-lane{position:sticky;left:0;z-index:2}
+.sch-corner{left:0;z-index:4}
