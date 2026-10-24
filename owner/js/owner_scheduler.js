@@ -14,6 +14,7 @@ OWNER_ACTION_PATHS.schedCreate  = '/owner/sched/create';
 OWNER_ACTION_PATHS.schedEdit    = '/owner/sched/edit';
 OWNER_ACTION_PATHS.schedMove    = '/owner/sched/move';
 OWNER_ACTION_PATHS.schedCancel  = '/owner/sched/cancel';
+OWNER_ACTION_PATHS.schedManagers = '/owner/sched/managers';
 OWNER_ACTION_PATHS.schedDone    = '/owner/sched/done';
 OWNER_ACTION_PATHS.schedChangeRepeat = '/owner/sched/change-repeat';
 
@@ -32,7 +33,7 @@ const SCHED_REPEATS = [
   { v: 'm6',    label: 'Every 6 months',        r: { every: 6, unit: 'month', monthMode: 'date' } },
   { v: 'y1',    label: 'Yearly',                r: { every: 1, unit: 'year',  monthMode: 'date' } },
 ];
-const SCHED_PEOPLE = ['Ashley', 'Brooke', 'All Managers'];
+let SCHED_PEOPLE = ['All Managers']; // replaced by the crew-sheet managers on load
 
 let schedMonday = null;      // 'YYYY-MM-DD' of the Monday being shown
 let schedVisits = [];
@@ -64,6 +65,7 @@ function schedTimeOptions(selected) {
 async function schedInit() {
   if (!schedMonday) schedMonday = sdMondayOf(sdFmt(new Date()));
   schedLoaded = true;
+  try { SCHED_PEOPLE = (await ownerFetch('schedManagers')).people || SCHED_PEOPLE; } catch (e) { /* keep default */ }
   await schedLoad();
 }
 
@@ -126,7 +128,8 @@ function schedCard(v) {
       ${time ? `<div class="sch-time">${esc(time)}</div>` : ''}
       <div class="sch-name">${esc(name)}</div>
       ${schedFreqLabel(v.repeat) ? `<span class="sch-freq" title="${esc(v.repeatText || '')}">&#8635; ${esc(schedFreqLabel(v.repeat))}</span>` : ''}
-      ${v.lane !== 'managers' && v.title ? `<div class="sch-sub">${esc(v.title)}</div>` : ''}
+      ${v.lane !== 'managers' && v.title && v.title !== name ? `<div class="sch-sub">${esc(v.title)}</div>` : ''}
+      ${v.lane !== 'managers' && !v.clientId && v.address ? `<div class="sch-sub">${esc(v.address)}</div>` : ''}
       ${who ? `<div class="sch-sub">${esc(who)}</div>` : ''}
       ${v.notes ? '<div class="sch-sub sch-note">&#128221; notes</div>' : ''}
     </div>`;
@@ -160,7 +163,8 @@ function schedOpen(id, date, lane) {
   $('sch-client').value = cl ? `${cl['Name(s)'] || ''} — ${cl['Client ID']}` : (v.clientName || '');
   $('sch-client').dataset.id = v.clientId || '';
   $('sch-job-title').value = v.title || '';
-  $('sch-person').innerHTML = '<option value="">—</option>' + SCHED_PEOPLE.map(p => `<option${p === v.person ? ' selected' : ''}>${p}</option>`).join('');
+  $('sch-address').value = v.address || '';
+  $('sch-person').innerHTML = '<option value="">—</option>' + (v.person && !SCHED_PEOPLE.includes(v.person) ? [...SCHED_PEOPLE, v.person] : SCHED_PEOPLE).map(p => `<option${p === v.person ? ' selected' : ''}>${p}</option>`).join('');
   $('sch-date').value = v.date;
   $('sch-start').innerHTML = schedTimeOptions(v.start || '');
   $('sch-end').innerHTML = schedTimeOptions(v.end || '');
@@ -192,6 +196,7 @@ function schedClose(ev) { if (ev && ev.target && ev.target.id !== 'sch-modal') r
 function schedLaneChanged() {
   const mg = document.getElementById('sch-lane').value === 'managers';
   document.getElementById('sch-client-row').style.display = mg ? 'none' : '';
+  document.getElementById('sch-address-row').style.display = mg ? 'none' : '';
   document.getElementById('sch-person-row').style.display = mg ? '' : 'none';
 }
 function schedScope() { const r = document.querySelector('input[name="sch-scope"]:checked'); return r ? r.value : 'this'; }
@@ -206,6 +211,7 @@ function schedReadForm() {
     clientId: byId ? byId['Client ID'] : '',
     clientName: byId ? (byId['Name(s)'] || '') : typed,
     title: $('sch-job-title').value.trim(),
+    address: $('sch-address').value.trim(),
     person: $('sch-lane').value === 'managers' ? $('sch-person').value : '',
     start: $('sch-start').value, end: $('sch-end').value,
     notes: $('sch-notes').value,
