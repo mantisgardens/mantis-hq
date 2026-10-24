@@ -663,3 +663,5 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-crew{display:flex;flex-wrap:wrap;gap:6px 14px}
 .sch-crewchk,.sch-scope{display:flex;align-items:center;gap:6px;font-size:var(--fs-label)}
 @media (max-width:700px){.sch-table{min-width:760px}}
+
+.sch-freq{display:inline-block;margin:2px 0;padding:0 7px;border-radius:9px;background:var(--b);color:#fff;font-size:.8rem;line-height:1.5;font-family:var(--font-mono)}
