@@ -405,6 +405,7 @@ const OWNER_ACTION_PATHS = {
   ownerTimecards: '/owner/timecards',
   ownerCorrectTimeCard: '/owner/timecards/correct',
   ownerTimecardDay: '/owner/timecards/day',
+  ownerGustoExport: '/owner/timecards/gusto',
   ownerMissingWorkRecords: '/owner/missing-work-records',
   ownerClientEmails: '/owner/client-emails',
 };
@@ -657,6 +658,7 @@ function switchTab(tab) {
   if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
   if (tab === 'crew'    && !crewLoaded)   loadCrew();
   if (tab === 'timecards' && !timeCardsLoaded) loadTimeCards();
+  if (tab === 'scheduler' && typeof schedInit === 'function') schedInit();
 }
 
 function discardUnsavedNotes() {
@@ -2613,6 +2615,22 @@ function exportTimeCardsCsv() {
   a.download = `time-cards-${_tcData.weekStart}-to-${_tcData.weekEnd}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// Gusto upload file for the displayed week (and the following week if
+// "2 weeks" is chosen). Hours use the same California tiers as the grid.
+async function exportGustoCsv() {
+  const weeks = document.getElementById('tc-gusto-weeks').value;
+  try {
+    const d = await ownerFetch('ownerGustoExport', `&date=${_tcRefDate || _tcTodayLocalDate()}&weeks=${weeks}`);
+    if (!d.rows.length) { showToast('No hours in that period.'); return; }
+    let msg = `Gusto file for ${d.periodStart} to ${d.periodEnd} (${d.rows.length} people).`;
+    if (d.needsReview) msg += `\n\n${d.needsReview} flagged day(s) in this period are still under Needs Review.`;
+    if (d.extras.length) msg += `\n\nPremium (meal/rest) pay is NOT in the file; add by hand:\n` + d.extras.map(e => `  ${e.name}: ${e.premiumPayHours} h`).join('\n');
+    if (!confirm(msg + '\n\nDownload?')) return;
+    const url = URL.createObjectURL(new Blob([d.csv], { type: 'text/csv' }));
+    const a = document.createElement('a'); a.href = url; a.download = d.filename; a.click(); URL.revokeObjectURL(url);
+  } catch (e) { showToast('Gusto export failed: ' + e.message); }
 }
 
 // =============================================================
