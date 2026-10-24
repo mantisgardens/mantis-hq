@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=46">
+  <link rel="stylesheet" href="css/owner.css?v=47">
 </head>
 <body>
 
@@ -34,6 +34,7 @@
 <!-- ══ NAV TABS ════════════════════════════════════════════ -->
 <nav class="nav-tabs">
   <button class="nav-tab active" data-tab="schedule"   onclick="switchTab('schedule')">&#128197; Schedule</button>
+  <button class="nav-tab"        data-tab="scheduler"  onclick="switchTab('scheduler')">&#128467; Scheduler</button>
   <button class="nav-tab"        data-tab="notes"      onclick="switchTab('notes')">&#128221; Morning Notes</button>
   <button class="nav-tab"        data-tab="clients"    onclick="switchTab('clients')">&#128101; Clients</button>
   <button class="nav-tab"        data-tab="crew"       onclick="switchTab('crew')">&#128119; Crew</button>
@@ -67,6 +68,22 @@
 <main class="content">
 
   <!-- ── SCHEDULE TAB ─────────────────────────────────────── -->
+  <!-- ── SCHEDULER TAB (custom scheduler; runs alongside the Google Calendar Schedule tab) ── -->
+  <div id="tab-scheduler" class="tab-panel">
+    <div class="panel-header">
+      <div class="panel-title">Scheduler</div>
+      <div class="week-nav">
+        <button class="wk-btn" onclick="schedWeek(-1)">&#8249;</button>
+        <span class="wk-label" id="sch-week-label"></span>
+        <button class="wk-btn" onclick="schedWeek(+1)">&#8250;</button>
+        <button class="wk-btn" onclick="schedWeek(0)" style="width:auto;padding:0 12px">Today</button>
+        <button class="fbtn fbtn-save" onclick="schedOpen(null)" style="margin-left:12px">+ New job</button>
+      </div>
+    </div>
+    <div class="sch-hint">Click a <b>+</b> to add a job, click a card to edit it, or drag a card to another day or lane. &#8635; marks a repeating job.</div>
+    <div id="sch-grid" class="sch-grid"></div>
+  </div>
+
   <div id="tab-schedule" class="tab-panel active">
     <div class="panel-header">
       <div class="panel-title">This Week&#39;s Schedule</div>
@@ -134,6 +151,8 @@
         <span class="tc-week-range" id="tc-week-range">&mdash;</span>
         <button class="action-btn" onclick="changeTimeCardWeek(7)">Next Week &#8594;</button>
         <button class="action-btn primary" onclick="exportTimeCardsCsv()">Export CSV</button>
+        <select id="tc-gusto-weeks" class="action-btn" title="Weeks in the pay period, starting with the week shown"><option value="1">1 week</option><option value="2">2 weeks</option></select>
+        <button class="action-btn primary" onclick="exportGustoCsv()">Gusto CSV</button>
       </div>
     </div>
 
@@ -280,6 +299,40 @@
 </main>
 
 <!-- ══ ADD/EDIT CLIENT MODAL ═══════════════════════════════ -->
+<div class="modal-overlay" id="sch-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="schedClose(event)">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="sch-title">New job</div><button class="modal-close" onclick="schedClose()">&#10005;</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Lane</label><select class="form-input" id="sch-lane" onchange="schedLaneChanged()"></select></div>
+        <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="sch-date" type="date"/></div>
+        <div class="form-group full" id="sch-client-row"><label class="form-label">Client</label>
+          <input class="form-input" id="sch-client" list="sch-clients" placeholder="Start typing a client name…" autocomplete="off"/>
+          <datalist id="sch-clients"></datalist></div>
+        <div class="form-group full" id="sch-person-row"><label class="form-label">Manager</label><select class="form-input" id="sch-person"></select></div>
+        <div class="form-group full"><label class="form-label">Title / job (optional for clients)</label><input class="form-input" id="sch-job-title" type="text" placeholder="e.g. Spring cleanup"/></div>
+        <div class="form-group"><label class="form-label">Start</label><input class="form-input" id="sch-start" type="time"/></div>
+        <div class="form-group"><label class="form-label">End</label><input class="form-input" id="sch-end" type="time"/></div>
+        <div class="form-group full" id="sch-crew-row"><label class="form-label">Crew</label><div id="sch-crew" class="sch-crew"></div></div>
+        <div class="form-group full" id="sch-repeat-row"><label class="form-label">Repeat</label>
+          <select class="form-input" id="sch-repeat"></select>
+          <label class="form-label" style="margin-top:8px">Repeat until (optional)</label><input class="form-input" id="sch-until" type="date"/></div>
+        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="sch-notes" rows="4"></textarea></div>
+        <div class="form-group full" id="sch-scope-row"><label class="form-label">This is a repeating job. Apply changes (and Cancel) to:</label>
+          <label class="sch-scope"><input type="radio" name="sch-scope" value="this" checked/> This visit only</label>
+          <label class="sch-scope"><input type="radio" name="sch-scope" value="future"/> This and all future visits</label></div>
+      </div>
+      <div id="sch-error" style="color:#a22;margin-top:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-cancel" id="sch-btn-cancel-visit" onclick="schedCancelVisit()" style="margin-right:auto">Cancel visit</button>
+      <button class="fbtn fbtn-cancel" id="sch-btn-done" onclick="schedToggleDone()">Mark done</button>
+      <button class="fbtn fbtn-cancel" onclick="schedClose()">Close</button>
+      <button class="fbtn fbtn-save" onclick="schedSave()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="client-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -516,6 +569,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=66"></script>
+<script src="js/owner_dashboard.js?v=68"></script>
+<script src="js/owner_scheduler.js?v=1"></script>
 </body>
 </html>
