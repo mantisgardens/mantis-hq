@@ -59,6 +59,7 @@ function getIdToken() {
 }
 
 let _state = null; // last-loaded summary response
+let _loadedAt = 0;  // device time when _state arrived; live counters add the minutes since
 let _busy  = false; // true while a punch POST is in flight -- blocks double-taps
 
 function esc(s) {
@@ -100,6 +101,7 @@ async function loadSummary() {
     const res = await fetch(`${SCRIPT_URL}/timecard/summary?id_token=${encodeURIComponent(token)}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _state = await res.json();
+    _loadedAt = Date.now();
     render();
   } catch (e) {
     console.warn('loadSummary failed:', e.message);
@@ -132,6 +134,11 @@ function renderStatusCard() {
     if (_state.onMealBreak) {
       mealBtn.textContent = 'End Meal Break';
       mealBtn.classList.add('active');
+    } else if (_state.mealTaken) {
+      // Meal break finished: one per shift. Stays greyed out until the
+      // final clock-out; the next clock-in starts a fresh shift.
+      mealBtn.textContent = 'Meal Break Over';
+      mealBtn.classList.remove('active');
     } else {
       mealBtn.textContent = 'Start Meal Break';
       mealBtn.classList.remove('active');
@@ -144,13 +151,32 @@ function renderStatusCard() {
     mealRow.style.display = 'none';
   }
   btn.disabled = _busy;
-  mealBtn.disabled = _busy;
+  mealBtn.disabled = _busy || (_state.clockedIn && !_state.onMealBreak && !!_state.mealTaken);
 }
 
 function renderSummaryRow() {
-  document.getElementById('tc-today-hours').textContent = fmtHours(_state.todayMinutes);
-  document.getElementById('tc-week-hours').textContent  = fmtHours(_state.weekMinutes);
+  // Counters tick live: the server totals were correct when loaded, and
+  // while working (not on a meal break) every whole minute since then adds
+  // to both. On a meal break the work totals stand still and the meal
+  // box counts instead.
+  const live = (_state.clockedIn && !_state.onMealBreak) ? Math.max(0, Math.floor((Date.now() - _loadedAt) / 60000)) : 0;
+  document.getElementById('tc-today-hours').textContent = fmtHours(_state.todayMinutes == null ? null : _state.todayMinutes + live);
+  document.getElementById('tc-week-hours').textContent  = fmtHours(_state.weekMinutes == null ? null : _state.weekMinutes + live);
+  const mealBox = document.getElementById('tc-meal-card');
+  if (_state.clockedIn && _state.onMealBreak && _state.mealSince) {
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(_state.mealSince).getTime()) / 60000));
+    document.getElementById('tc-meal-elapsed').textContent = fmtHours(mins);
+    mealBox.style.display = '';
+  } else {
+    mealBox.style.display = 'none';
+  }
 }
+
+// Refresh the on-screen counters every 15 s (they change once a minute),
+// and re-sync with the server whenever the page comes back to the front
+// (a phone that slept would otherwise show stale numbers).
+setInterval(() => { if (_state && !document.hidden) renderSummaryRow(); }, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && _state) loadSummary(); });
 
 function renderHistory() {
   const el = document.getElementById('tc-history-list');
