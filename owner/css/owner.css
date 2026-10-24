@@ -640,3 +640,26 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-punch-where{flex:1}
 .tc-punch-nogps,.tc-punch-empty{color:#777}
 .tc-punch-replaced .tc-punch-type,.tc-punch-replaced .tc-punch-time{text-decoration:line-through;color:#777}
+
+/* ── Scheduler tab ─────────────────────────────────────────── */
+.sch-hint{color:var(--ink3);font-size:var(--fs-label);margin:0 0 10px}
+.sch-grid{overflow-x:auto}
+.sch-table{display:grid;gap:1px;background:var(--bg3);border:1px solid var(--bg3);min-width:900px}
+.sch-corner,.sch-dayhead,.sch-lane{background:var(--bg2);padding:8px 10px;font-weight:600;font-size:var(--fs-label)}
+.sch-dayhead.sch-today{background:var(--g3);color:var(--g)}
+.sch-lane{display:flex;align-items:flex-start}
+.sch-cell{background:#fff;min-height:84px;padding:5px;position:relative;cursor:pointer}
+.sch-cell.sch-today{background:#fbfdf9}
+.sch-cell.sch-over{background:var(--g3);outline:2px dashed var(--g2)}
+.sch-add{position:absolute;right:6px;bottom:2px;color:var(--ink3);opacity:0;font-size:1.3rem}
+.sch-cell:hover .sch-add{opacity:.7}
+.sch-card{background:var(--g3);border-left:4px solid var(--g2);border-radius:4px;padding:5px 7px;margin-bottom:5px;cursor:grab;font-size:var(--fs-label);line-height:1.25}
+.sch-card.sch-repeats{background:var(--b3);border-left-color:var(--b)}
+.sch-card.sch-done{opacity:.5}
+.sch-time{font-family:var(--font-mono);font-size:.9rem;color:var(--ink2)}
+.sch-name{font-weight:600}
+.sch-sub{color:var(--ink2);font-size:.95rem}
+.sch-note{color:var(--a)}
+.sch-crew{display:flex;flex-wrap:wrap;gap:6px 14px}
+.sch-crewchk,.sch-scope{display:flex;align-items:center;gap:6px;font-size:var(--fs-label)}
+@media (max-width:700px){.sch-table{min-width:760px}}
