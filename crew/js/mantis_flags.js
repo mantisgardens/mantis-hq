@@ -1,6 +1,8 @@
 /* =============================================================
    crew/js/mantis_flags.js
    Tester switch for features not yet released to the crew.
+   (The Time Card has been released; use window.MANTIS_TEST to gate the next
+   new feature, and remove the check when it is released.)
 
    Open the app with  ?test=1  once (e.g. .../crew/index.html?test=1)
    and this browser remembers it. Open with  ?test=0  to turn it off.
