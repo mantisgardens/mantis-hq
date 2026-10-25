@@ -185,15 +185,29 @@ function renderHistory() {
     el.innerHTML = `<div class="tc-empty-state">No time card history yet.</div>`;
     return;
   }
-  el.innerHTML = days.map(d => `
+  el.innerHTML = days.map((d, i) => `
     <div class="tc-history-row">
       <div class="tc-history-date">${esc(fmtDate(d.date))}</div>
       <div>
         <span class="tc-history-hours">${esc(fmtHours(d.minutes))}</span>
-        ${d.flagged ? '<span class="tc-history-flag">Review</span>' : ''}
+        ${d.flagged ? `<button type="button" class="tc-history-flag" onclick="toggleReviewInfo(${i})" aria-expanded="false" id="tc-flag-${i}">Review</button>` : ''}
       </div>
     </div>
+    ${d.flagged ? `<div class="tc-review-info" id="tc-review-${i}" style="display:none">
+      ${(d.reasons && d.reasons.length ? d.reasons : ['This day was marked for the owner to look at.']).map(r => `<div>${esc(r)}</div>`).join('')}
+      <div class="tc-review-note">Nothing for you to do. The owner reviews these days.</div>
+    </div>` : ''}
   `).join('');
+}
+
+// Tap "Review" to show why the day was flagged; tap again to hide.
+function toggleReviewInfo(i) {
+  const box = document.getElementById('tc-review-' + i);
+  const btn = document.getElementById('tc-flag-' + i);
+  if (!box) return;
+  const open = box.style.display === 'none';
+  box.style.display = open ? '' : 'none';
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 // ── Actions ──────────────────────────────────────────────────
