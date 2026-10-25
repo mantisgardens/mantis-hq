@@ -15,6 +15,9 @@ OWNER_ACTION_PATHS.schedEdit    = '/owner/sched/edit';
 OWNER_ACTION_PATHS.schedMove    = '/owner/sched/move';
 OWNER_ACTION_PATHS.schedCancel  = '/owner/sched/cancel';
 OWNER_ACTION_PATHS.schedManagers = '/owner/sched/managers';
+OWNER_ACTION_PATHS.schedReminders    = '/owner/sched/reminders';
+OWNER_ACTION_PATHS.schedRemindSend   = '/owner/sched/reminders/send';
+OWNER_ACTION_PATHS.schedRemindSkip   = '/owner/sched/reminders/skip';
 OWNER_ACTION_PATHS.schedDone    = '/owner/sched/done';
 OWNER_ACTION_PATHS.schedChangeRepeat = '/owner/sched/change-repeat';
 
@@ -67,6 +70,7 @@ async function schedInit() {
   schedLoaded = true;
   try { SCHED_PEOPLE = (await ownerFetch('schedManagers')).people || SCHED_PEOPLE; } catch (e) { /* keep default */ }
   await schedLoad();
+  remLoad();
 }
 
 function schedWeek(n) { schedMonday = n === 0 ? sdMondayOf(sdFmt(new Date())) : sdAdd(schedMonday, 7 * n); schedLoad(); }
@@ -255,4 +259,107 @@ async function schedToggleDone() {
   if (!schedEditing) return;
   try { await ownerPost('schedDone', { id: schedEditing.id, done: schedEditing.status !== 'done' }); schedClose(); await schedLoad(); }
   catch (e) { document.getElementById('sch-error').textContent = e.message; }
+}
+
+
+// ── Client reminder emails ───────────────────────────────────
+// Each time the Scheduler is opened the backend lists visits happening in the
+// next three days that haven't been reminded or skipped. Nothing is sent
+// until the owner checks it and presses Send.
+let remData = null;
+
+async function remLoad() {
+  const b = document.getElementById('sch-remind-banner');
+  try {
+    remData = await ownerFetch('schedReminders');
+  } catch (e) {
+    b.style.display = 'none';
+    return;
+  }
+  const n = remData.items.length, m = remData.noEmail.length;
+  if (!n && !m) { b.style.display = 'none'; return; }
+  b.style.display = '';
+  b.innerHTML = `<span>&#9993; <b>${n}</b> client reminder${n === 1 ? '' : 's'} ready to review` +
+    (m ? ` &middot; ${m} with no email on file` : '') + (remData.testMode ? ' &middot; TEST MODE' : '') + '</span>' +
+    `<button class="fbtn fbtn-save" onclick="remOpen()">Review</button>`;
+}
+
+function remWhen(it) {
+  const d = sdLabel(it.date) + (it.start ? ' ' + sdTime(it.start) : '');
+  return `${d} (${it.daysAway === 1 ? 'tomorrow' : 'in ' + it.daysAway + ' days'})`;
+}
+
+function remOpen() {
+  if (!remData) return;
+  document.getElementById('rem-test').style.display = remData.testMode ? '' : 'none';
+  remRender();
+  document.getElementById('rem-modal').classList.add('open');
+}
+function remClose(ev) { if (ev && ev.target && ev.target.id !== 'rem-modal') return; document.getElementById('rem-modal').classList.remove('open'); }
+
+function remRender() {
+  const items = remData.items;
+  document.getElementById('rem-list').innerHTML = items.length ? items.map((it, i) => `
+    <div class="rem-card" id="rem-card-${i}">
+      <label class="rem-head"><input type="checkbox" id="rem-chk-${i}"${it.defaultChecked ? ' checked' : ''} onchange="remCount()"/>
+        <span><b>${esc(it.clientName)}</b> &mdash; ${esc(remWhen(it))}${it.repeatText ? ` <span class="sch-freq">&#8635; ${esc(it.repeatText)}</span>` : ''}</span></label>
+      ${it.noTime ? '<div class="rem-warn">No start time is set on this visit, so the email gives the date only.</div>' : ''}
+      <label class="form-label">To</label><input class="form-input" id="rem-to-${i}" value="${esc(it.to)}"/>
+      <label class="form-label">Subject</label><input class="form-input" id="rem-sub-${i}" value="${esc(it.subject)}"/>
+      <label class="form-label">Message (your signature is added automatically; **text** = bold)</label>
+      <textarea class="form-input" id="rem-body-${i}" rows="8">${esc(it.body)}</textarea>
+      <div class="rem-err" id="rem-err-${i}"></div>
+      <button class="fbtn fbtn-cancel" onclick="remSkip(${i})">Skip &mdash; no reminder for this visit</button>
+    </div>`).join('') : '<div class="empty-state">No reminders to review.</div>';
+  const ne = remData.noEmail;
+  document.getElementById('rem-noemail').innerHTML = ne.length
+    ? `<div class="rem-noemail"><b>No email on file</b> (add one in the client record):<br>` +
+      ne.map(n => `${esc(n.clientName)} &mdash; ${esc(sdLabel(n.date))}`).join('<br>') + '</div>' : '';
+  remCount();
+}
+
+function remCount() {
+  const n = remData.items.filter((_, i) => { const c = document.getElementById('rem-chk-' + i); return c && c.checked; }).length;
+  const b = document.getElementById('rem-send-btn');
+  b.textContent = `Send checked (${n})`;
+  b.disabled = n === 0;
+}
+
+async function remSendChecked() {
+  const picked = [];
+  remData.items.forEach((it, i) => {
+    if (document.getElementById('rem-chk-' + i).checked) picked.push({ i, visitId: it.visitId,
+      to: document.getElementById('rem-to-' + i).value, subject: document.getElementById('rem-sub-' + i).value,
+      body: document.getElementById('rem-body-' + i).value });
+  });
+  if (!picked.length) return;
+  const btn = document.getElementById('rem-send-btn'); btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const out = await ownerPost('schedRemindSend', { items: picked.map(({ i, ...rest }) => rest) }, 60000);
+    const okIds = new Set(out.results.filter(r => r.ok).map(r => r.visitId));
+    out.results.filter(r => !r.ok).forEach(r => {
+      const p = picked.find(x => x.visitId === r.visitId);
+      if (p) document.getElementById('rem-err-' + p.i).textContent = r.error;
+    });
+    const test = out.results.some(r => r.ok && r.test);
+    showToast(okIds.size ? (test ? `Sent ${okIds.size} TEST email(s) to the test address` : `Sent ${okIds.size} reminder(s)`) : 'Nothing was sent');
+    if (!test) { remData.items = remData.items.filter(it => !okIds.has(it.visitId)); remRender(); }
+    else {
+      // Test mode: nothing is recorded, so the cards stay. Mark them so it is clear the test email went out.
+      picked.filter(p => okIds.has(p.visitId)).forEach(p => {
+        document.getElementById('rem-chk-' + p.i).checked = false;
+        const e = document.getElementById('rem-err-' + p.i); e.style.color = 'var(--g)'; e.textContent = '\u2713 Test email sent to the test address (not recorded; remove test mode to go live).';
+      });
+      remCount();
+    }
+    remLoad();
+  } catch (e) { showToast('Send failed: ' + e.message); remCount(); }
+}
+
+async function remSkip(i) {
+  const it = remData.items[i];
+  try {
+    await ownerPost('schedRemindSkip', { visitIds: [it.visitId] });
+    remData.items.splice(i, 1); remRender(); remLoad();
+  } catch (e) { showToast('Could not skip: ' + e.message); }
 }
