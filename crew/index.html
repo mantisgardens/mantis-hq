@@ -80,11 +80,8 @@
     <div class="home-welcome">What would you like to open?</div>
     <div class="home-welcome-sub">Choose a module below</div>
 
-    <div class="nav-cards">
-      <!-- Test-only until released: shown when the browser has the tester
-           flag (?test=1, see js/mantis_flags.js). To release to everyone,
-           delete style="display:none" and the flag check in mantis_landing.js. -->
-      <div class="nav-card timecard" id="timecard-nav-card" style="display:none" onclick="goTo('timecard')">
+    <div class="nav-cards has-timecard">
+      <div class="nav-card timecard" id="timecard-nav-card" onclick="goTo('timecard')">
         <div class="nav-card-icon">&#9201;</div>
         <div class="nav-card-title">Time Card</div>
         <div class="nav-card-desc">Clock in and out for the day, track meal breaks, and see your hours.</div>
@@ -148,6 +145,6 @@
 <script src="js/mantis_config.js?v=23"></script>
 <script src="js/session_timeout.js?v=22"></script>
 <script src="js/mantis_flags.js?v=1"></script>
-<script src="js/mantis_landing.js?v=33"></script>
+<script src="js/mantis_landing.js?v=34"></script>
 </body>
 </html>

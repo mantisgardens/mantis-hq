@@ -33,9 +33,9 @@
 </head>
 <body>
 
-<!-- Test-mode reminder: punches here are written to the REAL time card data (Firestore). -->
-<div style="background:#b45309;color:#fff;text-align:center;font:600 13px/1.4 system-ui,sans-serif;padding:6px 10px">
-  TEST MODE &mdash; punches are saved to the real Time Card. Delete test entries before payroll.
+<!-- Shown only in tester mode (?test=1, see js/mantis_flags.js); the Time Card itself is released to everyone. -->
+<div id="tester-banner" style="display:none;background:#b45309;color:#fff;text-align:center;font:600 13px/1.4 system-ui,sans-serif;padding:6px 10px">
+  TESTER MODE &mdash; new features may show here. Punches are still saved to the real Time Card.
 </div>
 
 <!-- Header -->
@@ -207,8 +207,7 @@
 
 <script src="js/mantis_flags.js?v=1"></script>
 <script>
-  // Test-only until released: send anyone without the tester flag home.
-  if (!window.MANTIS_TEST) window.location.replace('index.html');
+  if (window.MANTIS_TEST) document.getElementById('tester-banner').style.display = '';
 </script>
 <script src="../config.js?v=1"></script>
 <script src="js/mantis_config.js?v=1"></script>
