@@ -682,3 +682,16 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-notes-view{min-height:84px;max-height:220px;overflow:auto;border:1.5px solid var(--bg3);border-radius:6px;padding:10px 12px;background:#fff;cursor:text;font-size:var(--fs-body);line-height:1.5}
 .sch-notes-view:hover{border-color:var(--g)}
 .sch-notes-empty{color:var(--ink3);font-style:italic}
+
+/* ── Google Calendar import ── */
+.imp-sec{font-weight:600;margin:14px 0 4px;font-size:var(--fs-sub)}
+.imp-wrap{overflow:auto;max-height:46vh;border:1px solid var(--bg3);border-radius:6px}
+.imp-table{width:100%;border-collapse:collapse;font-size:var(--fs-label)}
+.imp-table th{position:sticky;top:0;background:var(--bg2);text-align:left;padding:6px 8px}
+.imp-table td{padding:6px 8px;border-top:1px solid var(--bg3);vertical-align:top}
+.imp-needs{background:var(--a3)}
+.imp-muted{color:var(--ink3)}
+.imp-hint{color:var(--a);font-size:.95rem;margin-top:2px}
+.imp-conf{color:var(--g);font-size:.9rem}
+.imp-client{min-width:260px}
+.imp-list{margin:0;padding-left:20px;color:var(--ink2)}
