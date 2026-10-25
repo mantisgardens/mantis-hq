@@ -129,7 +129,9 @@ function renderStatusCard() {
     btn.textContent = 'Clock Out';
     btn.className = 'tc-clock-btn out';
     label.textContent = _state.onMealBreak ? 'On Meal Break' : 'Clocked In';
-    since.textContent = _state.since ? `Since ${fmtTime(_state.since)}` : '';
+    // On a meal break show when the break started, otherwise when they clocked in.
+    const sinceTs = _state.onMealBreak && _state.mealSince ? _state.mealSince : _state.since;
+    since.textContent = sinceTs ? `Since ${fmtTime(sinceTs)}` : '';
     mealRow.style.display = '';
     if (_state.onMealBreak) {
       mealBtn.textContent = 'End Meal Break';
@@ -195,7 +197,7 @@ function renderHistory() {
     </div>
     ${d.flagged ? `<div class="tc-review-info" id="tc-review-${i}" style="display:none">
       ${(d.reasons && d.reasons.length ? d.reasons : ['This day was marked for the owner to look at.']).map(r => `<div>${esc(r)}</div>`).join('')}
-      <div class="tc-review-note">Nothing for you to do. The owner reviews these days.</div>
+      <div class="tc-review-note">No action needed - information only.</div>
     </div>` : ''}
   `).join('');
 }
