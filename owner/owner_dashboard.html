@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=54">
+  <link rel="stylesheet" href="css/owner.css?v=55">
 </head>
 <body>
 
@@ -200,6 +200,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="fbtn fbtn-delete" id="tcc-delete" onclick="deleteTcDay()" title="Remove this whole day, e.g. a card submitted by mistake">Delete Day</button>
         <button class="fbtn fbtn-cancel" onclick="closeTcCorrectModal()">Cancel</button>
         <button class="fbtn fbtn-save" onclick="saveTcCorrection()">Save Correction</button>
       </div>
@@ -604,7 +605,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=69"></script>
+<script src="js/owner_dashboard.js?v=71"></script>
 <script src="js/owner_scheduler.js?v=16"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
