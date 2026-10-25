@@ -584,6 +584,11 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-correct-note{font-size:var(--fs-small);color:var(--ink3);font-style:italic;
   margin-top:14px;line-height:1.5}
 .tc-cell-clickable{cursor:pointer}
+.tc-approve-cell{cursor:pointer;white-space:nowrap}
+.tc-approve-cell:hover{background:var(--g3)}
+.tc-appr{margin-left:6px;font-weight:700}
+.tc-appr-ok{color:#1e8e3e}
+.tc-appr-changed{color:#c77700}
 .tc-cell-clickable:hover{background:var(--g3)!important;outline:1px solid var(--g4)}
 .tc-corrected-mark{color:var(--a);font-size:var(--fs-tiny);margin-left:2px}
 
