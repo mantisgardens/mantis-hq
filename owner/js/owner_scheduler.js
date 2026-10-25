@@ -56,7 +56,7 @@ function sdTime(t) { if (!t) return ''; const [h, m] = t.split(':').map(Number);
 // clock popup ignores step and offers every minute).
 function schedTimeOptions(selected) {
   let o = '<option value="">—</option>', found = !selected;
-  for (let m = 5 * 60; m <= 21 * 60 + 45; m += 15) {
+  for (let m = 6 * 60; m <= 19 * 60; m += 15) {
     const v = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
     if (v === selected) found = true;
     o += `<option value="${v}"${v === selected ? ' selected' : ''}>${sdTime(v).replace(/([ap])$/, ' $1m').toUpperCase()}</option>`;
