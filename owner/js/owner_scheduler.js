@@ -39,6 +39,24 @@ const SCHED_REPEATS = [
 ];
 let SCHED_PEOPLE = ['All Managers']; // replaced by the crew-sheet managers on load
 
+// Colour classes match the Crew Portal (t1 green, t2 purple, t3 pink, install orange).
+// Managers get a row each: Ashley blue, Brooke teal, All Managers brown.
+const SCHED_PERSON_CLS = { ashley: 'sch-c-ashley', brooke: 'sch-c-brooke', 'all managers': 'sch-c-mgr' };
+function schedPersonOf(v) { return (v.person || '').trim() || 'All Managers'; }
+function schedColorClass(v) {
+  if (v.lane !== 'managers') return 'sch-c-' + v.lane;
+  return SCHED_PERSON_CLS[schedPersonOf(v).toLowerCase()] || 'sch-c-mgr2';
+}
+// Rows shown in the grid. Manager rows: each named manager, then All Managers
+// (plus any person who only appears on an existing visit).
+function schedRows() {
+  const rows = SCHED_LANES.filter(l => l.id !== 'managers').map(l => ({ key: l.id, lane: l.id, person: '', label: l.label, cls: 'sch-c-' + l.id }));
+  const names = SCHED_PEOPLE.filter(p => p !== 'All Managers');
+  schedVisits.forEach(v => { if (v.lane === 'managers') { const n = schedPersonOf(v); if (n !== 'All Managers' && !names.includes(n)) names.push(n); } });
+  [...names, 'All Managers'].forEach(n => rows.push({ key: 'managers:' + n, lane: 'managers', person: n, label: n, cls: SCHED_PERSON_CLS[n.toLowerCase()] || 'sch-c-mgr2' }));
+  return rows;
+}
+
 let schedMonday = null;      // 'YYYY-MM-DD' of the Monday being shown
 let schedVisits = [];
 let schedCrewNames = null;
@@ -119,13 +137,14 @@ function schedRender() {
   let h = `<div class="sch-table" style="grid-template-columns: 92px repeat(${days.length}, minmax(150px, 1fr))">`;
   h += '<div class="sch-corner"></div>';
   days.forEach(d => { h += `<div class="sch-dayhead${d === today ? ' sch-today' : ''}">${esc(sdLabel(d))}</div>`; });
-  SCHED_LANES.forEach(lane => {
-    h += `<div class="sch-lane">${lane.label}</div>`;
+  schedRows().forEach(lane => {
+    h += `<div class="sch-lane ${lane.cls}">${esc(lane.label)}</div>`;
     days.forEach(d => {
-      const items = schedVisits.filter(v => v.lane === lane.id && v.date === d);
-      h += `<div class="sch-cell${d === today ? ' sch-today' : ''}" data-date="${d}" data-lane="${lane.id}"
+      const items = schedVisits.filter(v => v.lane === lane.lane && v.date === d && (lane.lane !== 'managers' || schedPersonOf(v) === lane.person));
+      const k = esc(lane.key);
+      h += `<div class="sch-cell${d === today ? ' sch-today' : ''}" data-date="${d}" data-lane="${k}"
               ondragover="event.preventDefault();this.classList.add('sch-over')" ondragleave="this.classList.remove('sch-over')"
-              ondrop="schedDrop(event,'${d}','${lane.id}')" onclick="schedCellClick(event,'${d}','${lane.id}')">`;
+              ondrop="schedDrop(event,'${d}','${k}')" onclick="schedCellClick(event,'${d}','${k}')">`;
       items.forEach(v => { h += schedCard(v); });
       h += '<span class="sch-add" title="Add here">+</span></div>';
     });
@@ -147,7 +166,7 @@ function schedCard(v) {
   const time = v.start ? sdTime(v.start) + (v.end ? '–' + sdTime(v.end) : '') : '';
   const who = v.lane === 'managers' ? (v.person || '') : (v.crew || []).join(', ');
   const name = v.lane === 'managers' ? (v.title || v.person) : schedClientLabel(v);
-  return `<div class="sch-card${v.status === 'done' ? ' sch-done' : ''}${v.jobId ? ' sch-repeats' : ''}" draggable="true"
+  return `<div class="sch-card${v.status === 'done' ? ' sch-done' : ''}${v.jobId ? ' sch-repeats' : ''} ${schedColorClass(v)}" draggable="true"
       ondragstart="event.dataTransfer.setData('text/plain','${esc(v.id)}')" onclick="event.stopPropagation();schedOpen('${esc(v.id)}')">
       ${time ? `<div class="sch-time">${esc(time)}</div>` : ''}
       <div class="sch-name">${esc(name)}</div>
@@ -164,15 +183,21 @@ async function schedDrop(ev, date, lane) {
   document.querySelectorAll('.sch-over').forEach(e => e.classList.remove('sch-over'));
   const id = ev.dataTransfer.getData('text/plain');
   const v = schedVisits.find(x => x.id === id);
-  if (!v || (v.date === date && v.lane === lane)) return;
+  if (!v) return;
+  const [tl, tp] = lane.startsWith('managers:') ? ['managers', lane.slice(9)] : [lane, ''];
+  const samePerson = tl !== 'managers' || schedPersonOf(v) === tp;
+  if (v.date === date && v.lane === tl && samePerson) return;
   try {
-    if (v.lane !== lane) await ownerPost('schedEdit', { id, scope: 'this', fields: { lane } });
+    if (v.lane !== tl || !samePerson) await ownerPost('schedEdit', { id, scope: 'this', fields: tl === 'managers' ? { lane: tl, person: tp } : { lane: tl } });
     if (v.date !== date) await ownerPost('schedMove', { id, date });
     await schedLoad();
   } catch (e) { showToast('Could not move: ' + e.message); schedLoad(); }
 }
 
-function schedCellClick(ev, date, lane) { schedOpen(null, date, lane); }
+function schedCellClick(ev, date, lane) {
+  if (lane.startsWith('managers:')) { schedOpen(null, date, 'managers'); document.getElementById('sch-person').value = lane.slice(9); }
+  else schedOpen(null, date, lane);
+}
 
 // ── modal ────────────────────────────────────────────────────
 function schedOpen(id, date, lane) {
