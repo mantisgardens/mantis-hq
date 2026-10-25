@@ -221,3 +221,8 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .tc-edit-error{color:#b3261e;font-size:var(--fs-label);min-height:1.2em;margin:8px 0}
 
 .tc-meal-card{margin-bottom:12px;background:var(--a4);text-align:center}
+
+.tc-history-flag{cursor:pointer;font-family:inherit}
+.tc-review-info{background:var(--a3);border:1px solid var(--a4);border-radius:8px;padding:10px 12px;margin:-4px 0 10px;font-size:var(--fs-small);color:var(--ink2);line-height:1.4}
+.tc-review-info div+div{margin-top:6px}
+.tc-review-note{color:var(--ink3);font-style:italic}
