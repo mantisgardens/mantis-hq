@@ -404,6 +404,8 @@ const OWNER_ACTION_PATHS = {
   ownerDeleteCrew: '/owner/crew/delete',
   ownerTimecards: '/owner/timecards',
   ownerCorrectTimeCard: '/owner/timecards/correct',
+  ownerDeleteTimeCard: '/owner/timecards/delete',
+  ownerApproveTimeCard: '/owner/timecards/approve',
   ownerTimecardDay: '/owner/timecards/day',
   ownerGustoExport: '/owner/timecards/gusto',
   ownerMissingWorkRecords: '/owner/missing-work-records',
@@ -2381,7 +2383,7 @@ function renderTimeCardGrid() {
       ${r.days.map(d => `<td class="${d.flagged ? 'tc-cell-flagged ' : ''}${d.hours == null ? '' : 'tc-cell-clickable'}"
           ${d.hours == null ? '' : `onclick="openTcCorrectModal('${jsStr(r.name)}','${d.date}',${d.hours})"`}>${
             d.hours == null ? '\u2014' : d.hours}${d.corrected ? '<span class="tc-corrected-mark" title="Manually corrected">&#9998;</span>' : ''}${d.employeeEdited ? '<span class="tc-corrected-mark" title="Edited by the employee">&#128100;</span>' : ''}</td>`).join('')}
-      <td class="tc-col-total">${r.weekTotalHours}</td>
+      <td class="tc-col-total tc-approve-cell" onclick="tcToggleApproval('${jsStr(r.name)}')" title="${esc(tcApprovalTitle(r))}">${r.weekTotalHours}${tcApprovalMark(r)}</td>
       <td class="tc-col-total">${r.pay ? r.pay.regularHours : ''}</td>
       <td class="tc-col-total">${r.pay ? r.pay.overtime15Hours : ''}</td>
       <td class="tc-col-total">${r.pay ? r.pay.doubleTimeHours : ''}</td>
@@ -2391,6 +2393,46 @@ function renderTimeCardGrid() {
   table.querySelector('thead').innerHTML = thead;
   table.querySelector('tbody').innerHTML = rowsHtml;
 }
+
+// ── Weekly approval (click a person's Total) ─────────────────
+function tcApprovalMark(r) {
+  if (!r.approval) return '';
+  return r.approval.changed
+    ? '<span class="tc-appr tc-appr-changed">&#9888;</span>'
+    : '<span class="tc-appr tc-appr-ok">&#10003;</span>';
+}
+function tcApprovalTitle(r) {
+  const a = r.approval;
+  if (!a) return 'Click to approve this week\u2019s hours';
+  const when = new Date(a.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return a.changed ? `Hours changed since ${a.by} approved ${a.hours} h on ${when}. Click to re-approve or remove.`
+                   : `Approved by ${a.by} on ${when}. Click to remove the approval.`;
+}
+async function tcToggleApproval(name) {
+  const r = _tcData.rows.find(x => x.name === name);
+  if (!r) return;
+  const range = `${fmtTcShort(_tcData.weekStart)} \u2013 ${fmtTcShort(_tcData.weekEnd)}`;
+  let approve;
+  if (!r.approval) {
+    if (!r.weekTotalHours) { showToast('No hours to approve this week'); return; }
+    if (!confirm(`Approve ${r.weekTotalHours} hours for ${name}, ${range}?`)) return;
+    approve = true;
+  } else if (r.approval.changed) {
+    approve = confirm(`${name}'s hours changed after approval (was ${r.approval.hours}, now ${r.weekTotalHours}).\n\nOK = approve the new total.\nCancel = leave as is.`);
+    if (!approve) {
+      if (!confirm('Remove the approval instead?')) return;
+    }
+  } else {
+    if (!confirm(`Remove the approval of ${name}'s week, ${range}?`)) return;
+    approve = false;
+  }
+  try {
+    await ownerPost('ownerApproveTimeCard', { name, weekStart: _tcData.weekStart, approve });
+    showToast(approve ? 'Week approved \u2713' : 'Approval removed');
+    await loadTimeCards();
+  } catch (err) { showToast('Could not save: ' + err.message); }
+}
+function fmtTcShort(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
 
 // ── Correction modal ─────────────────────────────────────────
 let _tcCorrectTarget = null; // { name, date }
@@ -2484,6 +2526,27 @@ async function saveTcCorrection() {
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save Correction';
+  }
+}
+
+// Delete a whole day (e.g. a card submitted by mistake on a weekend). Needs a
+// reason; the punches and an audit entry are kept on the server.
+async function deleteTcDay() {
+  const reason = document.getElementById('tcc-reason').value.trim();
+  if (!reason) { showToast('Type the reason in the Reason box first, then press Delete Day'); document.getElementById('tcc-reason').focus(); return; }
+  const t = _tcCorrectTarget;
+  if (!t || !confirm(`Delete ${t.name}'s time card for ${fmtTcDate(t.date)}?\n\nThe day is removed from hours and pay. The original punches and your reason stay in the audit log.`)) return;
+  const btn = document.getElementById('tcc-delete');
+  btn.disabled = true;
+  try {
+    await ownerPost('ownerDeleteTimeCard', { name: t.name, date: t.date, reason });
+    showToast('Day deleted \u2713');
+    closeTcCorrectModal();
+    await loadTimeCards();
+  } catch (err) {
+    showToast('Could not delete: ' + err.message);
+  } finally {
+    btn.disabled = false;
   }
 }
 
