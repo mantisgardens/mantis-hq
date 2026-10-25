@@ -678,3 +678,7 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .rem-err{color:#a22;margin:6px 0}
 .rem-test{background:#fde8e8;color:#8a1c1c;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-weight:600}
 .rem-noemail{margin-top:8px;padding:10px 12px;background:var(--bg2);border-radius:6px;color:var(--ink2)}
+
+.sch-notes-view{min-height:84px;max-height:220px;overflow:auto;border:1.5px solid var(--bg3);border-radius:6px;padding:10px 12px;background:#fff;cursor:text;font-size:var(--fs-body);line-height:1.5}
+.sch-notes-view:hover{border-color:var(--g)}
+.sch-notes-empty{color:var(--ink3);font-style:italic}
