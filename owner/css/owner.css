@@ -654,7 +654,6 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-add{position:absolute;right:6px;bottom:4px;width:34px;height:34px;line-height:32px;text-align:center;border-radius:50%;background:var(--g3);color:var(--g);border:1px solid var(--g4);font-size:1.7rem;font-weight:600;opacity:.65}
 .sch-cell:hover .sch-add{opacity:1;background:var(--g);color:#fff}
 .sch-card{background:var(--g3);border-left:4px solid var(--g2);border-radius:4px;padding:5px 7px;margin-bottom:5px;cursor:grab;font-size:var(--fs-label);line-height:1.25}
-.sch-card.sch-repeats{background:var(--b3);border-left-color:var(--b)}
 .sch-card.sch-done{opacity:.5}
 .sch-time{font-family:var(--font-mono);font-size:.9rem;color:var(--ink2)}
 .sch-name{font-weight:600}
@@ -698,3 +697,15 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 
 .imp-skipped{margin-top:12px;color:var(--ink2)}
 .imp-skipped summary{cursor:pointer}
+
+/* Team colours (same as the Crew Portal) */
+.sch-c-t1{--sc:#217a21;--sb:#e6f5e6}
+.sch-c-t2{--sc:#7c4dbf;--sb:#f1e8fb}
+.sch-c-t3{--sc:#c94f85;--sb:#fce8f0}
+.sch-c-tInstall{--sc:#c2700a;--sb:#fdf0dc}
+.sch-c-ashley{--sc:#1f6fa8;--sb:#e3f0fa}
+.sch-c-brooke{--sc:#0f8a84;--sb:#dff3f1}
+.sch-c-mgr{--sc:#6b4a20;--sb:#f5ede0}
+.sch-c-mgr2{--sc:#5a5a5a;--sb:#ececec}
+.sch-card[class*="sch-c-"]{background:var(--sb);border-left-color:var(--sc)}
+.sch-lane[class*="sch-c-"]{background:var(--sb);color:var(--sc);border-left:4px solid var(--sc)}
