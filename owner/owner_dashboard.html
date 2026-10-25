@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=51">
+  <link rel="stylesheet" href="css/owner.css?v=52">
 </head>
 <body>
 
@@ -319,7 +319,8 @@
           <select class="form-input" id="sch-repeat"></select>
           <label class="form-label" style="margin-top:8px">Repeat until (optional)</label><input class="form-input" id="sch-until" type="date"/>
           <div id="sch-repeat-hint" style="display:none;color:var(--ink3);margin-top:6px">Changing how often this repeats starts the new pattern on this visit's date. Earlier visits are not changed.</div></div>
-        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-input" id="sch-notes" rows="4"></textarea></div>
+        <div class="form-group full"><label class="form-label">Notes</label><div class="sch-notes-view" id="sch-notes-view" onclick="schedEditNotes()" title="Click to edit"></div>
+          <div class="ne-hint" style="margin-top:4px">Click the box to edit: bold, italic, links, text size and colors, same as Morning Notes.</div></div>
         <div class="form-group full" id="sch-scope-row"><label class="form-label">Apply field changes (and Cancel) to:</label>
           <label class="sch-scope"><input type="radio" name="sch-scope" value="this" checked/> This visit only</label>
           <label class="sch-scope"><input type="radio" name="sch-scope" value="future"/> This and all future visits</label></div>
@@ -587,7 +588,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=68"></script>
-<script src="js/owner_scheduler.js?v=13"></script>
+<script src="js/owner_dashboard.js?v=69"></script>
+<script src="js/owner_scheduler.js?v=14"></script>
 </body>
 </html>
