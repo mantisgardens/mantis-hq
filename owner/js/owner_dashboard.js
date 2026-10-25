@@ -1550,13 +1550,15 @@ function saveNoteEditor() {
   const target = _neTarget;
   if (target.kind === 'section') {
     updateItem(target.si, target.ii, clean);
+  } else if (target.kind === 'sched') {
+    schedNotesSet(clean); // Scheduler job form (owner_scheduler.js)
   } else {
     updateLeadItem(target.ci, target.ii, clean);
   }
   document.getElementById('note-editor-modal').classList.remove('open');
   document.body.style.overflow = '';
   _neTarget = null;
-  if (target.kind === 'lead') renderLeadsEditor(); else renderNotesEditor();
+  if (target.kind === 'lead') renderLeadsEditor(); else if (target.kind === 'section') renderNotesEditor();
 }
 
 // Wraps the current selection inside the canvas with a new element built

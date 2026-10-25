@@ -43,6 +43,25 @@ let schedVisits = [];
 let schedCrewNames = null;
 let schedEditing = null;     // visit being edited, or null for new
 let schedLoaded = false;
+let schedNotesHtml = '';     // notes of the visit being edited (small HTML: bold, italic, links, size, color)
+
+// Notes are rich text like Morning Notes. Older notes were plain text, so
+// text with no tags is escaped and its line breaks kept.
+function schedNotesToHtml(s) {
+  s = String(s || '');
+  if (!s) return '';
+  return sanitizeNoteHtml(/<[a-z!\/]/i.test(s) ? s : esc(s).replace(/\n/g, '<br>'));
+}
+function schedNotesShow() {
+  const el = document.getElementById('sch-notes-view');
+  el.innerHTML = schedNotesHtml || '<span class="sch-notes-empty">Click to add notes…</span>';
+}
+function schedNotesSet(html) {
+  const probe = document.createElement('div'); probe.innerHTML = html;
+  schedNotesHtml = probe.textContent.trim() ? html : '';
+  schedNotesShow();
+}
+function schedEditNotes() { _neTarget = { kind: 'sched' }; _openNoteEditorModal(schedNotesHtml); }
 
 // ── date helpers (local, no time zone surprises) ─────────────
 function sdParse(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
@@ -172,7 +191,8 @@ function schedOpen(id, date, lane) {
   $('sch-date').value = v.date;
   $('sch-start').innerHTML = schedTimeOptions(v.start || '');
   $('sch-end').innerHTML = schedTimeOptions(v.end || '');
-  $('sch-notes').value = v.notes || '';
+  schedNotesHtml = schedNotesToHtml(v.notes);
+  schedNotesShow();
   // Repeat: for a new job pick a pattern; for an existing visit it shows the
   // current pattern and changing it restarts the series from this visit.
   const cur = schedEditing && schedEditing.repeat ? schedEditing.repeat : null;
@@ -218,7 +238,7 @@ function schedReadForm() {
     address: $('sch-address').value.trim(),
     person: $('sch-lane').value === 'managers' ? $('sch-person').value : '',
     start: $('sch-start').value, end: $('sch-end').value,
-    notes: $('sch-notes').value,
+    notes: schedNotesHtml,
   };
 }
 
