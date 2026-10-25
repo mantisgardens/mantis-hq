@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=52">
+  <link rel="stylesheet" href="css/owner.css?v=53">
 </head>
 <body>
 
@@ -78,6 +78,7 @@
         <button class="wk-btn" onclick="schedWeek(+1)">&#8250;</button>
         <button class="wk-btn" onclick="schedWeek(0)" style="width:auto;padding:0 12px">Today</button>
         <button class="fbtn fbtn-save" onclick="schedOpen(null)" style="margin-left:12px">+ New job</button>
+        <button class="fbtn fbtn-cancel" onclick="impOpen()" title="Bring events over from the Google Calendars">Import from Google Calendar</button>
       </div>
     </div>
     <div class="sch-hint">Click a <b>+</b> to add a job, click a card to edit it, or drag a card to another day or team. The small tag shows how often a job repeats.</div>
@@ -352,6 +353,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="imp-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="impClose(event)">
+  <div class="modal" style="max-width:1000px;width:96vw">
+    <div class="modal-header"><div class="modal-title">Import from Google Calendar</div><button class="modal-close" onclick="impClose()">&#10005;</button></div>
+    <div class="modal-body">
+      <div id="imp-body"><div class="empty-state">Reading the calendars&hellip; this can take a few seconds.</div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-cancel" onclick="impToggleAll(true)">Check all</button>
+      <button class="fbtn fbtn-cancel" onclick="impToggleAll(false)">Uncheck all</button>
+      <button class="fbtn fbtn-cancel" onclick="impClose()" style="margin-left:auto">Close</button>
+      <button class="fbtn fbtn-save" id="imp-go" onclick="impApply()" disabled>Import checked</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="client-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -590,5 +606,6 @@
 <script src="js/session_timeout.js?v=27"></script>
 <script src="js/owner_dashboard.js?v=69"></script>
 <script src="js/owner_scheduler.js?v=14"></script>
+<script src="js/owner_scheduler_import.js?v=1"></script>
 </body>
 </html>
