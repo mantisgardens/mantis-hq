@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=50">
+  <link rel="stylesheet" href="css/owner.css?v=51">
 </head>
 <body>
 
@@ -81,6 +81,7 @@
       </div>
     </div>
     <div class="sch-hint">Click a <b>+</b> to add a job, click a card to edit it, or drag a card to another day or team. The small tag shows how often a job repeats.</div>
+    <div id="sch-remind-banner" class="sch-remind" style="display:none"></div>
     <div id="sch-grid" class="sch-grid"></div>
   </div>
 
@@ -334,6 +335,22 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="rem-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="remClose(event)">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header"><div class="modal-title">Client reminders</div><button class="modal-close" onclick="remClose()">&#10005;</button></div>
+    <div class="modal-body">
+      <div id="rem-test" class="rem-test" style="display:none">TEST MODE &mdash; every email goes to the test address, not the client.</div>
+      <div class="sch-hint" style="margin-top:0">Visits in the next three days. Check the ones to send, edit anything you like, then Send. Skip means no reminder for that visit.</div>
+      <div id="rem-list"></div>
+      <div id="rem-noemail"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="fbtn fbtn-cancel" onclick="remClose()">Close</button>
+      <button class="fbtn fbtn-save" id="rem-send-btn" onclick="remSendChecked()">Send checked</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="client-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeClientModal(event)">
   <div class="modal">
     <div class="modal-header">
@@ -571,6 +588,6 @@
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
 <script src="js/owner_dashboard.js?v=68"></script>
-<script src="js/owner_scheduler.js?v=9"></script>
+<script src="js/owner_scheduler.js?v=11"></script>
 </body>
 </html>
