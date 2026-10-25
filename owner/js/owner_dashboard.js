@@ -2691,7 +2691,8 @@ async function exportGustoCsv() {
     if (!d.rows.length) { showToast('No hours in that period.'); return; }
     let msg = `Gusto file for ${d.periodStart} to ${d.periodEnd} (${d.rows.length} people).`;
     if (d.needsReview) msg += `\n\n${d.needsReview} flagged day(s) in this period are still under Needs Review.`;
-    if (d.extras.length) msg += `\n\nPremium (meal/rest) pay is NOT in the file; add by hand:\n` + d.extras.map(e => `  ${e.name}: ${e.premiumPayHours} h`).join('\n');
+    const prem = d.rows.filter(r => r.missedBreak > 0);
+    if (prem.length) msg += `\n\nMissed meal/rest break (premium) hours included:\n` + prem.map(r => `  ${r.first} ${r.last}: ${r.missedBreak} h`).join('\n');
     if (!confirm(msg + '\n\nDownload?')) return;
     const url = URL.createObjectURL(new Blob([d.csv], { type: 'text/csv' }));
     const a = document.createElement('a'); a.href = url; a.download = d.filename; a.click(); URL.revokeObjectURL(url);
