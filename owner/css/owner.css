@@ -669,3 +669,12 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-corner,.sch-dayhead{position:sticky;top:0;z-index:3}
 .sch-lane{position:sticky;left:0;z-index:2}
 .sch-corner{left:0;z-index:4}
+
+/* ── Client reminder emails ── */
+.sch-remind{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--a3);border:1px solid var(--a4);border-radius:6px;padding:10px 14px;margin:0 0 12px;font-size:var(--fs-small)}
+.rem-card{border:1px solid var(--bg3);border-radius:6px;padding:12px;margin-bottom:14px;background:#fff}
+.rem-head{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;font-size:var(--fs-small)}
+.rem-warn{color:var(--a);margin:0 0 8px}
+.rem-err{color:#a22;margin:6px 0}
+.rem-test{background:#fde8e8;color:#8a1c1c;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-weight:600}
+.rem-noemail{margin-top:8px;padding:10px 12px;background:var(--bg2);border-radius:6px;color:var(--ink2)}
