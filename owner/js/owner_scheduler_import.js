@@ -42,7 +42,8 @@ function impRow(it, i) {
     client = `<input class="form-input imp-client" id="imp-client-${i}" list="sch-clients" value="${esc(it.match.clientId ? impClientLabel(it.match.clientId) : '')}" placeholder="Pick a client, or leave blank to import as typed"/>${conf}${hint}`;
   }
   const flags = [it.timesRounded ? 'time rounded to a quarter hour' : '', it.multiDay ? 'spans several days: only the first day is imported' : '',
-    it.exceptions.length || it.exdates.length ? `${it.exceptions.length + it.exdates.length} skipped or edited date(s) carried over` : ''].filter(Boolean);
+    it.exceptions.length || it.exdates.length ? `${it.exceptions.length + it.exdates.length} skipped or edited date(s) carried over` : '',
+    it.fallback ? `Repeat not converted (${it.fallback.replace(/\.$/, '')}): only the next visit is imported, add the repeat by hand` : ''].filter(Boolean);
   return `<tr class="${it.defaultSelected ? '' : 'imp-needs'}">
     <td><input type="checkbox" id="imp-chk-${i}"${it.defaultSelected ? ' checked' : ''} onchange="impCount()"/></td>
     <td>${esc(when)}${it.repeat ? `<div><span class="sch-freq">&#8635; ${esc(it.repeatText)}</span></div>` : ''}</td>
@@ -54,7 +55,8 @@ function impRow(it, i) {
 function impRender() {
   const d = impData;
   const ready = d.items.filter(i => i.defaultSelected), needs = d.items.filter(i => !i.defaultSelected);
-  let h = `<div class="sch-hint" style="margin-top:0">${d.items.length} item(s) can be imported` +
+  let h = `<input class="form-input" id="imp-search" placeholder="Search everything the scan found (e.g. a client name)…" oninput="impFilter()" style="margin-bottom:8px"/>` +
+    `<div class="sch-hint" style="margin-top:0">${d.items.length} item(s) can be imported` +
     (d.alreadyImported ? `, ${d.alreadyImported} already imported earlier (skipped)` : '') +
     (d.unsupported.length ? `, ${d.unsupported.length} could not be converted (listed at the bottom)` : '') +
     '. Check the client suggested for each one, fix any that are wrong, then press Import. Only events from today forward are brought over.</div>';
@@ -64,9 +66,21 @@ function impRender() {
   h += table(needs, `No client found (${needs.length})`, 'Pick the client for each, or tick the box with the field left blank to import it under the name as written in the calendar.');
   if (d.unsupported.length) h += `<div class="imp-sec">Could not be converted (${d.unsupported.length})</div><div class="imp-muted" style="margin-bottom:6px">Set these up by hand with + New job.</div>` +
     '<ul class="imp-list">' + d.unsupported.map(u => `<li><b>${esc(u.title)}</b> (${esc(u.calendar)}${u.date ? ', ' + esc(sdLabel(u.date)) : ''}): ${esc(u.reason)}</li>`).join('') + '</ul>';
-  if (!d.items.length && !d.unsupported.length) h = '<div class="empty-state">Nothing new to import.</div>';
+  if (d.skipped && d.skipped.length) h += `<details class="imp-skipped"><summary>Found but not listed above (${d.skipped.length}): already imported, ended, or in the past</summary><ul class="imp-list">` +
+    d.skipped.map(u => `<li class="imp-skip-li"><b>${esc(u.title)}</b> (${esc(u.calendar)}): ${esc(u.reason)}</li>`).join('') + '</ul></details>';
+  if (d.perCalendar && d.perCalendar.length) h += `<div class="imp-muted" style="margin-top:10px">Calendars read: ${d.perCalendar.map(c => `${esc(c.calendar)} (${c.events} events)`).join(', ')}</div>`;
+  if (!d.items.length && !d.unsupported.length && !(d.skipped || []).length) h = '<div class="empty-state">Nothing new to import.</div>';
   document.getElementById('imp-body').innerHTML = h;
   impCount();
+}
+
+// Search box: hides rows and notes that do not contain the text.
+function impFilter() {
+  const q = (document.getElementById('imp-search').value || '').trim().toLowerCase();
+  document.querySelectorAll('#imp-body .imp-table tbody tr, #imp-body .imp-list li').forEach(el => {
+    el.style.display = !q || el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+  document.querySelectorAll('#imp-body details').forEach(dt => { if (q) dt.open = true; });
 }
 
 function impToggleAll(on) { impData.items.forEach((_, i) => { const c = document.getElementById('imp-chk-' + i); if (c) c.checked = on; }); impCount(); }

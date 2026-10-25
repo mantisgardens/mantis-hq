@@ -32,6 +32,7 @@ const SCHED_REPEATS = [
   { v: 'w4',    label: 'Every 4 weeks',         r: { every: 4, unit: 'week' } },
   { v: 'm1',    label: 'Monthly (same date)',   r: { every: 1, unit: 'month', monthMode: 'date' } },
   { v: 'm1n',   label: 'Monthly (same weekday, e.g. 2nd Tuesday)', r: { every: 1, unit: 'month', monthMode: 'nth' } },
+  { v: 'm1l',   label: 'Monthly (last weekday of the month, e.g. last Friday)', r: { every: 1, unit: 'month', monthMode: 'last' } },
   { v: 'm3',    label: 'Quarterly',             r: { every: 3, unit: 'month', monthMode: 'date' } },
   { v: 'm6',    label: 'Every 6 months',        r: { every: 6, unit: 'month', monthMode: 'date' } },
   { v: 'y1',    label: 'Yearly',                r: { every: 1, unit: 'year',  monthMode: 'date' } },
