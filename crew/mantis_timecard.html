@@ -33,9 +33,9 @@
 </head>
 <body>
 
-<!-- Test-mode reminder: punches here are written to the REAL time card sheet. -->
+<!-- Test-mode reminder: punches here are written to the REAL time card data (Firestore). -->
 <div style="background:#b45309;color:#fff;text-align:center;font:600 13px/1.4 system-ui,sans-serif;padding:6px 10px">
-  TEST MODE &mdash; punches are saved to the real Time Card sheet. Delete test entries before payroll.
+  TEST MODE &mdash; punches are saved to the real Time Card. Delete test entries before payroll.
 </div>
 
 <!-- Header -->
@@ -103,7 +103,7 @@
        needs a reason, and is shown to the owner for review. ═══ -->
   <div class="tc-fix-section">
     <div class="tc-history-title">Fix a day</div>
-    <div class="tc-fix-text">Forgot to clock out, or a time is wrong? Pick the day and correct your punches. The owner is told about every change, along with your reason.</div>
+    <div class="tc-fix-text">Forgot to clock out, or a time is wrong? Pick the day and correct your punches. Every change is logged, along with your reason for the change.</div>
     <div class="tc-fix-row">
       <select class="tc-fix-select" id="tc-fix-date"></select>
       <button class="tc-fix-btn" onclick="openEditDay()">Edit this day</button>
@@ -213,6 +213,6 @@
 <script src="../config.js?v=1"></script>
 <script src="js/mantis_config.js?v=1"></script>
 <script src="js/session_timeout.js?v=1"></script>
-<script src="js/crew_timecard.js?v=7"></script>
+<script src="js/crew_timecard.js?v=8"></script>
 </body>
 </html>
