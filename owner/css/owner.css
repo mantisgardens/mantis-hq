@@ -714,3 +714,24 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .sch-c-mgr2{--sc:#5a5a5a;--sb:#ececec}
 .sch-card[class*="sch-c-"]{background:var(--sb);border-left-color:var(--sc)}
 .sch-lane[class*="sch-c-"]{background:var(--sb);color:var(--sc);border-left:4px solid var(--sc)}
+
+/* Time Cards: today's live board */
+.tc-today{background:#fff;border:1px solid var(--bg3);border-radius:8px;margin:0 0 14px;padding:10px 14px}
+.tc-today-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.tc-today-title{font-weight:700;font-size:var(--fs-title)}
+.tc-today-asof{color:var(--ink3);font-size:var(--fs-small);flex:1}
+.tc-today-row{display:grid;grid-template-columns:minmax(120px,1.4fr) 130px 1.2fr 70px 70px;gap:8px;align-items:center;padding:7px 4px;border-top:1px solid var(--bg2);cursor:pointer}
+.tc-today-row:hover{background:var(--bg)}
+.tc-today-name{font-weight:600}
+.tc-today-hrs{font-family:var(--font-mono);text-align:right}
+.tc-today-when{color:var(--ink2)}
+.tc-today-meal{color:var(--ink3);font-size:var(--fs-small)}
+.tc-st{display:inline-block;padding:1px 9px;border-radius:10px;font-size:var(--fs-small);font-weight:600;text-align:center}
+.tc-st-in{background:#e6f5e6;color:#217a21}
+.tc-st-meal{background:#fdf0dc;color:#a35f08}
+.tc-st-out{background:var(--bg2);color:var(--ink2)}
+.tc-today-flags,.tc-today-detail{grid-column:1/-1}
+.tc-today-flag{color:#a35f08;font-size:var(--fs-small)}
+.tc-today-detail{background:var(--bg);border-radius:6px;padding:6px 10px}
+.tc-today-none{color:var(--ink3);font-size:var(--fs-small);padding:8px 4px 2px}
+@media (max-width:700px){.tc-today-row{grid-template-columns:1fr auto;}.tc-today-when,.tc-today-meal{grid-column:1/-1}}
