@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=55">
+  <link rel="stylesheet" href="css/owner.css?v=57">
 </head>
 <body>
 
@@ -155,6 +155,11 @@
         <select id="tc-gusto-weeks" class="action-btn" title="Weeks in the pay period, starting with the week shown"><option value="1">1 week</option><option value="2">2 weeks</option></select>
         <button class="action-btn primary" onclick="exportGustoCsv()">Export Gusto CSV</button>
       </div>
+    </div>
+
+    <div class="tc-today" id="tc-today">
+      <div class="tc-today-head"><span class="tc-today-title">&#9201; Today</span><span class="tc-today-asof" id="tc-today-asof"></span><button class="action-btn" onclick="loadTodayBoard(true)">Refresh</button><button class="action-btn" id="tc-today-toggle" onclick="tcToggleToday()">Hide</button></div>
+      <div id="tc-today-body" class="tc-today-body">Loading&hellip;</div>
     </div>
 
     <div class="tc-needs-review" id="tc-needs-review" style="display:none">
@@ -605,7 +610,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=73"></script>
+<script src="js/owner_dashboard.js?v=75"></script>
 <script src="js/owner_scheduler.js?v=16"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
