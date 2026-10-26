@@ -407,6 +407,7 @@ const OWNER_ACTION_PATHS = {
   ownerDeleteTimeCard: '/owner/timecards/delete',
   ownerApproveTimeCard: '/owner/timecards/approve',
   ownerTimecardDay: '/owner/timecards/day',
+  ownerTimecardToday: '/owner/timecards/today',
   ownerGustoExport: '/owner/timecards/gusto',
   ownerMissingWorkRecords: '/owner/missing-work-records',
   ownerClientEmails: '/owner/client-emails',
@@ -660,6 +661,7 @@ function switchTab(tab) {
   if (tab === 'logins'  && !loginsLoaded) loadLoginLog();
   if (tab === 'crew'    && !crewLoaded)   loadCrew();
   if (tab === 'timecards' && !timeCardsLoaded) loadTimeCards();
+  if (tab === 'timecards') { tcApplyTodayCollapsed(); loadTodayBoard(); }
   if (tab === 'scheduler' && typeof schedInit === 'function') schedInit();
 }
 
@@ -2320,6 +2322,82 @@ function _tcTodayLocalDate() {
   }).formatToParts(new Date()).reduce((o, p) => (o[p.type] = p.value, o), {});
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
+
+// ── Today (live status of every crew member) ─────────────────
+let _todayRows = [];
+let _todayOpen = null;
+const TODAY_STATUS = { in: ['Clocked in', 'tc-st-in'], meal: ['On meal break', 'tc-st-meal'], out: ['Clocked out', 'tc-st-out'], not_in: ['Not in', 'tc-st-none'] };
+function tcPacTime(iso) { return iso ? new Date(iso).toLocaleTimeString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit' }) : ''; }
+function tcHm(min) { return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`; }
+async function loadTodayBoard(manual) {
+  const body = document.getElementById('tc-today-body');
+  if (!body) return;
+  try {
+    const d = await ownerFetch('ownerTimecardToday');
+    _todayRows = d.rows || [];
+    document.getElementById('tc-today-asof').textContent = 'as of ' + tcPacTime(d.asOf);
+    renderTodayBoard();
+  } catch (e) {
+    if (manual || !_todayRows.length) body.innerHTML = `<div class="tc-empty-state">Could not load today: ${esc(e.message)}</div>`;
+  }
+}
+function renderTodayBoard() {
+  const body = document.getElementById('tc-today-body');
+  const active = _todayRows.filter(r => r.status !== 'not_in');
+  if (!active.length) { body.innerHTML = `<div class="tc-today-none">No one has clocked in yet today.${_todayRows.length ? ' Not clocked in: ' + esc(_todayRows.map(r => r.name.trim().split(/\s+/).slice(-1)[0]).sort().join(', ')) : ''}</div>`; return; }
+  const row = (r) => {
+    const [label, cls] = TODAY_STATUS[r.status];
+    const when = r.status === 'out' ? `${tcPacTime(r.clockIn)} \u2013 ${tcPacTime(r.clockOut)}`
+      : r.status === 'meal' ? `since ${tcPacTime(r.since)}` : r.status === 'in' ? `since ${tcPacTime(r.since)}` : '';
+    const flags = (r.flags || []).map(f => `<div class="tc-today-flag">&#9888; ${esc(f)}</div>`).join('');
+    const open = _todayOpen === r.name;
+    return `<div class="tc-today-row${open ? ' open' : ''}" onclick="tcToggleTodayDetail('${jsStr(r.name)}')">
+        <span class="tc-today-name">${esc(r.name)}</span>
+        <span class="tc-st ${cls}">${label}</span>
+        <span class="tc-today-when">${esc(when)}</span>
+        <span class="tc-today-hrs">${tcHm(r.minutes)}</span>
+        <span class="tc-today-meal">${r.mealTaken ? 'meal \u2713' : ''}</span>
+        ${flags ? `<div class="tc-today-flags">${flags}</div>` : ''}
+        ${open ? '<div class="tc-today-detail" id="tc-today-detail">Loading\u2026</div>' : ''}
+      </div>`;
+  };
+  const idleRows = _todayRows.filter(r => r.status === 'not_in');
+  // Last names, with the first initial added when two people share one.
+  const lastOf = (n) => n.trim().split(/\s+/).slice(-1)[0];
+  const lasts = idleRows.map(r => lastOf(r.name));
+  const idleNames = idleRows.map((r, i) => lasts.filter(l => l === lasts[i]).length > 1 ? `${r.name.trim()[0]}. ${lasts[i]}` : lasts[i]).sort((a, b) => a.localeCompare(b));
+  body.innerHTML = active.map(row).join('') + (idleRows.length ? `<div class="tc-today-none">${idleRows.length} not clocked in: ${esc(idleNames.join(', '))}</div>` : '');
+  if (_todayOpen) tcLoadTodayDetail(_todayOpen);
+}
+function tcToggleTodayDetail(name) { _todayOpen = _todayOpen === name ? null : name; renderTodayBoard(); }
+async function tcLoadTodayDetail(name) {
+  try {
+    const d = await ownerFetch('ownerTimecardDay', `&name=${encodeURIComponent(name)}&date=${encodeURIComponent(_tcTodayLocalDate())}`);
+    const el = document.getElementById('tc-today-detail');
+    if (el && _todayOpen === name) el.innerHTML = renderTcPunchList(d.punches || []);
+  } catch (e) {
+    const el = document.getElementById('tc-today-detail');
+    if (el) el.textContent = 'Could not load punches: ' + e.message;
+  }
+}
+// Hide/show the Today panel; the choice is remembered in this browser.
+function tcApplyTodayCollapsed() {
+  let c = false;
+  try { c = localStorage.getItem('mantis_today_collapsed') === '1'; } catch (e) { /* default shown */ }
+  document.getElementById('tc-today-body').style.display = c ? 'none' : '';
+  document.getElementById('tc-today-toggle').textContent = c ? 'Show' : 'Hide';
+}
+function tcToggleToday() {
+  let c = false;
+  try { c = localStorage.getItem('mantis_today_collapsed') === '1'; localStorage.setItem('mantis_today_collapsed', c ? '0' : '1'); } catch (e) { c = document.getElementById('tc-today-body').style.display === 'none'; }
+  document.getElementById('tc-today-body').style.display = c ? '' : 'none';
+  document.getElementById('tc-today-toggle').textContent = c ? 'Hide' : 'Show';
+}
+// Keep the board fresh while the Time Cards tab is on screen.
+setInterval(() => {
+  const tab = document.getElementById('tab-timecards');
+  if (tab && tab.classList.contains('active') && !document.hidden) loadTodayBoard();
+}, 60000);
 
 async function loadTimeCards() {
   if (!_tcRefDate) _tcRefDate = _tcTodayLocalDate();
