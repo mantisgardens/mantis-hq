@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=57">
+  <link rel="stylesheet" href="css/owner.css?v=59">
 </head>
 <body>
 
@@ -162,6 +162,12 @@
       <div id="tc-today-body" class="tc-today-body">Loading&hellip;</div>
     </div>
 
+    <div class="tc-open" id="tc-open-days" style="display:none">
+      <div class="tc-open-title">&#9888; No clock-out recorded</div>
+      <div class="tc-open-sub">These days have a clock-in but no clock-out, so they have no hours yet. Enter the real end time to close each one.</div>
+      <div id="tc-open-list"></div>
+    </div>
+
     <div class="tc-needs-review" id="tc-needs-review" style="display:none">
       <div class="tc-needs-review-title">&#9888; Needs Review</div>
       <div id="tc-needs-review-list"></div>
@@ -177,6 +183,7 @@
     <div class="tc-grid-note">
       Only shows fully closed days (clocked out). A day still in progress shows blank here until it's completed.
       Click any day to correct its hours.
+      <br>Someone clocked in but missing above? Their account name may differ from the Crew Info sheet: <a href="#" onclick="tcRelinkNames();return false">re-link records to the sheet names</a>.
     </div>
   </div>
 
@@ -610,7 +617,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=75"></script>
+<script src="js/owner_dashboard.js?v=78"></script>
 <script src="js/owner_scheduler.js?v=16"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
