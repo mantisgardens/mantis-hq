@@ -1,6 +1,10 @@
 /* =============================================================
    crew/js/meal_reminder.js
-   Meal-break reminder bar, shown at the top of every crew page.
+   Meal-break and clock-out reminder bar, shown at the top of every crew page.
+
+   Clock-out: someone still clocked in after 9 hours of work gets an amber bar
+   ("remember to clock out"), and a red one after 12 hours. Same Remove button
+   and ping as the meal reminder. The meal reminder takes priority when both apply.
 
    California: the first meal break must START before the end of the
    5th hour of work. While someone is clocked in and has not started a
@@ -21,6 +25,8 @@
    ============================================================= */
 (function () {
   var FIRST_MEAL_MIN = 300, AMBER_AT = 30, RED_AT = 10;
+  var LONG_SHIFT_MIN = 540, VERY_LONG_MIN = 720;   // 9 and 12 hours of work
+  var kind = 'meal';                                // which reminder is showing: meal | out
   var state = null, loadedAt = 0, bar = null;
 
   function token() {
@@ -34,7 +40,7 @@
       return t;
     } catch (e) { return ''; }
   }
-  function dismissKey() { return 'mg_meal_dismiss_' + (state && state.since || ''); }
+  function dismissKey() { return 'mg_' + kind + '_dismiss_' + (state && state.since || ''); }
   function getDismissed() { try { return parseInt(localStorage.getItem(dismissKey()) || '0', 10); } catch (e) { return 0; } }
   function setDismissed(n) { try { localStorage.setItem(dismissKey(), String(n)); } catch (e) { /* ignore */ } }
 
@@ -52,7 +58,7 @@
     } catch (e) { /* no sound available */ }
   }
   ['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) { document.addEventListener(ev, unlock, { passive: true }); });
-  function pingKey() { return 'mg_meal_ping_' + (state && state.since || ''); }
+  function pingKey() { return 'mg_' + kind + '_ping_' + (state && state.since || ''); }
   function pinged() { try { return parseInt(localStorage.getItem(pingKey()) || '0', 10); } catch (e) { return 0; } }
   function playPing(level) {
     if (!unlocked || !audio || pinged() >= level) return;
@@ -83,25 +89,35 @@
       '<button type="button" id="meal-reminder-x" aria-label="Dismiss reminder" ' +
       'style="background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:6px;padding:4px 11px;font:600 14px system-ui,sans-serif;cursor:pointer">Remove</button>';
     document.body.insertBefore(bar, document.body.firstChild);
-    document.getElementById('meal-reminder-x').onclick = function () { setDismissed(bar.dataset.level || '1'); bar.style.display = 'none'; };
+    document.getElementById('meal-reminder-x').onclick = function () { kind = bar.dataset.kind || 'meal'; setDismissed(bar.dataset.level || '1'); bar.style.display = 'none'; };
     return bar;
   }
 
   function render() {
-    if (!state || !state.clockedIn || state.onMealBreak || state.mealTaken) { if (bar) bar.style.display = 'none'; return; }
+    if (!state || !state.clockedIn) { if (bar) bar.style.display = 'none'; return; }
     var worked = (state.todayMinutes || 0) + Math.floor((Date.now() - loadedAt) / 60000);
     var left = FIRST_MEAL_MIN - worked;
-    if (left > AMBER_AT) { if (bar) bar.style.display = 'none'; return; }
-    var level = left <= RED_AT ? 2 : 1;
-    if (getDismissed() >= level) { if (bar) bar.style.display = 'none'; return; }
+    var level = 0, msg = '';
+    kind = 'meal';
+    if (!state.onMealBreak && !state.mealTaken && left <= AMBER_AT) {
+      level = left <= RED_AT ? 2 : 1;
+      var due = new Date(Date.now() + Math.max(0, left) * 60000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      msg = left <= 0 ? 'Your meal break is due now \u2014 start it as soon as you can.'
+        : level === 2 ? 'Start your meal break now \u2014 it must begin by ' + due + '.'
+        : 'Meal break due by ' + due + ' (about ' + left + ' min of work left).';
+    } else if (!state.onMealBreak && worked >= LONG_SHIFT_MIN) {
+      kind = 'out';
+      level = worked >= VERY_LONG_MIN ? 2 : 1;
+      var hrs = Math.floor(worked / 60);
+      msg = level === 2 ? 'You have worked ' + hrs + ' hours and are still clocked in. Clock out now unless you are still working.'
+        : 'Still clocked in after ' + hrs + ' hours of work. Remember to clock out when you are done.';
+    }
+    if (!level || getDismissed() >= level) { if (bar) bar.style.display = 'none'; return; }
     var b = ensureBar();
-    var due = new Date(Date.now() + Math.max(0, left) * 60000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    var msg = left <= 0 ? 'Your meal break is due now — start it as soon as you can.'
-      : level === 2 ? 'Start your meal break now — it must begin by ' + due + '.'
-      : 'Meal break due by ' + due + ' (about ' + left + ' min of work left).';
     b.dataset.level = String(level);
+    b.dataset.kind = kind;
     b.style.background = level === 2 ? '#b3261e' : '#b45309';
-    document.getElementById('meal-reminder-text').textContent = '⏰ ' + msg;
+    document.getElementById('meal-reminder-text').textContent = (kind === 'out' ? '\u23F1 ' : '\u23F0 ') + msg;
     b.style.display = 'flex';
     playPing(level);
   }
