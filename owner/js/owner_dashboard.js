@@ -406,6 +406,10 @@ const OWNER_ACTION_PATHS = {
   ownerCorrectTimeCard: '/owner/timecards/correct',
   ownerDeleteTimeCard: '/owner/timecards/delete',
   ownerApproveTimeCard: '/owner/timecards/approve',
+  ownerReviewTimeCard: '/owner/timecards/review',
+  ownerRelinkNames: '/owner/timecards/relink-names',
+  ownerOpenDays: '/owner/timecards/open-days',
+  ownerCloseOpenDay: '/owner/timecards/close-open-day',
   ownerTimecardDay: '/owner/timecards/day',
   ownerTimecardToday: '/owner/timecards/today',
   ownerGustoExport: '/owner/timecards/gusto',
@@ -2413,6 +2417,7 @@ async function loadTimeCards() {
     renderTimeCardWeekRange();
     renderTimeCardGrid();
     renderNeedsReview();
+    loadOpenDays();
   } catch (e) {
     table.querySelector('thead').innerHTML =
       `<tr><td colspan="12" class="tc-empty-state">Could not load time cards: ${esc(e.message)}</td></tr>`;
@@ -2709,11 +2714,12 @@ function renderNeedsReview() {
   const section = document.getElementById('tc-needs-review');
   const list = document.getElementById('tc-needs-review-list');
   const items = _tcData.needsReview || [];
+  const done = _tcData.reviewedItems || [];
 
-  if (!items.length) { section.style.display = 'none'; return; }
+  if (!items.length && !done.length) { section.style.display = 'none'; return; }
   section.style.display = '';
 
-  list.innerHTML = items.map(item => {
+  const itemHtml = (item, isDone) => {
     const details = [];
     if (item.meal && item.meal.compliant === false) {
       details.push(`Meal break missed \u2014 ${esc(TC_REASON_LABELS[item.meal.reasonCode] || 'no reason given')}` +
@@ -2736,10 +2742,76 @@ function renderNeedsReview() {
     return `<div class="tc-review-item">
       <span class="tc-review-name">${esc(item.name)}</span>
       <span class="tc-review-date">${esc(item.date)}</span>
+      <button class="action-btn tc-review-btn" onclick="tcMarkReviewed('${jsStr(item.name)}','${item.date}',${isDone ? 'false' : 'true'})" title="${isDone ? 'Put this alert back' : 'Hide this alert. Hours and pay are not changed.'}">${isDone ? 'Undo' : 'Mark reviewed'}</button>
       <div class="tc-review-detail">${details.join('<br>')}</div>
       ${item.premiumPayHours ? `<span class="tc-review-premium">${item.premiumPayHours}h premium pay flagged</span>` : ''}
     </div>`;
+  };
+  list.innerHTML = (items.length ? items.map(i => itemHtml(i, false)).join('') : '<div class="tc-review-none">Nothing needs review this week.</div>')
+    + (done.length ? `<details class="tc-reviewed"><summary>Reviewed (${done.length})</summary>${done.map(i => itemHtml(i, true)).join('')}</details>` : '');
+}
+
+// Earlier days with a clock-in and no clock-out; the owner enters the real end time.
+let _openDays = [];
+async function loadOpenDays() {
+  const box = document.getElementById('tc-open-days');
+  if (!box) return;
+  try {
+    const d = await ownerFetch('ownerOpenDays');
+    _openDays = d.days || [];
+  } catch (e) { return; }
+  if (!_openDays.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  document.getElementById('tc-open-list').innerHTML = _openDays.map((o, i) => {
+    const ins = o.punches.map(p => `${TC_PUNCH_LABELS[p.type] || p.type} ${p.time}`).join(', ');
+    return `<div class="tc-open-row">
+      <div><b>${esc(o.name)}</b> &middot; ${esc(fmtTcDate(o.date))}<br><span class="tc-open-punches">${esc(ins)}</span></div>
+      ${o.onMealBreak ? '<div class="tc-open-note">Ended on a meal break. Use Fix a Day (employee) or enter hours with Correct Hours.</div>' : `
+      <div class="tc-open-form">
+        <label>Clock-out <input type="time" id="tco-t-${i}"></label>
+        <input type="text" id="tco-r-${i}" class="form-input" placeholder="Reason" value="Forgot to clock out; time confirmed with employee">
+        <button class="action-btn primary" onclick="tcCloseOpenDay(${i})">Close day</button>
+      </div>`}
+    </div>`;
   }).join('');
+}
+async function tcCloseOpenDay(i) {
+  const o = _openDays[i];
+  const time = document.getElementById('tco-t-' + i).value;
+  const reason = document.getElementById('tco-r-' + i).value.trim();
+  if (!time) { showToast('Enter the clock-out time'); return; }
+  if (!reason) { showToast('A reason is required'); return; }
+  if (!confirm(`Close ${o.name}'s ${fmtTcDate(o.date)} at ${time}?\n\nThis adds a clock-out entered by you and creates the day's hours.`)) return;
+  try {
+    await ownerPost('ownerCloseOpenDay', { name: o.name, date: o.date, clockOut: time, reason });
+    showToast('Day closed \u2713');
+    await loadTimeCards();
+  } catch (err) { showToast('Could not close the day: ' + err.message); }
+}
+
+// Moves time card records saved under a Google account name onto the Crew Info sheet name.
+async function tcRelinkNames() {
+  try {
+    const d = await ownerPost('ownerRelinkNames', { dryRun: true });
+    if (!d.people.length) { showToast('All records already match the Crew Info sheet names.'); return; }
+    const msg = 'These names will be moved to the Crew Info sheet name:\n\n' + d.people.map(p => `  ${p.from}  \u2192  ${p.to}`).join('\n')
+      + `\n\n${d.punches} punches, ${d.days} days and ${d.audit} audit entries.`
+      + (d.skippedDays.length ? `\n\nSkipped (a record already exists under the new name):\n  ${d.skippedDays.join('\n  ')}` : '')
+      + '\n\nDo this when nobody is in the middle of clocking in or out. Continue?';
+    if (!confirm(msg)) return;
+    const r = await ownerPost('ownerRelinkNames', { dryRun: false });
+    showToast(`Re-linked ${r.punches} punches and ${r.days} days \u2713`);
+    await loadTimeCards(); loadTodayBoard();
+  } catch (err) { showToast('Re-link failed: ' + err.message); }
+}
+
+// Mark a Needs Review alert as reviewed (hides it; hours and pay are unchanged), or undo.
+async function tcMarkReviewed(name, date, done) {
+  try {
+    await ownerPost('ownerReviewTimeCard', { name, date, done });
+    showToast(done ? 'Marked reviewed \u2713' : 'Alert restored');
+    await loadTimeCards();
+  } catch (err) { showToast('Could not save: ' + err.message); }
 }
 
 function exportTimeCardsCsv() {
