@@ -735,3 +735,19 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-today-detail{background:var(--bg);border-radius:6px;padding:6px 10px}
 .tc-today-none{color:var(--ink3);font-size:var(--fs-small);padding:8px 4px 2px}
 @media (max-width:700px){.tc-today-row{grid-template-columns:1fr auto;}.tc-today-when,.tc-today-meal{grid-column:1/-1}}
+
+.tc-review-btn{float:right;margin-left:10px}
+.tc-review-none{color:var(--ink3);font-size:var(--fs-small);padding:4px 0}
+.tc-reviewed{margin-top:8px;font-size:var(--fs-small)}
+.tc-reviewed summary{cursor:pointer;color:var(--ink2);font-weight:600}
+.tc-reviewed .tc-review-item{opacity:.7}
+
+/* Time Cards: days with no clock-out */
+.tc-open{background:#fdecea;border:1px solid #f0b8b2;border-radius:8px;margin:0 0 14px;padding:10px 14px}
+.tc-open-title{font-weight:700;color:#a32018}
+.tc-open-sub{color:var(--ink2);font-size:var(--fs-small);margin:2px 0 8px}
+.tc-open-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;border-top:1px solid #f0b8b2;padding:8px 0}
+.tc-open-punches{color:var(--ink2);font-size:var(--fs-small)}
+.tc-open-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tc-open-form input.form-input{min-width:260px}
+.tc-open-note{color:var(--ink2);font-size:var(--fs-small)}
