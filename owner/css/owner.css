@@ -751,3 +751,6 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .tc-open-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .tc-open-form input.form-input{min-width:260px}
 .tc-open-note{color:var(--ink2);font-size:var(--fs-small)}
+
+.tc-cell-addable{cursor:pointer;color:var(--ink3)}
+.tc-cell-addable:hover{background:var(--g3)!important;outline:1px dashed var(--g4)}
