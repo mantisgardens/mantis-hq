@@ -495,6 +495,7 @@ async function sendEditDay(edit, attestation) {
     showToast('Day updated \u2713 \u2014 the owner will see the change');
     closeEditDay();
     await loadSummary();
+    if (window.mgRefreshOpenDay) window.mgRefreshOpenDay();
   } catch (e) {
     // Reopen the form with what was typed so nothing is lost.
     document.getElementById('tc-edit-modal').classList.add('open');
@@ -507,4 +508,11 @@ async function sendEditDay(edit, attestation) {
 }
 
 // ── Startup ──────────────────────────────────────────────────
-loadSummary();
+loadSummary().then(() => {
+  // Opened from the "you didn't clock out" reminder: go straight to Fix a Day for that date.
+  const fix = new URLSearchParams(window.location.search).get('fix');
+  if (!fix) return;
+  const sel = document.getElementById('tc-fix-date');
+  if (sel && [...sel.options].some(o => o.value === fix)) { sel.value = fix; openEditDay(); }
+  history.replaceState(null, '', window.location.pathname);
+});

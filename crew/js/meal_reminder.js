@@ -27,7 +27,7 @@
   var FIRST_MEAL_MIN = 300, AMBER_AT = 30, RED_AT = 10;
   var LONG_SHIFT_MIN = 540, VERY_LONG_MIN = 720;   // 9 and 12 hours of work
   var kind = 'meal';                                // which reminder is showing: meal | out
-  var state = null, loadedAt = 0, bar = null;
+  var state = null, loadedAt = 0, bar = null, openDay = null;
 
   function token() {
     try {
@@ -40,7 +40,8 @@
       return t;
     } catch (e) { return ''; }
   }
-  function dismissKey() { return 'mg_' + kind + '_dismiss_' + (state && state.since || ''); }
+  function stamp() { return kind === 'prev' ? (openDay && openDay.date || '') : (state && state.since || ''); }
+  function dismissKey() { return 'mg_' + kind + '_dismiss_' + stamp(); }
   function getDismissed() { try { return parseInt(localStorage.getItem(dismissKey()) || '0', 10); } catch (e) { return 0; } }
   function setDismissed(n) { try { localStorage.setItem(dismissKey(), String(n)); } catch (e) { /* ignore */ } }
 
@@ -58,7 +59,7 @@
     } catch (e) { /* no sound available */ }
   }
   ['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) { document.addEventListener(ev, unlock, { passive: true }); });
-  function pingKey() { return 'mg_' + kind + '_ping_' + (state && state.since || ''); }
+  function pingKey() { return 'mg_' + kind + '_ping_' + stamp(); }
   function pinged() { try { return parseInt(localStorage.getItem(pingKey()) || '0', 10); } catch (e) { return 0; } }
   function playPing(level) {
     if (!unlocked || !audio || pinged() >= level) return;
@@ -89,38 +90,70 @@
       '<button type="button" id="meal-reminder-x" aria-label="Dismiss reminder" ' +
       'style="background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:6px;padding:4px 11px;font:600 14px system-ui,sans-serif;cursor:pointer">Remove</button>';
     document.body.insertBefore(bar, document.body.firstChild);
+    document.getElementById('meal-reminder-text').onclick = function () { if (bar.dataset.kind === 'prev' && bar.dataset.date) window.location.href = 'mantis_timecard.html?fix=' + encodeURIComponent(bar.dataset.date); };
     document.getElementById('meal-reminder-x').onclick = function () { kind = bar.dataset.kind || 'meal'; setDismissed(bar.dataset.level || '1'); bar.style.display = 'none'; };
     return bar;
   }
 
   function render() {
-    if (!state || !state.clockedIn) { if (bar) bar.style.display = 'none'; return; }
-    var worked = (state.todayMinutes || 0) + Math.floor((Date.now() - loadedAt) / 60000);
-    var left = FIRST_MEAL_MIN - worked;
     var level = 0, msg = '';
     kind = 'meal';
-    if (!state.onMealBreak && !state.mealTaken && left <= AMBER_AT) {
+    var on = !!(state && state.clockedIn);
+    var worked = on ? (state.todayMinutes || 0) + Math.floor((Date.now() - loadedAt) / 60000) : 0;
+    var left = FIRST_MEAL_MIN - worked;
+    if (on && !state.onMealBreak && !state.mealTaken && left <= AMBER_AT) {
       level = left <= RED_AT ? 2 : 1;
       var due = new Date(Date.now() + Math.max(0, left) * 60000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       msg = left <= 0 ? 'Your meal break is due now \u2014 start it as soon as you can.'
         : level === 2 ? 'Start your meal break now \u2014 it must begin by ' + due + '.'
         : 'Meal break due by ' + due + ' (about ' + left + ' min of work left).';
-    } else if (!state.onMealBreak && worked >= LONG_SHIFT_MIN) {
+    } else if (on && !state.onMealBreak && worked >= LONG_SHIFT_MIN) {
       kind = 'out';
       level = worked >= VERY_LONG_MIN ? 2 : 1;
       var hrs = Math.floor(worked / 60);
       msg = level === 2 ? 'You have worked ' + hrs + ' hours and are still clocked in. Clock out now unless you are still working.'
         : 'Still clocked in after ' + hrs + ' hours of work. Remember to clock out when you are done.';
     }
+    if (!level && openDay) {
+      kind = 'prev';
+      level = 1;
+      var d = new Date(openDay.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      msg = 'You did not clock out on ' + d + ' (last punch ' + openDay.lastTime + '). Tap here to fix it.';
+    }
     if (!level || getDismissed() >= level) { if (bar) bar.style.display = 'none'; return; }
     var b = ensureBar();
     b.dataset.level = String(level);
     b.dataset.kind = kind;
+    b.dataset.date = kind === 'prev' && openDay ? openDay.date : '';
+    document.getElementById('meal-reminder-text').style.cursor = kind === 'prev' ? 'pointer' : '';
     b.style.background = level === 2 ? '#b3261e' : '#b45309';
     document.getElementById('meal-reminder-text').textContent = (kind === 'out' ? '\u23F1 ' : '\u23F0 ') + msg;
     b.style.display = 'flex';
     playPing(level);
   }
+
+  // Earlier day with no clock-out (asked once per page load, remembered for 30 minutes).
+  function loadOpenDay() {
+    var t = token();
+    var base = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : '';
+    if (!t || !base) return;
+    try {
+      var c = JSON.parse(sessionStorage.getItem('mg_open_day') || 'null');
+      if (c && Date.now() - c.at < 30 * 60000) { openDay = c.day; render(); return; }
+    } catch (e) { /* ask the server */ }
+    fetch(base + '/timecard/open-days?id_token=' + encodeURIComponent(t))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.error) return;
+        openDay = (d.days && d.days[0]) || null;
+        try { sessionStorage.setItem('mg_open_day', JSON.stringify({ at: Date.now(), day: openDay })); } catch (e) { /* ignore */ }
+        render();
+      })
+      .catch(function () { /* silent */ });
+  }
+
+  // Called by the Time Card page after a day is fixed, so the reminder clears at once.
+  window.mgRefreshOpenDay = function () { try { sessionStorage.removeItem('mg_open_day'); } catch (e) { /* ignore */ } openDay = null; render(); loadOpenDay(); };
 
   function load() {
     var t = token();
@@ -134,6 +167,7 @@
 
   function start() {
     load();
+    loadOpenDay();
     setInterval(load, 60000);
     setInterval(render, 20000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
