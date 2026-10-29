@@ -133,10 +133,12 @@
   }
 
   // Earlier day with no clock-out (asked once per page load, remembered for 30 minutes).
+  var openDayAsked = false;
   function loadOpenDay() {
     var t = token();
     var base = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : '';
-    if (!t || !base) return;
+    if (!t || !base) return;          // not signed in yet; load() tries again each minute
+    openDayAsked = true;
     try {
       var c = JSON.parse(sessionStorage.getItem('mg_open_day') || 'null');
       if (c && Date.now() - c.at < 30 * 60000) { openDay = c.day; render(); return; }
@@ -156,6 +158,7 @@
   window.mgRefreshOpenDay = function () { try { sessionStorage.removeItem('mg_open_day'); } catch (e) { /* ignore */ } openDay = null; render(); loadOpenDay(); };
 
   function load() {
+    if (!openDayAsked) loadOpenDay();   // the sign-in on the home page happens after this script starts
     var t = token();
     var base = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL : '';
     if (!t || !base) return;
