@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=59">
+  <link rel="stylesheet" href="css/owner.css?v=60">
 </head>
 <body>
 
@@ -215,6 +215,36 @@
         <button class="fbtn fbtn-delete" id="tcc-delete" onclick="deleteTcDay()" title="Remove this whole day, e.g. a card submitted by mistake">Delete Day</button>
         <button class="fbtn fbtn-cancel" onclick="closeTcCorrectModal()">Cancel</button>
         <button class="fbtn fbtn-save" onclick="saveTcCorrection()">Save Correction</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ADD A DAY (owner) MODAL ═════════════════════════════════ -->
+  <div class="modal-overlay" id="tc-add-modal" onmousedown="_modalOverlayMouseDown(event)" onclick="closeTcAddModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add a Day</div>
+        <button class="modal-close" onclick="closeTcAddModal()">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="tc-correct-who" id="tc-add-who"></div>
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">Clock in <span class="required">*</span></label><input class="form-input" id="tca-in" type="time"/></div>
+          <div class="form-group"><label class="form-label">Clock out <span class="required">*</span></label><input class="form-input" id="tca-out" type="time"/></div>
+          <div class="form-group"><label class="form-label">Meal start</label><input class="form-input" id="tca-mout" type="time"/></div>
+          <div class="form-group"><label class="form-label">Meal end</label><input class="form-input" id="tca-min" type="time"/></div>
+          <div class="form-group full">
+            <label class="form-label">Reason <span class="required">*</span></label>
+            <textarea class="form-input" id="tca-reason" rows="2" placeholder="e.g. Worked this day but used the old system; times confirmed with employee"></textarea>
+          </div>
+        </div>
+        <div class="tc-correct-note">
+          Times are Pacific time. The day is saved as entered by you (no GPS), with your reason, and is marked as corrected on the grid. The employee's break answers stay empty, so check the meal break with them.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="fbtn fbtn-cancel" onclick="closeTcAddModal()">Cancel</button>
+        <button class="fbtn fbtn-save" id="tca-save" onclick="saveTcAddDay()">Add Day</button>
       </div>
     </div>
   </div>
@@ -617,7 +647,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=78"></script>
+<script src="js/owner_dashboard.js?v=79"></script>
 <script src="js/owner_scheduler.js?v=16"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
