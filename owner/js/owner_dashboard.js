@@ -410,6 +410,7 @@ const OWNER_ACTION_PATHS = {
   ownerRelinkNames: '/owner/timecards/relink-names',
   ownerOpenDays: '/owner/timecards/open-days',
   ownerCloseOpenDay: '/owner/timecards/close-open-day',
+  ownerAddTimeCardDay: '/owner/timecards/add-day',
   ownerTimecardDay: '/owner/timecards/day',
   ownerTimecardToday: '/owner/timecards/today',
   ownerGustoExport: '/owner/timecards/gusto',
@@ -2463,8 +2464,8 @@ function renderTimeCardGrid() {
   const rowsHtml = _tcData.rows.map(r => `
     <tr>
       <td class="tc-col-name">${esc(r.name)}</td>
-      ${r.days.map(d => `<td class="${d.flagged ? 'tc-cell-flagged ' : ''}${d.hours == null ? '' : 'tc-cell-clickable'}"
-          ${d.hours == null ? '' : `onclick="openTcCorrectModal('${jsStr(r.name)}','${d.date}',${d.hours})"`}>${
+      ${r.days.map(d => `<td class="${d.flagged ? 'tc-cell-flagged ' : ''}${d.hours == null ? (d.date < _tcTodayLocalDate() ? 'tc-cell-addable' : '') : 'tc-cell-clickable'}"
+          ${d.hours == null ? (d.date < _tcTodayLocalDate() ? `onclick="openTcAddModal('${jsStr(r.name)}','${d.date}')" title="Click to add this day"` : '') : `onclick="openTcCorrectModal('${jsStr(r.name)}','${d.date}',${d.hours})"`}>${
             d.hours == null ? '\u2014' : d.hours}${d.corrected ? '<span class="tc-corrected-mark" title="Manually corrected">&#9998;</span>' : ''}${d.employeeEdited ? '<span class="tc-corrected-mark" title="Edited by the employee">&#128100;</span>' : ''}</td>`).join('')}
       <td class="tc-col-total tc-approve-cell" onclick="tcToggleApproval('${jsStr(r.name)}')" title="${esc(tcApprovalTitle(r))}">${r.weekTotalHours}${tcApprovalMark(r)}</td>
       <td class="tc-col-total">${r.pay ? r.pay.regularHours : ''}</td>
@@ -2749,6 +2750,44 @@ function renderNeedsReview() {
   };
   list.innerHTML = (items.length ? items.map(i => itemHtml(i, false)).join('') : '<div class="tc-review-none">Nothing needs review this week.</div>')
     + (done.length ? `<details class="tc-reviewed"><summary>Reviewed (${done.length})</summary>${done.map(i => itemHtml(i, true)).join('')}</details>` : '');
+}
+
+// Add a whole day that has nothing on file (click an empty past cell).
+let _tcAddTarget = null;
+function openTcAddModal(name, date) {
+  _tcAddTarget = { name, date };
+  document.getElementById('tc-add-who').textContent = `${name} \u2014 ${fmtTcDate(date)}`;
+  ['tca-in', 'tca-out', 'tca-mout', 'tca-min'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('tca-reason').value = '';
+  document.getElementById('tc-add-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeTcAddModal(e) {
+  if (e && (e.target !== document.getElementById('tc-add-modal') || !_modalOverlayMouseDownOnBackdrop)) return;
+  document.getElementById('tc-add-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _tcAddTarget = null;
+}
+async function saveTcAddDay() {
+  const v = (id) => document.getElementById(id).value;
+  const reason = v('tca-reason').trim();
+  if (!v('tca-in') || !v('tca-out')) { showToast('Enter the clock in and clock out times'); return; }
+  if (!!v('tca-mout') !== !!v('tca-min')) { showToast('Enter both the meal start and the meal end, or neither'); return; }
+  if (!reason) { showToast('A reason is required'); return; }
+  const punches = [{ type: 'clock_in', time: v('tca-in') }];
+  if (v('tca-mout')) punches.push({ type: 'meal_out', time: v('tca-mout') }, { type: 'meal_in', time: v('tca-min') });
+  punches.push({ type: 'clock_out', time: v('tca-out') });
+  const btn = document.getElementById('tca-save');
+  btn.disabled = true;
+  try {
+    await ownerPost('ownerAddTimeCardDay', { name: _tcAddTarget.name, date: _tcAddTarget.date, punches, reason });
+    showToast('Day added \u2713');
+    document.getElementById('tc-add-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    _tcAddTarget = null;
+    await loadTimeCards();
+  } catch (err) { showToast('Could not add the day: ' + err.message); }
+  finally { btn.disabled = false; }
 }
 
 // Earlier days with a clock-in and no clock-out; the owner enters the real end time.
