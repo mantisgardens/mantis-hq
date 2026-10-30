@@ -754,3 +754,5 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 
 .tc-cell-addable{cursor:pointer;color:var(--ink3)}
 .tc-cell-addable:hover{background:var(--g3)!important;outline:1px dashed var(--g4)}
+
+.action-btn:disabled{opacity:.45;cursor:default}
