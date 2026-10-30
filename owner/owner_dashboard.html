@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=60">
+  <link rel="stylesheet" href="css/owner.css?v=61">
 </head>
 <body>
 
@@ -305,11 +305,12 @@
     <div class="panel-header">
       <div class="panel-title">Morning Notes</div>
       <div class="panel-actions">
+        <button class="action-btn" onclick="notesUndo()" id="notes-undo-btn" title="Undo the last change (Ctrl+Z)" disabled>&#8630; Undo</button>
         <button class="action-btn primary" onclick="saveNotes()" id="notes-save-btn">&#10003; Save</button>
       </div>
     </div>
     <div class="notes-info-bar">
-      Edit notes for each crew group below. Select a tab, make your changes, then press <b>Save</b> — changes are not applied until saved. Use the &#9650;&#9660; arrows on an item to reorder it. Crews will see updated notes on their next morning brief load.
+      Edit notes for each crew group below. Select a tab, make your changes, then press <b>Save</b> — changes are not applied until saved. Use the &#9650;&#9660; arrows on an item to reorder it. Removed something by accident? Press <b>Undo</b> (or Ctrl+Z) before you save. Crews will see updated notes on their next morning brief load.
     </div>
 
     <!-- Team sub-tabs -->
@@ -647,7 +648,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=79"></script>
+<script src="js/owner_dashboard.js?v=80"></script>
 <script src="js/owner_scheduler.js?v=16"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
