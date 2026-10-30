@@ -673,6 +673,7 @@ function switchTab(tab) {
 function discardUnsavedNotes() {
   if (notesPristine) notesData = JSON.parse(JSON.stringify(notesPristine));
   notesDirty = false;
+  notesUndoReset();
   const btn = document.getElementById('notes-save-btn');
   if (btn) btn.classList.remove('unsaved');
   if (currentTeam === 'leads') renderLeadsEditor(); else renderNotesEditor();
@@ -1865,6 +1866,7 @@ async function loadNotes() {
     const data = await ownerFetch('ownerGetNotes');
     notesData  = data.tabs || { t1: [], t2: [], t3: [], install: [] };
     notesPristine = JSON.parse(JSON.stringify(notesData));
+    notesUndoReset();
     setStatus('notes', 'live', 'Notes: loaded');
     renderNotesEditor();
   } catch(err) {
@@ -1891,6 +1893,7 @@ function switchNotesTeam(team) {
     if (btn) btn.classList.remove('unsaved');
   }
   currentTeam = team;
+  notesUndoReset();
   document.querySelectorAll('.notes-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.notesteam === team);
   });
@@ -2019,7 +2022,81 @@ function noteItemPreviewHtml(item) {
   return clean || `<span class="notes-item-placeholder">Click to add note…</span>`;
 }
 
-function markDirty() {
+// ---- Undo for Morning Notes ---------------------------------------
+// Every edit pushes the slice (current team, or Leads) as it was just
+// before the edit. Undo pops it back. Cleared on load, save, discard and
+// team switch, so it only ever covers unsaved edits on screen.
+let _notesUndo = [];       // [JSON string, ...]
+let _notesLast = null;     // JSON of the current slice after the latest edit
+let _notesLastAt = 0;
+
+function _notesSlice() {
+  if (!notesData) return 'null';
+  return JSON.stringify(currentTeam === 'leads' ? notesData.leads : (notesData[currentTeam] || []));
+}
+
+function notesUndoReset() {
+  _notesUndo = [];
+  _notesLast = _notesSlice();
+  _notesLastAt = 0;
+  notesUndoButton();
+}
+
+function notesUndoButton() {
+  const b = document.getElementById('notes-undo-btn');
+  if (b) b.disabled = _notesUndo.length === 0;
+}
+
+function notesUndo() {
+  if (!_notesUndo.length || !notesData) return;
+  const prev = JSON.parse(_notesUndo.pop());
+  if (currentTeam === 'leads') notesData.leads = prev; else notesData[currentTeam] = prev;
+  _notesLast = _notesSlice();
+  _notesLastAt = 0;
+  // Back to the saved state means nothing is unsaved any more.
+  const pristine = notesPristine
+    ? JSON.stringify(currentTeam === 'leads' ? notesPristine.leads : (notesPristine[currentTeam] || []))
+    : null;
+  const btn = document.getElementById('notes-save-btn');
+  if (pristine !== null && pristine === _notesLast) {
+    notesDirty = false;
+    if (btn) btn.classList.remove('unsaved');
+  } else {
+    notesDirty = true;
+    if (btn) btn.classList.add('unsaved');
+  }
+  notesUndoButton();
+  if (currentTeam === 'leads') renderLeadsEditor(); else renderNotesEditor();
+  showToast('Undone');
+}
+
+// Ctrl/Cmd+Z on the Notes tab, unless the owner is typing in a field
+// (where the browser's own undo should work) or the note editor is open.
+document.addEventListener('keydown', function (e) {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || (e.key || '').toLowerCase() !== 'z') return;
+  const tab = document.getElementById('tab-notes');
+  if (!tab || !tab.classList.contains('active')) return;
+  const m = document.getElementById('note-editor-modal');
+  if (m && m.classList.contains('open')) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  e.preventDefault();
+  notesUndo();
+});
+
+function markDirty(coalesce) {
+  if (notesData) {
+    const now = Date.now();
+    // Typing in a title fires per keystroke: fold a burst into one step.
+    const fold = coalesce && _notesUndo.length && (now - _notesLastAt) < 1500;
+    if (!fold && _notesLast !== null) {
+      _notesUndo.push(_notesLast);
+      if (_notesUndo.length > 50) _notesUndo.shift();
+    }
+    _notesLast = _notesSlice();
+    _notesLastAt = now;
+    notesUndoButton();
+  }
   notesDirty = true;
   const btn = document.getElementById('notes-save-btn');
   if (btn) btn.classList.add('unsaved');
@@ -2027,7 +2104,7 @@ function markDirty() {
 
 function updateTitle(si, val) {
   notesData[currentTeam][si].title = val;
-  markDirty();
+  markDirty(true);
 }
 
 function updateItem(si, ii, val) {
@@ -2115,6 +2192,7 @@ async function saveNotes() {
     // running to completion regardless of the aborted connection.
     await ownerPost('ownerSaveNotes', payload, 20000);
     notesDirty = false;
+    notesUndoReset();
     if (btn) btn.classList.remove('unsaved');
     // Only the currently-selected team/leads was actually persisted —
     // update just that slice of the pristine snapshot, not the whole
