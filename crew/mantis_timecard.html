@@ -28,7 +28,7 @@
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Time Card</title>
-  <link rel="stylesheet" href="css/mantis_timecard.css?v=6"/>
+  <link rel="stylesheet" href="css/mantis_timecard.css?v=7"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
@@ -70,8 +70,9 @@
 
   <!-- Meal break timer: visible only while on a meal break -->
   <div class="tc-summary-card tc-meal-card" id="tc-meal-card" style="display:none">
-    <div class="tc-summary-value" id="tc-meal-elapsed">0h 0m</div>
+    <div class="tc-summary-value" id="tc-meal-elapsed">0:00</div>
     <div class="tc-summary-label">On Meal Break</div>
+    <div class="tc-meal-need" id="tc-meal-need"></div>
   </div>
 
   <!-- ══ TODAY / WEEK SUMMARY ══════════════════════════════════ -->
@@ -110,6 +111,17 @@
     </div>
   </div>
 
+</div>
+
+<!-- ══ SHORT MEAL CHECK ═════════════════════════════════════════
+     Shown when End Meal Break is tapped before 30 full minutes. -->
+<div class="tc-modal-overlay" id="tc-short-meal-modal">
+  <div class="tc-modal">
+    <div class="tc-attest-title" id="tc-short-meal-title">Your meal break is not 30 minutes yet</div>
+    <div class="tc-attest-body" id="tc-short-meal-body"></div>
+    <button class="tc-attest-submit" id="tc-short-meal-keep" onclick="closeShortMealModal()">Keep my break</button>
+    <button class="tc-attest-cancel tc-short-meal-end" id="tc-short-meal-end" onclick="confirmEndMeal()">End break anyway</button>
+  </div>
 </div>
 
 <!-- ══ EDIT-DAY MODAL ═════════════════════════════════════════ -->
@@ -212,7 +224,7 @@
 <script src="../config.js?v=1"></script>
 <script src="js/mantis_config.js?v=1"></script>
 <script src="js/session_timeout.js?v=1"></script>
-<script src="js/meal_reminder.js?v=5"></script>
-<script src="js/crew_timecard.js?v=10"></script>
+<script src="js/meal_reminder.js?v=4"></script>
+<script src="js/crew_timecard.js?v=11"></script>
 </body>
 </html>
