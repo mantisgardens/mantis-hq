@@ -61,6 +61,25 @@ function getIdToken() {
 let _state = null; // last-loaded summary response
 let _loadedAt = 0;  // device time when _state arrived; live counters add the minutes since
 let _busy  = false; // true while a punch POST is in flight -- blocks double-taps
+let _clockOffset = 0; // server time minus device time, from the summary's serverNow
+
+// ── Meal break timing ────────────────────────────────────────
+// Punch times are stamped by the server, so the meal timer runs on the
+// server's clock (device clock + _clockOffset). A phone whose clock is
+// slow therefore cannot show 30:00 before 30 minutes have really passed.
+// California needs at least 30 full minutes; the backend checks the exact
+// seconds (caTimeRules.js), so the screen shows seconds too.
+const MEAL_REQUIRED_MS = 30 * 60 * 1000;
+function serverNowMs() { return Date.now() + _clockOffset; }
+function mealElapsedMs() {
+  return (_state && _state.onMealBreak && _state.mealSince) ? Math.max(0, serverNowMs() - new Date(_state.mealSince).getTime()) : 0;
+}
+function fmtClock(ms) {                       // 29:12, or 1:05:09 past an hour
+  const t = Math.floor(Math.max(0, ms) / 1000);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+}
 
 function esc(s) {
   return String(s || '')
@@ -102,6 +121,8 @@ async function loadSummary() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     _state = await res.json();
     _loadedAt = Date.now();
+    const sn = Date.parse(_state.serverNow || '');
+    if (!isNaN(sn)) _clockOffset = sn - _loadedAt;
     render();
   } catch (e) {
     console.warn('loadSummary failed:', e.message);
@@ -164,15 +185,24 @@ function renderSummaryRow() {
   const live = (_state.clockedIn && !_state.onMealBreak) ? Math.max(0, Math.floor((Date.now() - _loadedAt) / 60000)) : 0;
   document.getElementById('tc-today-hours').textContent = fmtHours(_state.todayMinutes == null ? null : _state.todayMinutes + live);
   document.getElementById('tc-week-hours').textContent  = fmtHours(_state.weekMinutes == null ? null : _state.weekMinutes + live);
-  const mealBox = document.getElementById('tc-meal-card');
-  if (_state.clockedIn && _state.onMealBreak && _state.mealSince) {
-    const mins = Math.max(0, Math.floor((Date.now() - new Date(_state.mealSince).getTime()) / 60000));
-    document.getElementById('tc-meal-elapsed').textContent = fmtHours(mins);
-    mealBox.style.display = '';
-  } else {
-    mealBox.style.display = 'none';
-  }
+  renderMealTimer();
 }
+
+// Meal box: minutes AND seconds, plus how long until 30:00. Ticks every second.
+function renderMealTimer() {
+  const mealBox = document.getElementById('tc-meal-card');
+  if (!mealBox) return;
+  if (!(_state && _state.clockedIn && _state.onMealBreak && _state.mealSince)) { mealBox.style.display = 'none'; return; }
+  const ms = mealElapsedMs();
+  const left = MEAL_REQUIRED_MS - ms;
+  document.getElementById('tc-meal-elapsed').textContent = fmtClock(ms);
+  const need = document.getElementById('tc-meal-need');
+  need.textContent = left > 0 ? `${fmtClock(left)} left of your 30 minutes` : '\u2713 30 minutes reached';
+  need.classList.toggle('done', left <= 0);
+  mealBox.style.display = '';
+  updateShortMealModal();
+}
+setInterval(() => { if (_state && _state.onMealBreak && !document.hidden) renderMealTimer(); }, 1000);
 
 // Refresh the on-screen counters every 15 s (they change once a minute),
 // and re-sync with the server whenever the page comes back to the front
@@ -389,7 +419,38 @@ function submitClockOut() {
 
 function handleMealButton() {
   if (!_state || !_state.clockedIn) return;
+  // Ending the break before 30 full minutes: ask first. Ending it anyway is
+  // allowed (and recorded exactly), but it should never happen by accident.
+  if (_state.onMealBreak && mealElapsedMs() < MEAL_REQUIRED_MS) { openShortMealModal(); return; }
   sendPunch(_state.onMealBreak ? 'meal_in' : 'meal_out');
+}
+
+function openShortMealModal() {
+  document.getElementById('tc-short-meal-modal').classList.add('open');
+  updateShortMealModal();
+}
+function closeShortMealModal() {
+  document.getElementById('tc-short-meal-modal').classList.remove('open');
+}
+function updateShortMealModal() {
+  const modal = document.getElementById('tc-short-meal-modal');
+  if (!modal || !modal.classList.contains('open')) return;
+  if (!(_state && _state.onMealBreak)) { closeShortMealModal(); return; }
+  const ms = mealElapsedMs(), left = MEAL_REQUIRED_MS - ms;
+  const reached = left <= 0;
+  document.getElementById('tc-short-meal-title').textContent = reached
+    ? '30 minutes reached' : `Your meal break has been ${fmtClock(ms)}`;
+  document.getElementById('tc-short-meal-body').textContent = reached
+    ? 'Your meal break is now a full 30 minutes.'
+    : `California requires at least 30 full minutes. ${fmtClock(left)} to go. If you end it now, it is recorded as a short meal break.`;
+  document.getElementById('tc-short-meal-keep').textContent = reached ? 'Not yet' : 'Keep my break';
+  const end = document.getElementById('tc-short-meal-end');
+  end.textContent = reached ? 'End Meal Break' : 'End break anyway';
+  end.classList.toggle('short', !reached);
+}
+function confirmEndMeal() {
+  closeShortMealModal();
+  if (_state && _state.onMealBreak) sendPunch('meal_in');
 }
 
 // ── Fix a day (edit my own punches) ─────────────────────────
