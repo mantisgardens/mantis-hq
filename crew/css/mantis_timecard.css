@@ -226,3 +226,9 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);
 .tc-review-info{background:var(--a3);border:1px solid var(--a4);border-radius:8px;padding:10px 12px;margin:-4px 0 10px;font-size:var(--fs-small);color:var(--ink2);line-height:1.4}
 .tc-review-info div+div{margin-top:6px}
 .tc-review-note{color:var(--ink3);font-style:italic}
+
+/* Meal timer: time left until a full 30-minute meal, then a check mark */
+.tc-meal-need{font-size:13px;color:#a15c00;margin-top:4px;font-weight:600}
+.tc-meal-need.done{color:#1f7a3a}
+/* Short-meal check: "End break anyway" reads as the riskier choice */
+.tc-short-meal-end.short{color:#b3261e;border-color:#b3261e}
