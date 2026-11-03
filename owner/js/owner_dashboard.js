@@ -410,6 +410,7 @@ const OWNER_ACTION_PATHS = {
   ownerRelinkNames: '/owner/timecards/relink-names',
   ownerOpenDays: '/owner/timecards/open-days',
   ownerCloseOpenDay: '/owner/timecards/close-open-day',
+  ownerRebuildDay: '/owner/timecards/rebuild-day',
   ownerAddTimeCardDay: '/owner/timecards/add-day',
   ownerTimecardDay: '/owner/timecards/day',
   ownerTimecardToday: '/owner/timecards/today',
@@ -2883,7 +2884,12 @@ async function loadOpenDays() {
     const ins = o.punches.map(p => `${TC_PUNCH_LABELS[p.type] || p.type} ${p.time}`).join(', ');
     return `<div class="tc-open-row">
       <div><b>${esc(o.name)}</b> &middot; ${esc(fmtTcDate(o.date))}<br><span class="tc-open-punches">${esc(ins)}</span></div>
-      ${o.onMealBreak ? '<div class="tc-open-note">Ended on a meal break. Use Fix a Day (employee) or enter hours with Correct Hours.</div>' : `
+      ${o.missingHours ? `
+      <div class="tc-open-note">Clocked out, but the hours were never saved. Rebuild them from these punches.</div>
+      <div class="tc-open-form">
+        <input type="text" id="tco-r-${i}" class="form-input" placeholder="Reason" value="Clock-out saved without hours; rebuilt from punches">
+        <button class="action-btn primary" onclick="tcRebuildDay(${i})">Rebuild hours</button>
+      </div>` : o.onMealBreak ? '<div class="tc-open-note">Ended on a meal break. Use Fix a Day (employee) or enter hours with Correct Hours.</div>' : `
       <div class="tc-open-form">
         <label>Clock-out <input type="time" id="tco-t-${i}"></label>
         <input type="text" id="tco-r-${i}" class="form-input" placeholder="Reason" value="Forgot to clock out; time confirmed with employee">
@@ -2904,6 +2910,19 @@ async function tcCloseOpenDay(i) {
     showToast('Day closed \u2713');
     await loadTimeCards();
   } catch (err) { showToast('Could not close the day: ' + err.message); }
+}
+
+// A day that ends with a clock out but whose hours were never saved: rebuild them from the punches.
+async function tcRebuildDay(i) {
+  const o = _openDays[i];
+  const reason = document.getElementById('tco-r-' + i).value.trim();
+  if (!reason) { showToast('A reason is required'); return; }
+  if (!confirm(`Rebuild ${o.name}'s hours for ${fmtTcDate(o.date)} from the recorded punches?\n\nNo punch is changed. The employee's break answers were not saved, so they stay blank.`)) return;
+  try {
+    await ownerPost('ownerRebuildDay', { name: o.name, date: o.date, reason });
+    showToast('Hours rebuilt \u2713');
+    await loadTimeCards();
+  } catch (err) { showToast('Could not rebuild the day: ' + err.message); }
 }
 
 // Moves time card records saved under a Google account name onto the Crew Info sheet name.

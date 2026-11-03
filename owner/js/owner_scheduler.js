@@ -405,7 +405,10 @@ async function remSendChecked() {
 async function remSkip(i) {
   const it = remData.items[i];
   try {
-    await ownerPost('schedRemindSkip', { visitIds: [it.visitId] });
+    const out = await ownerPost('schedRemindSkip', { visitIds: [it.visitId] });
+    // Test mode: the skip is not saved, so rehearsing cannot hide a visit from the
+    // real reminders after go-live. The card is hidden for now and returns on reload.
+    if (out && out.test) showToast('Test mode: skip not saved. This visit will be offered again.');
     remData.items.splice(i, 1); remRender(); remLoad();
   } catch (e) { showToast('Could not skip: ' + e.message); }
 }
