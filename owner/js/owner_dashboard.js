@@ -2975,9 +2975,11 @@ async function exportGustoCsv() {
   try {
     const d = await ownerFetch('ownerGustoExport', `&date=${_tcRefDate || _tcTodayLocalDate()}&weeks=${weeks}`);
     if (!d.rows.length) { showToast('No hours in that period.'); return; }
-    let msg = `Gusto file for ${d.periodStart} to ${d.periodEnd} (${d.rows.length} people).`;
+    // One row per person per workweek (Gusto's "workweeks" column); d.people has per-person totals.
+    const people = d.people || d.rows;
+    let msg = `Gusto file for ${d.periodStart} to ${d.periodEnd}: ${people.length} people, ${d.rows.length} row(s), one per person per week worked.`;
     if (d.needsReview) msg += `\n\n${d.needsReview} flagged day(s) in this period are still under Needs Review.`;
-    const prem = d.rows.filter(r => r.missedBreak > 0);
+    const prem = people.filter(r => r.missedBreak > 0);
     if (prem.length) msg += `\n\nMissed meal/rest break (premium) hours included:\n` + prem.map(r => `  ${r.first} ${r.last}: ${r.missedBreak} h`).join('\n');
     if (!confirm(msg + '\n\nDownload?')) return;
     const url = URL.createObjectURL(new Blob([d.csv], { type: 'text/csv' }));
