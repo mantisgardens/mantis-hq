@@ -1,0 +1,101 @@
+/* =============================================================
+   mantis_vehicles.css
+   Mantis Gardens — Vehicles (crew)
+
+   Sections:
+     1. Typography & Variables (same scale and colors as
+        mantis_timecard.css -- keep in sync)
+     2. Header
+     3. Log form
+     4. Truck cards and history
+     5. Toast
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* 1. TYPOGRAPHY & VARIABLES */
+:root{
+  --font-body:"DM Sans",sans-serif;--font-mono:"DM Mono",monospace;--font-display:"Fraunces",serif;
+  --fs-tiny:1rem;--fs-label:1.125rem;--fs-small:1.25rem;--fs-body:1.375rem;--fs-sub:1.5rem;--fs-title:1.75rem;
+  --bg:#f4f1eb;--bg2:#ede9e0;--bg3:#e0dbd0;
+  --ink:#1c1a14;--ink2:#4a4638;--ink3:#7a7260;
+  --g:#2d5a27;--g2:#3d7a35;--g3:#e8f0e4;--g4:#c8dfc2;
+  --a:#8a5c0a;--a3:#fdf4e0;--a4:#e8d090;
+  --b:#1a3a5c;--b3:#e4eef8;--b4:#b8d0e8;
+  --rd:#7a2020;--rd3:#fbe9e9;--rd4:#f0c0c0;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:var(--fs-body);min-height:100vh}
+.tester-banner{background:#b45309;color:#fff;text-align:center;font:600 13px/1.4 system-ui,sans-serif;padding:6px 10px}
+
+/* 2. HEADER */
+.header{background:var(--g);padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-logo{width:34px;height:34px;object-fit:contain;opacity:0.9}
+.brand-name{font-family:var(--font-display);font-size:var(--fs-title);font-weight:300;font-style:italic;color:#d4eacf}
+.brand-sub{font-family:var(--font-mono);font-size:var(--fs-tiny);color:rgba(255,255,255,0.45);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px}
+.signout-btn{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.08em;text-transform:uppercase;
+  background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);
+  padding:5px 11px;border-radius:4px;cursor:pointer}
+.vh-page{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+
+/* 3. LOG FORM */
+.vh-card{background:#fff;border:1px solid var(--bg3);border-radius:12px;padding:18px 16px;margin-bottom:24px}
+.vh-card-title{font-family:var(--font-display);font-size:var(--fs-sub);margin-bottom:10px}
+.vh-label{display:block;font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink2);
+  letter-spacing:0.04em;margin:14px 0 6px}
+.vh-optional{color:var(--ink3);letter-spacing:0}
+.vh-input{width:100%;font:inherit;font-size:var(--fs-body);padding:10px 12px;border:1px solid var(--bg3);
+  border-radius:8px;background:var(--bg);color:var(--ink)}
+.vh-input:focus{outline:2px solid var(--g4);border-color:var(--g2);background:#fff}
+textarea.vh-input{resize:vertical}
+.vh-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vh-row .vh-label{margin-top:14px}
+.vh-hint{font-size:var(--fs-tiny);color:var(--ink3);margin-top:6px;min-height:1em}
+.vh-checks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vh-check{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--bg3);border-radius:8px;
+  background:var(--bg);font-size:var(--fs-small);cursor:pointer;user-select:none}
+.vh-check input{width:22px;height:22px;accent-color:var(--g2);flex:none}
+.vh-check:has(input:checked){background:var(--g3);border-color:var(--g4)}
+.vh-submit{width:100%;margin-top:20px;padding:14px;font:inherit;font-size:var(--fs-sub);font-weight:500;
+  color:#fff;background:var(--g);border:none;border-radius:10px;cursor:pointer}
+.vh-submit:disabled{opacity:0.55;cursor:default}
+@media (max-width:380px){.vh-row,.vh-checks{grid-template-columns:1fr}}
+
+/* 4. TRUCK CARDS AND HISTORY */
+.vh-section-title{font-family:var(--font-mono);font-size:var(--fs-tiny);letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--ink3);margin:0 2px 10px}
+.vh-truck{background:#fff;border:1px solid var(--bg3);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.vh-truck-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.vh-truck-name{font-weight:500;font-size:var(--fs-sub)}
+.vh-truck-sub{color:var(--ink2);font-size:var(--fs-small);margin-top:2px}
+.vh-facts{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:var(--fs-tiny);color:var(--ink2);margin-top:10px}
+.vh-facts dt{font-family:var(--font-mono);color:var(--ink3)}
+.vh-facts dd{overflow-wrap:anywhere}
+.vh-pill{flex:none;font-family:var(--font-mono);font-size:var(--fs-tiny);padding:3px 9px;border-radius:999px;border:1px solid;white-space:nowrap}
+.vh-pill.overdue{background:var(--rd3);color:var(--rd);border-color:var(--rd4)}
+.vh-pill.soon{background:var(--a3);color:var(--a);border-color:var(--a4)}
+.vh-pill.ok{background:var(--g3);color:var(--g);border-color:var(--g4)}
+.vh-pill.none{background:var(--bg2);color:var(--ink3);border-color:var(--bg3)}
+.vh-due{font-size:var(--fs-small);margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--bg)}
+.vh-due.overdue{background:var(--rd3);color:var(--rd)}
+.vh-due.soon{background:var(--a3);color:var(--a)}
+.vh-due-note{font-size:var(--fs-tiny);color:var(--ink3);margin-top:3px}
+/* "Last done" per item */
+.vh-last{margin-top:10px}
+.vh-last-title{font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink3);letter-spacing:0.08em;text-transform:uppercase}
+.vh-last .vh-facts{margin-top:4px}
+.vh-hist{margin-top:10px;border-top:1px solid var(--bg2)}
+.vh-hist summary{cursor:pointer;font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--b);padding:10px 0 4px}
+.vh-entry{padding:8px 0;border-bottom:1px solid var(--bg2);font-size:var(--fs-small)}
+.vh-entry:last-child{border-bottom:none}
+.vh-entry-top{display:flex;justify-content:space-between;gap:8px;color:var(--ink2);font-family:var(--font-mono);font-size:var(--fs-tiny)}
+.vh-entry-what{margin-top:2px}
+.vh-entry-note{color:var(--ink3);font-size:var(--fs-tiny);margin-top:2px}
+.vh-empty{color:var(--ink3);font-size:var(--fs-small);padding:6px 2px}
+
+/* 5. TOAST */
+.vh-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+  padding:12px 22px;border-radius:8px;font-size:var(--fs-body);opacity:0;pointer-events:none;transition:all 0.25s;
+  max-width:90vw;text-align:center;z-index:999}
+.vh-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}

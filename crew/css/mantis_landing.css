@@ -238,7 +238,6 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
   display:grid;grid-template-columns:1fr 1fr;
   gap:14px;width:100%;max-width:1000px;
 }
-.nav-cards.has-timecard{grid-template-columns:1fr 1fr 1fr}
 .nav-card{
   background:#fff;border:1px solid var(--bg3);
   border-radius:12px;padding:28px 22px 24px;
@@ -270,6 +269,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
 .nav-card.timecard .nav-card-tag{background:var(--b3);color:var(--b);border:1px solid var(--b4)}
 .nav-card.timecard .nav-card-tag.clocked-in{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
 .nav-card.clients .nav-card-tag{background:#fbe9e9;color:var(--rd);border:1px solid #f0c0c0}
+.nav-card.vehicles .nav-card-tag{background:var(--g3);color:var(--g);border:1px solid var(--g4)}
 .nav-card-arrow{
   position:absolute;top:50%;right:16px;
   transform:translateY(-50%);
@@ -304,7 +304,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);min-heig
    ============================================================= */
 
 @media(max-width:520px){
-  .nav-cards,.nav-cards.has-timecard{grid-template-columns:1fr}
+  .nav-cards{grid-template-columns:1fr}
   .login-card{padding:36px 24px 30px}
   .date-bar{flex-direction:column;align-items:flex-start;gap:6px}
   .date-today{text-align:left}
