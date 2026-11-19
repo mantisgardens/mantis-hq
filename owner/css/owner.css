@@ -617,6 +617,11 @@ details[open] .form-extra-summary::before{transform:rotate(90deg)}
 .mwr-item-meta{font-family:var(--font-mono);font-size:var(--fs-small);color:var(--ink3)}
 .mwr-days-late{font-family:var(--font-mono);font-size:var(--fs-small);
   background:var(--rd);color:#fff;padding:2px 8px;border-radius:4px;white-space:nowrap}
+/* Vehicles box (Schedule tab) -- reuses the Needs Attention styles above */
+.veh-due .mwr-subtitle a{color:var(--b)}
+.veh-soon,.veh-none{font-family:var(--font-mono);font-size:var(--fs-small);padding:2px 8px;border-radius:4px;white-space:nowrap}
+.veh-soon{background:var(--a);color:#fff}
+.veh-none{background:var(--bg2,#ede9e0);color:var(--ink3);border:1px solid var(--bg3,#e0dbd0)}
 
 /* =============================================================
    CLIENT EMAILS MODAL
