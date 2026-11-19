@@ -17,6 +17,7 @@
 const CREW_URL      = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CREW_URL           : 'mantis_crew_panel.html';
 const MANUAL_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.MANUAL_URL         : 'mantis_service_manual.html';
 const TIMECARD_URL  = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.TIMECARD_URL       : 'mantis_timecard.html';
+const VEHICLES_URL  = (typeof MANTIS_CONFIG !== 'undefined' && MANTIS_CONFIG.VEHICLES_URL) || 'mantis_vehicles.html';
 const CLIENTS_URL   = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.CLIENTS_URL        : 'mantis_clients.html';
 const CLIENT_ID     = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.GOOGLE_CLIENT_ID   : '';
 const SCRIPT_URL    = (typeof MANTIS_CONFIG !== 'undefined') ? MANTIS_CONFIG.SCRIPT_URL         : '';
@@ -362,8 +363,8 @@ function goTo(dest) {
   if (dest === 'manual')   window.location.href = MANUAL_URL;
   if (dest === 'timecard') window.location.href = TIMECARD_URL;
   if (dest === 'clients')  window.location.href = CLIENTS_URL;
+  if (dest === 'vehicles') window.location.href = VEHICLES_URL + (window.MANTIS_TEST ? '?test=1' : '');
 }
-
 // ── Team picker modal ───────────────────────────────────────
 // "Crew Assignments" opens this instead of navigating straight
 // to the crew panel. Team 1/2/3/Install pass ?team=<id> so the
