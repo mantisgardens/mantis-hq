@@ -10,7 +10,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Owner Portal</title>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
-  <link rel="stylesheet" href="css/owner.css?v=61">
+  <link rel="stylesheet" href="css/owner.css?v=62">
 </head>
 <body>
 
@@ -106,6 +106,20 @@
       <div id="mwr-body">
         <div class="mwr-subtitle">Jobs older than 3 days won&#39;t show here even if still missing &mdash; check the Ready to Invoice sheet directly for anything further back.</div>
         <div id="mwr-list"></div>
+      </div>
+    </div>
+
+    <!-- Hidden unless a truck's oil change is overdue, due soon, or has an interval but
+         no oil change logged; populated by loadVehicleDue(). Data: Service Manual sheet,
+         Vehicles + Vehicle Service Log tabs (mantis-backend/src/lib/vehicles.js). -->
+    <div class="mwr-needs-attention veh-due" id="veh-due" style="display:none">
+      <div class="mwr-title mwr-title-clickable" onclick="toggleVehDue()">
+        <span>&#128666; Vehicles &mdash; Oil Changes Due <span class="mwr-count-badge" id="veh-due-count"></span></span>
+        <span class="mwr-toggle-icon" id="veh-due-icon">&#9660;</span>
+      </div>
+      <div id="veh-due-body">
+        <div class="mwr-subtitle">From the crew&#39;s vehicle log and each truck&#39;s interval. <a id="veh-due-sheet" href="#" target="_blank" rel="noopener">Open the vehicle sheet</a> to edit trucks, intervals or log entries.</div>
+        <div id="veh-due-list"></div>
       </div>
     </div>
 
@@ -648,7 +662,7 @@
 <script src="../config.js?v=26"></script>
   <script src="js/owner_config.js?v=26"></script>
 <script src="js/session_timeout.js?v=27"></script>
-<script src="js/owner_dashboard.js?v=82"></script>
+<script src="js/owner_dashboard.js?v=83"></script>
 <script src="js/owner_scheduler.js?v=17"></script>
 <script src="js/owner_scheduler_import.js?v=2"></script>
 </body>
