@@ -31,7 +31,7 @@
   <meta http-equiv="Pragma" content="no-cache"/>
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Portal</title>
-  <link rel="stylesheet" href="css/mantis_landing.css?v=28"/>
+  <link rel="stylesheet" href="css/mantis_landing.css?v=29"/>
   <link rel="icon" type="image/x-icon" href="img/favicon.ico">
 </head>
 <body>
@@ -102,6 +102,14 @@
         <div class="nav-card-tag">Reference</div>
         <div class="nav-card-arrow">&#8250;</div>
       </div>
+      <!-- Vehicles: released to all crew November 2026 (was tester-only). -->
+      <div class="nav-card vehicles" id="vehicles-nav-card" onclick="goTo('vehicles')">
+        <div class="nav-card-icon">&#128666;</div>
+        <div class="nav-card-title">Vehicles</div>
+        <div class="nav-card-desc">Log oil changes, filters, tire rotations, repairs and mileage. See when each truck is due.</div>
+        <div class="nav-card-tag">Maintenance</div>
+        <div class="nav-card-arrow">&#8250;</div>
+      </div>
       <!-- Hidden by default; shown only for the Operations Manager
            (showClientsCardIfOperationsManager(), mantis_landing.js).
            UI convenience only -- see that function's header comment
@@ -144,8 +152,8 @@
 <script src="../config.js?v=23"></script>
 <script src="js/mantis_config.js?v=23"></script>
 <script src="js/session_timeout.js?v=22"></script>
-<script src="js/meal_reminder.js?v=5"></script>
+<script src="js/meal_reminder.js?v=4"></script>
 <script src="js/mantis_flags.js?v=1"></script>
-<script src="js/mantis_landing.js?v=34"></script>
+<script src="js/mantis_landing.js?v=36"></script>
 </body>
 </html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<!--
+  mantis_vehicles.html
+  Mantis Gardens — Vehicles
+  Crew log a service (oil change, filters, tire rotation, repairs) or a
+  mileage update for a truck, and see each truck's details, oil-change
+  status and recent history. The data lives in the Service Manual
+  Google Sheet ("Vehicles" and "Vehicle Service Log" tabs), where the
+  owner can edit it -- see mantis-backend/src/lib/vehicles.js.
+  Styles -> css/mantis_vehicles.css. Logic -> js/crew_vehicles.js.
+  The home-page card for this page shows only in tester mode (?test=1)
+  until the feature is released.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
+  <title>Mantis Gardens — Vehicles</title>
+  <link rel="stylesheet" href="css/mantis_vehicles.css?v=2"/>
+  <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+</head>
+<body>
+
+<div id="tester-banner" class="tester-banner" style="display:none">
+  TESTER MODE &mdash; entries are saved to the real vehicle log.
+</div>
+
+<div class="header">
+  <div class="brand">
+    <img class="brand-logo" src="img/MantisLogoWhite.png" alt="Mantis"/>
+    <div>
+      <div class="brand-name">Mantis Gardens</div>
+      <div class="brand-sub">Vehicles</div>
+    </div>
+  </div>
+  <button class="signout-btn" onclick="window.location.href='index.html'">&#8592; Home</button>
+</div>
+
+<div class="vh-page">
+
+  <!-- ══ LOG FORM ═══════════════════════════════════════════ -->
+  <form class="vh-card" id="vh-form" onsubmit="submitEntry(event)" novalidate>
+    <div class="vh-card-title">Log service or mileage</div>
+
+    <label class="vh-label" for="vh-vehicle">Vehicle</label>
+    <select class="vh-input" id="vh-vehicle" onchange="onVehicleChange()" required>
+      <option value="">Loading&hellip;</option>
+    </select>
+
+    <div class="vh-row">
+      <div>
+        <label class="vh-label" for="vh-date">Date</label>
+        <input class="vh-input" type="date" id="vh-date" required/>
+      </div>
+      <div>
+        <label class="vh-label" for="vh-mileage">Odometer (miles)</label>
+        <input class="vh-input" type="text" id="vh-mileage" inputmode="numeric" autocomplete="off" placeholder="e.g. 91650" required/>
+      </div>
+    </div>
+    <div class="vh-hint" id="vh-last-miles"></div>
+
+    <div class="vh-label">What was done? <span class="vh-optional">(leave all unchecked for a mileage update)</span></div>
+    <div class="vh-checks">
+      <label class="vh-check"><input type="checkbox" id="vh-oilChange" onchange="onChecksChange()"/> Oil change</label>
+      <label class="vh-check"><input type="checkbox" id="vh-oilFilter" onchange="onChecksChange()"/> Oil filter</label>
+      <label class="vh-check"><input type="checkbox" id="vh-fuelFilter" onchange="onChecksChange()"/> Fuel filter</label>
+      <label class="vh-check"><input type="checkbox" id="vh-cabinAirFilter" onchange="onChecksChange()"/> Cabin air filter</label>
+      <label class="vh-check"><input type="checkbox" id="vh-engineAirFilter" onchange="onChecksChange()"/> Engine air filter</label>
+      <label class="vh-check"><input type="checkbox" id="vh-tireRotation" onchange="onChecksChange()"/> Tire rotation</label>
+      <label class="vh-check"><input type="checkbox" id="vh-battery" onchange="onChecksChange()"/> Battery</label>
+      <label class="vh-check"><input type="checkbox" id="vh-repair" onchange="onChecksChange()"/> Other repair</label>
+    </div>
+
+    <div id="vh-oil-wrap" style="display:none">
+      <label class="vh-label" for="vh-oilType">Oil type used</label>
+      <input class="vh-input" type="text" id="vh-oilType" maxlength="80" placeholder="e.g. Full synthetic 5W-30"/>
+    </div>
+
+    <div id="vh-repair-wrap" style="display:none">
+      <label class="vh-label" for="vh-otherRepair">Repair &mdash; what was fixed?</label>
+      <textarea class="vh-input" id="vh-otherRepair" rows="3" maxlength="500" placeholder="e.g. Replaced front brake pads and rotors"></textarea>
+    </div>
+
+    <div class="vh-row">
+      <div>
+        <label class="vh-label" for="vh-cost">Cost <span class="vh-optional">(optional)</span></label>
+        <input class="vh-input" type="text" id="vh-cost" inputmode="decimal" placeholder="$"/>
+      </div>
+      <div>
+        <label class="vh-label" for="vh-doneBy">Done by <span class="vh-optional">(optional)</span></label>
+        <input class="vh-input" type="text" id="vh-doneBy" maxlength="120" placeholder="Shop or person"/>
+      </div>
+    </div>
+
+    <label class="vh-label" for="vh-notes">Notes <span class="vh-optional">(optional)</span></label>
+    <textarea class="vh-input" id="vh-notes" rows="2" maxlength="1000" placeholder="Anything the owner should know"></textarea>
+
+    <button class="vh-submit" id="vh-submit" type="submit">Save Mileage Update</button>
+  </form>
+
+  <!-- ══ TRUCKS ═════════════════════════════════════════════ -->
+  <div class="vh-section-title">Trucks</div>
+  <div id="vh-list"><div class="vh-empty">Loading&hellip;</div></div>
+</div>
+
+<div class="vh-toast" id="vh-toast"></div>
+
+<script src="js/mantis_flags.js?v=1"></script>
+<script>
+  if (window.MANTIS_TEST) document.getElementById('tester-banner').style.display = '';
+</script>
+<script src="../config.js?v=1"></script>
+<script src="js/mantis_config.js?v=1"></script>
+<script src="js/session_timeout.js?v=1"></script>
+<script src="js/meal_reminder.js?v=4"></script>
+<script src="js/crew_vehicles.js?v=5"></script>
+</body>
+</html>
