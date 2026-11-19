@@ -416,6 +416,7 @@ const OWNER_ACTION_PATHS = {
   ownerTimecardToday: '/owner/timecards/today',
   ownerGustoExport: '/owner/timecards/gusto',
   ownerMissingWorkRecords: '/owner/missing-work-records',
+  ownerVehicles: '/owner/vehicles',
   ownerClientEmails: '/owner/client-emails',
 };
 // The only *Fresh-style action on the owner side -- ownerLoadAllFresh
@@ -3204,5 +3205,51 @@ function toggleMwrCard() {
   icon.classList.toggle('collapsed', !collapsed);
 }
 
+// ── Vehicles: oil changes due ("Vehicles" box, Schedule tab) ─────────
+// Same pattern as Missing Work Records: independent of loadAll(), silent on
+// failure, hidden when nothing needs attention. Lists trucks whose oil change
+// is overdue or due soon (backend: SOON_MILES / SOON_DAYS in lib/vehicles.js),
+// and trucks with an interval set but no oil change logged yet.
+async function loadVehicleDue() {
+  const box = document.getElementById('veh-due');
+  if (!box) return;
+  try {
+    const data = await ownerFetch('ownerVehicles');
+    const order = { overdue: 0, soon: 1, no_record: 2 };
+    const due = (data.vehicles || []).filter(v => v.due && v.due.status in order)
+      .sort((a, b) => order[a.due.status] - order[b.due.status] || a.name.localeCompare(b.name));
+    if (!due.length) { box.style.display = 'none'; return; }
+    const badge = { overdue: ['mwr-days-late', 'Overdue'], soon: ['veh-soon', 'Due soon'], no_record: ['veh-none', 'No record'] };
+    document.getElementById('veh-due-list').innerHTML = due.map(v => {
+      const [cls, label] = badge[v.due.status];
+      const ymm = [v.year, v.make, v.model].filter(Boolean).join(' ');
+      const stale = v.due.mileageStale
+        ? ` \u00b7 mileage last updated ${new Date(v.due.mileageDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '';
+      return `<div class="mwr-item">
+        <div class="mwr-item-main">
+          <span class="mwr-item-client">${esc(v.name)}${ymm ? ' \u2014 ' + esc(ymm) : ''}</span>
+          <span class="mwr-item-meta">${esc(v.due.message)}${esc(stale)}</span>
+        </div>
+        <span class="${cls}">${label}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('veh-due-count').textContent = due.length;
+    const link = document.getElementById('veh-due-sheet');
+    if (data.sheetUrl) link.href = data.sheetUrl; else link.style.display = 'none';
+    document.getElementById('veh-due-body').style.display = '';
+    document.getElementById('veh-due-icon').classList.remove('collapsed');
+    box.style.display = '';
+  } catch (e) {
+    // Silent, like loadMissingWorkRecords(): the box just stays hidden.
+  }
+}
+function toggleVehDue() {
+  const body = document.getElementById('veh-due-body');
+  const collapsed = body.style.display === 'none';
+  body.style.display = collapsed ? '' : 'none';
+  document.getElementById('veh-due-icon').classList.toggle('collapsed', !collapsed);
+}
+
 setTimeout(loadAll, 400);
 setTimeout(loadMissingWorkRecords, 600);
+setTimeout(loadVehicleDue, 800);
