@@ -1,7 +1,7 @@
 /* =============================================================
    voice_note.js
    Mantis Gardens — "Record a voice note" on the crew work record
-   (tester mode only, ?test=1, until released).
+   (released to all crew; tester mode, ?test=1, also shows speech details).
 
    The crew member talks through the visit; the app drafts the Service
    Notes (client sees) and Internal Notes (crew/office only). Nothing is
@@ -253,7 +253,7 @@ const VoiceNote = (() => {
       u.innerHTML = '<b>Please check:</b><ul>' + out.unclear.map(s => '<li>' + s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</li>').join('') + '</ul>';
       u.style.display = '';
     } else u.style.display = 'none';
-    $('vn-transcript-text').textContent = lastTranscript + (lastSpeechInfo ? `\n\n(${lastSpeechInfo})` : '');
+    $('vn-transcript-text').textContent = lastTranscript + (lastSpeechInfo && window.MANTIS_TEST ? `\n\n(${lastSpeechInfo})` : '');
     $('vn-apply').style.display = '';
     $('vn-retry').style.display = 'none';
     showError('');
@@ -277,12 +277,12 @@ const VoiceNote = (() => {
     const s = $('wr-service-notes'); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  // Tester mode only until released (js/mantis_flags.js).
-  function showButtonIfTester() {
+  // Released to all crew.
+  function showButton() {
     const sec = $('wr-voice');
-    if (sec && window.MANTIS_TEST) sec.style.display = '';
+    if (sec) sec.style.display = '';
   }
-  showButtonIfTester();
+  showButton();
 
   return { open, start, stop, apply, retry, reset, close, _toWav: toWav };
 })();
