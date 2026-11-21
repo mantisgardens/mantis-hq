@@ -1,0 +1,54 @@
+/* =============================================================
+   voice_note.css
+   Mantis Gardens — "Record a voice note" button and popup on the crew
+   work record (js/voice_note.js). Uses the colors and font sizes from
+   mantis_crew_panel.css, which loads first.
+   ============================================================= */
+
+/* Button above Service Notes */
+.vn-record-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;
+  font-family:var(--font-body);font-size:var(--fs-body);font-weight:500;color:var(--g);background:var(--g3);
+  border:1.5px dashed var(--g4);border-radius:10px;cursor:pointer}
+.vn-test-tag{font-family:var(--font-mono);font-size:var(--fs-tiny);background:#b45309;color:#fff;padding:1px 6px;border-radius:4px}
+.vn-hint{font-size:var(--fs-tiny);color:var(--ink3);margin-top:6px;text-align:center}
+
+/* Popup */
+.vn-overlay{position:fixed;inset:0;background:rgba(28,26,20,0.55);display:none;align-items:flex-end;justify-content:center;z-index:2000}
+.vn-overlay.open{display:flex}
+.vn-box{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:16px 16px 0 0;padding:20px 18px 24px;
+  font-family:var(--font-body);color:var(--ink)}
+@media (min-width:600px){.vn-overlay{align-items:center}.vn-box{border-radius:16px}}
+.vn-title{font-family:var(--font-display);font-size:var(--fs-title);margin-bottom:10px}
+.vn-text{font-size:var(--fs-small);color:var(--ink2);line-height:1.45;margin:0 0 14px}
+.vn-small{font-size:var(--fs-tiny);margin-top:12px}
+.vn-btn{display:block;width:100%;margin-top:10px;padding:13px;font-family:var(--font-body);font-size:var(--fs-body);
+  border-radius:10px;border:1px solid var(--bg3);background:var(--bg);color:var(--ink);cursor:pointer}
+.vn-primary{background:var(--g);border-color:var(--g);color:#fff;font-weight:500}
+.vn-ghost{background:none;border:none;color:var(--ink3);font-size:var(--fs-small)}
+
+/* Recording */
+.vn-rec{display:flex;align-items:baseline;justify-content:center;gap:10px;font-family:var(--font-mono);font-size:2.5rem;margin:6px 0 10px}
+.vn-of{font-size:var(--fs-small);color:var(--ink3)}
+.vn-dot{width:14px;height:14px;border-radius:50%;background:var(--rd);align-self:center;animation:vn-pulse 1s infinite}
+@keyframes vn-pulse{50%{opacity:0.3}}
+.vn-meter{height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-bottom:6px}
+.vn-meter div{height:100%;width:0;background:var(--g2);transition:width 0.15s}
+
+/* Working */
+.vn-spinner{width:36px;height:36px;margin:12px auto;border:4px solid var(--g3);border-top-color:var(--g);border-radius:50%;animation:vn-spin 0.9s linear infinite}
+@keyframes vn-spin{to{transform:rotate(360deg)}}
+#vn-step-busy .vn-text{text-align:center}
+
+/* Review */
+.vn-label{display:block;font-family:var(--font-mono);font-size:var(--fs-tiny);color:var(--ink2);margin:12px 0 6px}
+.vn-client{color:var(--g)}
+.vn-internal{color:var(--rd)}
+.vn-area{width:100%;box-sizing:border-box;font-family:var(--font-body);font-size:var(--fs-small);padding:10px 12px;
+  border:1px solid var(--bg3);border-radius:8px;background:var(--bg);resize:vertical;line-height:1.4}
+.vn-unclear{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--a3);color:var(--a);font-size:var(--fs-tiny)}
+.vn-unclear ul{margin:4px 0 0 18px;padding:0}
+.vn-unclear li{margin:2px 0}
+.vn-transcript{margin-top:10px;font-size:var(--fs-tiny);color:var(--ink2)}
+.vn-transcript summary{cursor:pointer;color:var(--b);font-family:var(--font-mono)}
+.vn-transcript div{margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.45;white-space:pre-wrap}
+.vn-error{margin-top:12px;padding:10px 12px;border-radius:8px;background:#fbe9e9;color:var(--rd);font-size:var(--fs-small)}
