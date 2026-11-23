@@ -3,9 +3,10 @@
    Mantis Gardens — "Record a voice note" on the crew work record
    (released to all crew; tester mode, ?test=1, also shows speech details).
 
-   The crew member talks through the visit; the app drafts the Service
-   Notes (client sees) and Internal Notes (crew/office only). Nothing is
-   added to the form until they review the drafts and tap "Add to notes".
+   The crew member talks through the work; the app drafts the Service
+   Notes (client sees). Everything said goes to Service Notes (owner's
+   choice, Nov 22, 2026; it first also drafted Internal Notes). Nothing is
+   added to the form until they review the draft and tap "Add to notes".
 
    How it works:
      - Records the microphone as 16 kHz mono WAV with the Web Audio API
@@ -107,7 +108,7 @@ const VoiceNote = (() => {
     m.innerHTML = `<div class="vn-box" role="dialog" aria-modal="true" aria-labelledby="vn-title">
       <div class="vn-title" id="vn-title">Voice note</div>
       <div id="vn-step-start">
-        <p class="vn-text">Talk through the visit: what you did, what you noticed, anything for next time or for the office. Up to 3 minutes. You'll check the notes before they're added.</p>
+        <p class="vn-text">Talk through the work you did, what you noticed and anything planned for next time. This becomes the Service Notes, which the client sees. Up to 3 minutes. You'll check it before it's added.</p>
         <button class="vn-btn vn-primary" onclick="VoiceNote.start()">&#127908; Start recording</button>
       </div>
       <div id="vn-step-rec" style="display:none">
@@ -118,12 +119,11 @@ const VoiceNote = (() => {
       <div id="vn-step-busy" style="display:none"><div class="vn-spinner"></div><p class="vn-text" id="vn-busy-text">Working&hellip;</p></div>
       <div id="vn-step-review" style="display:none">
         <label class="vn-label" for="vn-service">Service notes <span class="vn-client">(client sees these)</span></label>
-        <textarea class="vn-area" id="vn-service" rows="5"></textarea>
-        <label class="vn-label" for="vn-internal">Internal notes <span class="vn-internal">(crew &amp; office only)</span></label>
-        <textarea class="vn-area" id="vn-internal" rows="5"></textarea>
+        <textarea class="vn-area" id="vn-service" rows="10" oninput="VoiceNote.showGuesses()"></textarea>
+        <div class="vn-guesses" id="vn-guesses" style="display:none"></div>
         <div class="vn-unclear" id="vn-unclear" style="display:none"></div>
         <details class="vn-transcript"><summary>What you said (transcript)</summary><div id="vn-transcript-text"></div></details>
-        <p class="vn-text vn-small">Check both notes &mdash; especially plant names, anything in [brackets?], and that nothing in Service notes is meant only for the office.</p>
+        <p class="vn-text vn-small">Check the notes &mdash; especially plant names, anything in [brackets?], and anything not meant for the client.</p>
         <button class="vn-btn vn-primary" id="vn-apply" onclick="VoiceNote.apply()">Add to notes</button>
         <button class="vn-btn vn-primary" id="vn-retry" style="display:none" onclick="VoiceNote.retry()">Try writing the notes again</button>
         <button class="vn-btn" onclick="VoiceNote.reset()">Record again</button>
@@ -269,7 +269,7 @@ const VoiceNote = (() => {
       transcript: lastTranscript, clientName: val('wr-client-name'), date: val('wr-date-start'), team: val('wr-team'),
     });
     $('vn-service').value = out.serviceNotes || '';
-    $('vn-internal').value = out.internalNotes || '';
+    showGuesses();
     const u = $('vn-unclear');
     if (out.unclear && out.unclear.length) {
       // Corrected names, [bracketed?] guesses and anything not understood.
@@ -283,12 +283,34 @@ const VoiceNote = (() => {
     step('review');
   }
 
+  // [best guess?] words in the draft, each with an Accept button that removes the
+  // brackets and question mark and keeps the word. To change a guess instead, the
+  // crew member edits it in the box; the list updates as they type.
+  const GUESS = /\[([^\]]*?)\?\]/g;
+  const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function showGuesses() {
+    const box = $('vn-guesses'); if (!box) return;
+    const found = [...$('vn-service').value.matchAll(GUESS)].map(m => m[1].trim());
+    if (!found.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.innerHTML = '<div class="vn-guess-head">Guesses in the notes &mdash; accept, or fix the word in the box:</div>'
+      + found.map((w, i) => `<div class="vn-guess"><span class="vn-guess-word">${esc(w) || '(blank)'}</span>`
+        + `<button type="button" class="vn-guess-btn" onclick="VoiceNote.acceptGuess(${i})">&#10003; Accept</button></div>`).join('')
+      + (found.length > 1 ? '<button type="button" class="vn-guess-all" onclick="VoiceNote.acceptGuess(-1)">&#10003; Accept all</button>' : '');
+    box.style.display = '';
+  }
+  function acceptGuess(n) {                          // n = which guess (0-based), -1 = all
+    const ta = $('vn-service');
+    let i = -1;
+    ta.value = ta.value.replace(GUESS, (m, w) => (++i === n || n === -1) ? w.trim() : m);
+    showGuesses();
+  }
+
   // Adds the drafts to the form: fills an empty box, or adds below what is already there.
   function apply() {
     // A [bracketed?] guess must not slip into the client's notes unnoticed.
-    const left = ($('vn-service').value.match(/\[[^\]]*\?\]/g) || []).concat($('vn-internal').value.match(/\[[^\]]*\?\]/g) || []);
+    const left = $('vn-service').value.match(/\[[^\]]*\?\]/g) || [];
     if (left.length && !confirm(`These guesses are still in the notes:\n\n${left.join('\n')}\n\nFix them first? Tap Cancel to go back and edit, or OK to add the notes as they are.`)) return;
-    [['vn-service', 'wr-service-notes'], ['vn-internal', 'wr-internal-notes']].forEach(([from, to]) => {
+    [['vn-service', 'wr-service-notes']].forEach(([from, to]) => {
       const text = $(from).value.trim();
       const target = $(to);
       if (!text || !target) return;
@@ -307,5 +329,5 @@ const VoiceNote = (() => {
   }
   showButton();
 
-  return { open, start, stop, apply, retry, reset, close, _toWav: toWav };
+  return { open, start, stop, apply, retry, reset, close, showGuesses, acceptGuess, _toWav: toWav };
 })();
