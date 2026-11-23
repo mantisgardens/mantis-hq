@@ -22,10 +22,13 @@ const VoiceNote = (() => {
   const PIECE_SECONDS = 50;
   const MAX_SECONDS = 180;
   const OUT_RATE = 16000;
+  const SILENT_PEAK = 0.003;          // loudest sample below this (about -50 dB) = only silence reached the app
 
   let ctx = null, stream = null, source = null, node = null, wakeLock = null;
   let recording = false, buffers = [], samples = 0, startedAt = 0, timer = null;
   let pieces = [], level = 0;
+  let stats = { calls: 0, peak: 0 };   // did any sound reach the app? (phones can deliver silence)
+  let warned = false;
   let lastTranscript = '';
   let lastSpeechInfo = '';            // tester info: word hints used and speech model
 
@@ -166,14 +169,22 @@ const VoiceNote = (() => {
   async function start() {
     showError('');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showError('This browser cannot record audio.'); return; }
+    // Create and resume the audio context right here, inside the tap: iPhone and Android
+    // can leave one created after an await "suspended", and then no sound is captured.
+    cleanup();
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const resumed = ctx.resume().catch(() => {});
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      // No channelCount or noiseSuppression: some phones return silence with a forced
+      // channel count, and phone call-style noise suppression can strip speech.
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true } });
     } catch (e) {
+      cleanup();
       showError('The microphone is blocked. Allow microphone access for this site in your browser settings, then try again.');
       return;
     }
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
+    await resumed;
+    if (ctx.state !== 'running') { try { await ctx.resume(); } catch (e) { /* reported below */ } }
     source = ctx.createMediaStreamSource(stream);
     node = ctx.createScriptProcessor(4096, 1, 1);
     node.onaudioprocess = (ev) => {
@@ -182,6 +193,7 @@ const VoiceNote = (() => {
       buffers.push(new Float32Array(ch));
       samples += ch.length;
       let peak = 0; for (let i = 0; i < ch.length; i += 16) peak = Math.max(peak, Math.abs(ch[i]));
+      stats.calls++; stats.peak = Math.max(stats.peak, peak);
       level = Math.max(peak, level * 0.85);
       if (samples >= PIECE_SECONDS * ctx.sampleRate) cutPiece();
     };
@@ -189,6 +201,7 @@ const VoiceNote = (() => {
     node.connect(ctx.destination);                     // some browsers only run the processor when connected
     try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { /* optional */ }
     pieces = []; buffers = []; samples = 0;
+    stats = { calls: 0, peak: 0 }; warned = false;
     recording = true;
     startedAt = Date.now();
     step('rec');
@@ -196,6 +209,10 @@ const VoiceNote = (() => {
       const s = (Date.now() - startedAt) / 1000;
       $('vn-time').textContent = fmt(Math.min(s, MAX_SECONDS));
       $('vn-level').style.width = Math.min(100, Math.round(level * 140)) + '%';
+      if (!warned && s > 4 && stats.peak < SILENT_PEAK) {   // say so now, not after 3 minutes
+        warned = true;
+        showError('No sound is reaching the app from the microphone. Tap Stop, close other apps using the microphone (calls, voice memos), and try again.');
+      }
       if (s >= MAX_SECONDS) stop();
     }, 200);
   }
@@ -210,14 +227,20 @@ const VoiceNote = (() => {
     }
     cutPiece();
     const sent = pieces;
+    const heard = { calls: stats.calls, peak: stats.peak, state: ctx ? ctx.state : 'none', rate: ctx ? ctx.sampleRate : 0 };
     cleanup();
+    // Sound never reached the app: say so (with details to pass on) instead of sending silence.
+    const details = `(details: ${heard.calls} audio blocks, peak ${heard.peak.toFixed(4)}, ${heard.state}, ${heard.rate} Hz)`;
+    if (!heard.calls) { showError(`The microphone did not send any audio to the app. Reload the page and try again. ${details}`); step('start'); return; }
+    if (heard.peak < SILENT_PEAK) { showError(`The microphone sent only silence. Check that no other app is using it, reload the page, and try again. ${details}`); step('start'); return; }
+    showError('');
     try {
       busy('Turning your recording into text…');
       const results = await Promise.all(sent);
       lastTranscript = results.map(r => String((r && r.text) || '').trim()).filter(Boolean).join(' ');
       const r0 = results.find(r => r && r.model) || {};
       lastSpeechInfo = r0.model ? `Speech model ${r0.model}, ${Math.min(...results.map(r => (r && r.hints) || 0))} word hints` : '';
-      if (!lastTranscript) throw new Error('Nothing was heard. Try again closer to the phone, away from equipment noise.');
+      if (!lastTranscript) throw new Error(`No words were recognized. Try again closer to the phone, away from equipment noise. ${details}`);
       await writeNotes();
     } catch (e) {
       failed(e);
