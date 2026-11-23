@@ -45,6 +45,14 @@
 .vn-internal{color:var(--rd)}
 .vn-area{width:100%;box-sizing:border-box;font-family:var(--font-body);font-size:var(--fs-small);padding:10px 12px;
   border:1px solid var(--bg3);border-radius:8px;background:var(--bg);resize:vertical;line-height:1.4}
+.vn-guesses{margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--bg3)}
+.vn-guess-head{font-size:var(--fs-tiny);color:var(--ink2);margin-bottom:6px}
+.vn-guess{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 0;border-top:1px solid var(--bg2)}
+.vn-guess:first-of-type{border-top:none}
+.vn-guess-word{font-size:var(--fs-small);color:var(--a);font-weight:500}
+.vn-guess-btn,.vn-guess-all{font-family:var(--font-body);font-size:var(--fs-small);padding:8px 14px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--g);background:var(--g3);color:var(--g);white-space:nowrap}
+.vn-guess-all{display:block;width:100%;margin-top:8px;background:var(--g);color:#fff}
 .vn-unclear{margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--a3);color:var(--a);font-size:var(--fs-tiny)}
 .vn-unclear ul{margin:4px 0 0 18px;padding:0}
 .vn-unclear li{margin:2px 0}
