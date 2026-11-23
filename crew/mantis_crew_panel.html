@@ -24,7 +24,7 @@
   <meta http-equiv="Expires" content="0"/>
   <title>Mantis Gardens — Crew Panel</title>
   <link rel="stylesheet" href="css/mantis_crew_panel.css?v=65">
-  <link rel="stylesheet" href="css/voice_note.css?v=3">
+  <link rel="stylesheet" href="css/voice_note.css?v=4">
   <!-- GIS loaded here (as well as index.html) so the crew panel
        can silently refresh expired tokens mid-session, matching
        the owner portal which also loads GIS on its dashboard page. -->
@@ -216,11 +216,11 @@
       </div>
 
       <!-- Voice note (all crew) -- js/voice_note.js. Tester mode (?test=1) also shows speech details.
-           Drafts Service Notes and Internal Notes from a spoken note; the crew
+           Drafts the Service Notes from a spoken note; the crew
            member reviews them before they are added below. -->
       <div class="form-section" id="wr-voice" style="display:none">
         <button type="button" class="vn-record-btn" onclick="VoiceNote.open()">&#127908; Record a voice note</button>
-        <div class="vn-hint">Talk through the visit &mdash; you&#39;ll check the notes before they&#39;re added.</div>
+        <div class="vn-hint">Talk through the work &mdash; it becomes the Service Notes. You&#39;ll check them before they&#39;re added.</div>
       </div>
       <!-- Service notes (visible to client) -->
       <div class="form-section">
@@ -412,7 +412,7 @@
 <script src="js/crew_ui.js?v=42"></script>
 <script src="js/crew_workrecord.js?v=89"></script>
 <script src="js/crew_history.js?v=60"></script>
-<script src="js/voice_note.js?v=6"></script>
+<script src="js/voice_note.js?v=8"></script>
 <!-- crew_app.js must be last script tag on the page so all other
    modules are defined before startup code runs.  -->
 <script src="js/crew_app.js?v=50"></script>
