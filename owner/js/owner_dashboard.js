@@ -370,7 +370,13 @@ async function _fetchJsonWithRetry(url, options, retries, timeoutMs) {
   retries = retries === undefined ? 2 : retries;
   try {
     const res = await _fetchWithTimeout(url, options, timeoutMs);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      // Keep "HTTP nnn" first (_isTokenError() matches on it) and add the
+      // server's own reason when it sent one, instead of a bare "HTTP 500".
+      let reason = '';
+      try { const j = await res.json(); reason = (j && j.error) ? ': ' + j.error : ''; } catch(e) {}
+      throw new Error(`HTTP ${res.status}${reason}`);
+    }
     return await res.json();
   } catch(err) {
     if (retries > 0) {
